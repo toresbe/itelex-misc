@@ -1,0 +1,1132 @@
+//================================================================
+// Fernschreiber-Schnittstelle für TxP2-System
+//	für ATmega168 auf Platine Spezial (unterer Teil, eigentlich TW39)
+//================================================================
+//				
+//  
+//================================================================
+// verwendete Pins
+//================================================================
+//				
+//   01: C6  	Reset
+//   02: D0 	Taster nach Masse
+//   03: D1 	LED rot: High = ein
+//   04: D2  	LED gelb: High = ein
+//   05: D3  	LED grün: High = ein
+//   06: D4  	LED blau: High = ein
+//   07: VCC		
+//   08: GND		
+//   09: B6 	Quarz
+//   10: B7 	Quarz
+//   11: D5  	
+//   12: D6   	Eingang FS Eingang: Low = Strom ein
+//   13: D7   	Ausgabe FS Steuerung: High = Maschine ein
+//   14: B0  	Ausgabe FS Daten: High = Strom ein = Mark
+//   15: B1  	
+//   16: B2  	
+//   17: B3 MOSI
+//   18: B4 MISO
+//   19: B5 SCK 
+//   20: AVCC
+//   21: AREF
+//   22: GND
+//   23: C0  					
+//   24: C1  
+//   25: C2  	
+//   26: C3  	
+//   27: C4 SDA	
+//   28: C5 SCL	
+
+
+#include <avr/io.h>
+#include <avr/pgmspace.h>
+#include <avr/interrupt.h>
+#include <avr/eeprom.h>
+#include <avr/wdt.h>
+#include <inttypes.h>
+
+#include "bits.h"
+#include "EepromTools.h"
+
+#include "TwiEvents.h"
+
+#include "TxP2-Defs.h"
+#include "Taste.h"
+#include "TxP2-Endgeraet.h"
+#include "MsTimer.h"
+#include "BaudotCode.h"
+#include "Ports.h"
+//#include "LokalAusgabe.h"
+#include "BusKomm.h"
+//#include "FifoPuffer.h"
+
+
+// Schalter für Code-Varianten
+// ===========================
+
+
+//#define TWI_DEBUG
+	// TWI-Ereignisse werden protokolliert
+
+//#define BUSFEHLER_ABBRUCH
+	// bei Bus-Fehlern Abbruch der Verbindung
+
+#define FALSCHKDO_FEHLERSTOP
+	// Unpassende Kommandos auf dem I²C-Bus werden mit Fehlerstop quittiert
+
+#define WIEDERHOLUNGSSENDUNGEN
+	// Status Mark / Space regelmäßig senden 
+
+//#define LEDROT_BEI_UNERWARTETWDH
+	// LED rot wird eingeschaltet, wenn BusKdoSpaceWdh oder BusKdoMarkWdh empfangen wird, ohne
+	// das entsprechendes "Haupt-Kommando" empfangen wurde
+
+//#define NOWATCHDOG
+	// Watchdog abgeschaltet
+
+
+const char Identifier[] PROGMEM = "___TxP2_Messgeraet___" __DATE__ "___" __TIME__ "___";
+
+
+#include "timercs.h"
+
+// Timer 1: frei
+// ------------
+/*
+#define TIMER1_OCFREQ 10 // pro Minute!!
+
+#define TIMER1_CS TCCR_DIV(1, 1024)
+#define TIMER1_PRESCALER 1024
+#define TIMER1_FREQ (F_CPU / TIMER1_PRESCALER)
+#define TIMER1_OCRA (TIMER1_FREQ * 60 / TIMER1_OCFREQ)
+	// das ist gleichzeitig der MAX-Wert
+#define TIMER1_OCRB_FREQ 5000
+#define TIMER1_OCRB_INC (TIMER1_FREQ / TIMER1_OCRB_FREQ + 1)
+	// bestimmt die Aufruf-Frequenz von OCR1B
+*/
+
+
+// sonstige Konstanten
+// -------------------
+
+#define KENNUNG_MAXLEN 20
+#define KENNWORT_MAXLEN 20
+
+typedef char TKennung[KENNUNG_MAXLEN];
+
+
+#define BUS_MEHRFACH_ADR 4
+	// muss Zehnerpozenz von 2 sein
+
+#if ((BUS_MEHRFACH_ADR - 1) & BUS_MEHRFACH_ADR) != 0
+#error BUS_MEHRFACH_ADR muss 1, 2, 4, 8 ... sein
+#endif
+
+
+#define SUBADDR_MESSUNG 0
+#define SUBADDR_PRUEFSEND 1
+#define SUBADDR_BILDLOCH 2
+#define SUBADDR_RUECKRUF 3
+
+
+// interner Eeprom-Speicher
+// ------------------------
+
+uint8_t BusEigenAdresse_EE EEMEM = 80 * 2;
+
+TKennung Kennung_EE[BUS_MEHRFACH_ADR] EEMEM = 
+    { "\r\ntxp2-mess", "\r\ntxp2-pruefsend", "\r\ntxp2-bildloch", "\r\ntxp2-rueckruf"} ;
+
+char Kennwort_EE[KENNWORT_MAXLEN] EEMEM = "kennwort";
+
+
+// Kennung und Kennwort
+
+TKennung Kennung[BUS_MEHRFACH_ADR];
+
+char Kennwort[KENNWORT_MAXLEN];
+
+
+// Einstell-Modus
+
+bool WarteKonfig = false;
+
+
+
+void FehlerStop(int Nummer)
+// Nur ein Reset befreit
+	// Fehler-Codes: 
+	// 1: Bus-Empfang trotz Sperre
+	// 2: General Call ohne entsprechende Freigabe
+	// 3: Kommando über I²C in falschem Kontext
+	// 7: Interner Fehler bei FsBetriebsart
+	// 8: unerlaubte Einschaltung
+	// 9: unerlaubte Wahl
+	// 10: unerlaubte Aktivierung / Deaktivierung
+	{
+	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (1<<TWSTO) | (1<<TWEN) | (0<<TWIE);
+	
+	uint8_t TasteZ = 0;
+	bool TasteWirk = false;
+	TMsTimer TasteTimer;
+	StartTimer(&TasteTimer);
+	while (1)
+		{
+		wdt_reset();
+
+		if (TimerVal(&TasteTimer) > 400)
+			{
+			StartTimer(&TasteTimer);
+			if (BIT_IS_SET(TAST_IPORT, TAST_BIT))
+				{ // Taste nicht gedrückt
+				if (TasteZ > 0)
+					{
+					TasteZ--;
+					if (TasteZ == 0 && TasteWirk)
+						{
+						cli();
+						wdt_enable(WDTO_1S);
+						while (1)
+							;
+						}
+					}
+				} // Taste nicht gedrückt
+			else
+				{ // Taste gedrückt
+				if (TasteZ < 5)
+					TasteZ++;
+				else
+					TasteWirk = true;
+				}
+			}
+		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
+		    {
+		    if (BIT_IS_SET(Nummer, 0)) LED_EIN(ROT);
+		    if (BIT_IS_SET(Nummer, 1)) LED_EIN(GELB);
+		    if (BIT_IS_SET(Nummer, 2)) LED_EIN(GRUEN);
+		    if (BIT_IS_SET(Nummer, 3)) LED_EIN(BLAU);
+			}
+		else
+			{
+			LED_AUS(ROT);
+			LED_AUS(GELB);
+			LED_AUS(GRUEN);
+			LED_AUS(BLAU);
+			}
+		}
+	}	
+
+
+static void LEDAktualisieren()
+	{
+	if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
+		if (BIT_IS_SET(Status, StatBit_FsMeldEin))
+			LED_AUS(GELB);
+		else
+			LED_EIN(GELB);
+	else // !BIT_IS_SET(Status, StatBit_AngerufenBelegt))
+		if (BIT_IS_SET(Status, StatBit_FsMeldEin))
+			LED_AUS(GRUEN);
+		else
+			LED_EIN(GRUEN);
+			
+	if (BIT_IS_SET(Status, StatBit_FsBefEin)) // komme ich anders nicht dran...
+		LED_AUS(BLAU);
+	else
+		LED_EIN(BLAU);
+	}
+	
+	
+static void GeSendeText(char* s)
+	{
+	while (!GeSendePufferLeer())
+		;
+	GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
+	while (*s != '\0')
+		{
+		GeSendeZeichen(*s);
+		s++;
+		}
+	}
+	
+	
+static void GeSendeTextP(PGM_P s)
+	{
+	while (!GeSendePufferLeer())
+		;
+	GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
+	while (pgm_read_byte(s) != '\0')
+		{
+		GeSendeZeichen(pgm_read_byte(s));
+		s++;
+		}
+	}
+
+
+static void GeSendeZahl(uint8_t x)
+	{
+	uint8_t i;
+	bool Hunderter = false;
+
+	for (i = 0 ; x >= 100 ; x -= 100)
+		i++;
+	if (i > 0)
+		{
+		GeSendeZeichen('0' + i);
+		Hunderter = true;
+		}
+	for (i = 0 ; x >= 10 ; x -= 10)
+		i++;
+	if (i > 0 || Hunderter)
+		GeSendeZeichen('0' + i);
+	GeSendeZeichen('0' + x);
+	}
+
+
+static void GeSendeVorzeichenZahl(int8_t x)
+	{
+	if (x < 0)
+		{
+		GeSendeZeichen('-');
+		GeSendeZahl(-x);
+		}
+	else
+		GeSendeZahl(x);
+	}
+
+
+static bool KennungsausgabeUndKennwortAbfrage(uint8_t Nr)
+	{
+	char *p;
+	char c;
+	
+	GeSendeText(Kennung[Nr]);
+	GeSendeCode(TtyCodeBuUm);
+
+	p = Kennwort;
+	while (true)
+		{
+
+		if (KoEmpfZeichen(&c))
+			{
+			if ((c == '\r' || c == '\n') && *p == '\0')
+				{
+				// HACK TEST: LED_EIN(ROT);
+				return true;
+				}
+			else if (c == *p)
+				p++; // erledigt gleichzeitig eine falsche Wortlänge
+			else
+				return false;
+			}
+				
+		if (KoAusschalten())
+			return false;
+		}
+	}
+
+
+void KurzePause() // = 500 ms
+	{
+	TMsTimer MessTimer;
+	
+	StartTimer(&MessTimer);
+	while (TimerVal(&MessTimer) < 500)
+		;
+	}
+		
+
+void LangePause() // = 2 sek
+	{
+	TMsTimer MessTimer;
+	
+	StartTimer(&MessTimer);
+	while (TimerVal(&MessTimer) < 500)
+		;
+	}
+		
+
+#define MAXPUFFER 500
+
+char Puffer[MAXPUFFER+1];
+// Zwischenspeicher für viele Funktionen:
+// bei Messgerät:
+    // speichert Pegelwechsel bezogen auf erste Flanke des Start-Bits
+    // Puffer[0] speichert Wechsel zum ersten Mark-Bit
+    // Puffer[1] speichert Wechsel zum nächsten Space-Bit
+// bei Rückruf:
+	// bis zum ersten 255 die Rufnummer
+	// bis zum zweiten 255 die Baudot-Codes
+// bei Bilderlochen:
+	// bis zum gespeicherten Ende die Baudot-Codes
+
+	
+static void VerbindungMessgeraet()
+	{
+	enum { StartSperre, WarteStart, Laeuft, Ausgabe } MessPhase = StartSperre;
+	bool MessungAktMark = true;
+	enum { MessNeustartGrenze = 6 * 20 + 30 / 2 } ;
+	TMsTimer MessTimer;
+	uint16_t PufferPos = 0;
+	
+	KurzePause();
+
+	GeSendeText(Kennung[SUBADDR_MESSUNG]);
+	GeSendeCode(TtyCodeBuUm);
+
+	while (true)
+		{
+		switch (MessPhase)
+			{
+			case StartSperre:
+				if (!KoEmpfMark() || !GeSendePufferLeer()) 
+					StartTimer(&MessTimer);
+				else if (TimerVal(&MessTimer) >= 1000)
+					MessPhase = WarteStart;
+				break;
+			
+			case WarteStart:
+				if (!KoEmpfMark())
+					{
+					StartTimer(&MessTimer);
+					PufferPos = 0;
+					MessungAktMark = false;
+					MessPhase = Laeuft;
+					}
+				break;
+
+			case Laeuft:
+				if (KoEmpfMark() != MessungAktMark)
+					{
+					uint16_t t = TimerVal(&MessTimer);
+					if (t >= MessNeustartGrenze) // bin im Stoppbit...
+						StartTimer(&MessTimer);
+					if (PufferPos < MAXPUFFER)
+						{
+						if (t > 250)
+							Puffer[PufferPos++] = 250;
+						else
+							Puffer[PufferPos++] = t;
+						}
+					MessungAktMark = !MessungAktMark;
+					}
+				else if (KoEmpfMark() && TimerVal(&MessTimer) > 5000)
+					{
+					Puffer[PufferPos] = 255; // Ende-Marke
+					PufferPos = 0;
+					MessPhase = Ausgabe;
+					GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
+					GeSendeTextP(PSTR("\r\nMessung:\r\n"));
+					}
+				break;
+
+			case Ausgabe:
+				if (GeSendePufferLeer())
+					{
+					GeSendeZeichen((PufferPos & 1) ? 'M' : 'S');
+					GeSendeZeichen(' ');
+					uint8_t x = Puffer[PufferPos];
+					GeSendeZahl(x);
+					if (x == 255)
+						{
+						GeSendeTextP(PSTR("\r\n Ende \r\n"));
+						MessPhase = StartSperre;
+						}
+					else 
+						{
+						if (x >= MessNeustartGrenze)
+							GeSendeTextP(PSTR("\r\n"));
+						else
+							GeSendeZeichen(' ');
+						PufferPos++;
+						}
+					} // if GeSendePufferLeer 
+				break; // case Ausgabe
+			} // switch MessPhase
+				
+		if (KoAusschalten())
+			{
+			GeAusschalten();
+			break;
+			}
+
+		LEDAktualisieren();
+		} // while true
+	}
+
+
+static void VerbindungRueckruf()
+	{
+	uint16_t PufferPos;
+	TMsTimer WarteTimer;
+	
+	KurzePause();
+
+	// erst mal Normal, bis das richtige Kennwort eingegegen ist...
+	while (true)
+		{
+		char c;
+		if (KoEmpfZeichen(&c)
+			&& c == CodeChrWerDa
+			&& KennungsausgabeUndKennwortAbfrage(SUBADDR_RUECKRUF))
+			break; // schleife Beenden und Hauptteil anfangen
+
+		if (KoAusschalten())
+			{
+			GeAusschalten();
+			return;
+			}
+		LEDAktualisieren();
+		}		
+
+	// Nummer abfragen:
+	KurzePause();
+	GeSendeTextP(PSTR("\r\n Nummer:     "));
+	GeSendeCode(TtyCodeZiUm);
+	PufferPos = 0;
+	while (true)
+		{
+		char c;
+		if (KoEmpfZeichen(&c))
+			{
+			if (c >= '0' && c <= '9')
+				{
+				if (PufferPos < MAXPUFFER)
+					{
+					Puffer[PufferPos++] = c - '0';
+					}
+				}
+			else if (c == '\r' || c == '\n')
+				{
+				if (PufferPos > 0)
+					{
+					Puffer[PufferPos++] = 255;
+					break; // Nummern-Eingabe beendet
+					}
+				else
+					; // ignorieren
+				} // WR oder ZL
+			} // if KoEmpfZeichen
+
+		if (KoAusschalten())
+			{
+			GeAusschalten();
+			return;
+			}
+		LEDAktualisieren();
+		} // while true
+		
+	// Text abfragen:
+	KurzePause();
+	GeSendeTextP(PSTR("\r\nText:\r\n"));
+	
+	while (true)
+		{
+		uint8_t c;
+		if (KoEmpfCode(&c))
+			{
+			if (PufferPos < MAXPUFFER)
+				{
+				Puffer[PufferPos++] = c;
+				}
+			} // if KoEmpfCode
+
+		if (KoAusschalten())
+			{
+			Puffer[PufferPos] = 255;
+			GeAusschalten();
+			break;
+			}
+		LEDAktualisieren();
+		} // while true
+		
+	Aktivieren(false);
+	LED_AUS(ROT);
+	LED_EIN(BLAU);
+	LED_AUS(GRUEN);
+	LED_EIN(GELB);
+
+	StartTimer(&WarteTimer);
+	while (TimerVal(&WarteTimer) < 10000)
+		;
+	
+	Aktivieren(true);
+	PufferPos = 0;
+	
+	switch (GeEinschalten())
+		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
+		case GeEinschFehler:
+			return; 
+
+		case GeEinschWahl:
+			while (!KoEinschalten())
+				{
+				if (GeSendePufferLeer() && Puffer[PufferPos] < 10)
+					GeWaehlen(Puffer[PufferPos++]);
+				if (KoAusschalten())
+					{ // Abbruch ???
+					return;
+					}
+				} // while !KoEinschalten()
+			break; // ist jetzt Verbunden
+
+		default:
+			FehlerStop(15); // TODO
+			return;
+		}
+
+	while (Puffer[PufferPos] != 255)
+		PufferPos++;
+	PufferPos++; // steht jetz auf Anfang des Textes...
+	
+	LangePause();
+		
+	while (true)
+		{
+		if (Puffer[PufferPos] == 255)
+			{
+			LangePause();
+			break;
+			}
+
+		if (GeSendePufferLeer())
+			GeSendeCode(Puffer[PufferPos++]);
+		
+		if (KoAusschalten())
+			break;
+
+		LEDAktualisieren();
+		} // while true
+		
+	GeAusschalten();
+	
+	} // VerbindungRueckruf
+
+
+enum { BildGroesse = 6 } ; // 6 Lochreihen (maximal) für jedes Zeichen
+
+uint8_t BildTab[2][32*BildGroesse] PROGMEM = {
+/*Buchst:*/ {	0, 		255, 	255, 	255, 	255, 	255, 	
+				16, 	16, 	31, 	16, 	16, 	0, 	
+				0, 		0, 		0, 		255, 	255, 	255, 	
+				14, 	17, 	17, 	17, 	14, 	0, 	
+				0, 		0, 		0, 		255, 	255, 	255, 	
+				31, 	4, 		4, 		31, 	0, 		255, 	
+				31, 	8, 		4, 		31, 	0, 		255, 	
+				31, 	8, 		4, 		8, 		31, 	0, 	
+				0, 		0, 		0, 		255, 	255, 	255, 	
+				31, 	1, 		1, 		1, 		0, 		255, 	
+				31, 	20, 	22, 	9, 		0, 		255, 	
+				14, 	17, 	21, 	22, 	0, 		255, 	
+				17, 	31, 	17, 	0, 		255, 	255, 	
+				31, 	20, 	20, 	8, 		0, 		255, 	
+				14, 	17, 	17, 	10, 	0, 		255, 	
+				28, 	2, 		1, 		2, 		28, 	0, 	
+				31, 	21, 	21, 	21, 	0, 		255, 	
+				19, 	21, 	17, 	25, 	0, 		255, 	
+				31, 	17, 	17, 	14, 	0, 		255, 	
+				31, 	21, 	21, 	10, 	0, 		255,
+				9, 		21, 	21, 	18, 	0, 		255, 	
+				16, 	8, 		7, 		8, 		16, 	0, 	
+				31, 	20, 	20, 	16, 	0, 		255, 	
+				17, 	10, 	4,	 	10, 	17, 	0, 	
+				15, 	20, 	20, 	15, 	0,	 	255, 	
+				30, 	1, 		6, 		1, 		30, 	0, 	
+				2, 		1, 		1, 		30, 	0,	 	255, 	
+				255, 	255, 	255, 	255, 	255, 	255,
+				30, 	1, 		1, 		30, 	0, 		255, 
+				14, 	17, 	21, 	18, 	13, 	0, 	
+				31, 	4, 		10, 	17, 	0, 		255, 	
+				255, 	255, 	255, 	255, 	255, 	255}, 
+/*Ziffern:*/ {	0, 		255, 	255, 	255, 	255, 	255, 	
+				29, 	21, 	21, 	18, 	0, 		255, 	
+				0, 		0, 		0, 		255, 	255, 	255, 	
+				9, 		21, 	21, 	14, 	0, 		255, 	
+				0, 		0, 		0, 		255, 	255, 	255, 	
+				255, 	255, 	255, 	255, 	255, 	255, 	
+				1, 		2, 		0, 		255, 	255, 	255, 
+				3, 		3, 		0, 		255, 	255, 	255, 	
+				0, 		0, 		0, 		255, 	255, 	255, 	
+				17, 	14, 	0, 		255, 	255, 	255, 	
+				6, 		10, 	18, 	7, 		0, 		255, 	
+				255, 	255, 	255, 	255, 	255, 	255, 
+				10, 	21, 	21, 	10, 	0, 		255, 	
+				14, 	17, 	17, 	14, 	0, 		255, 	
+				18, 	18, 	0,	 	255, 	255, 	255, 	
+				10, 	10, 	10, 	0,	 	255, 	255, 	
+				10, 	17, 	21, 	14, 	0,	 	255, 	
+				4, 		14, 	4, 		0,	 	255, 	255, 	
+				255, 	255, 	255, 	255, 	255, 	255, 	
+				8, 		16, 	21, 	8, 		0,	 	255, 	
+				20, 	24, 	0,	 	255, 	255, 	255, 	
+				14, 	21, 	21, 	18, 	0,	 	255, 	
+				255, 	255, 	255, 	255, 	255, 	255, 	
+				1, 		6, 		8, 		16, 	0,	 	255, 	
+				4, 		4, 		4, 		0,	 	255, 	255, 	
+				9, 		19, 	21, 	9, 		0,	 	255, 	
+				255, 	255, 	255, 	255, 	255, 	255, 	
+				255, 	255, 	255, 	255, 	255, 	255, 	
+				16, 	19, 	20, 	24, 	0,	 	255, 	
+				9, 		31, 	1, 		0,	 	255, 	255, 	
+				14, 	17, 	0,	 	255, 	255, 	255, 	
+				255, 	255, 	255, 	255, 	255, 	255} }; 
+
+
+static void VerbindungBildlocher()
+	{
+	TMsTimer WarteTimer;
+	StartTimer(&WarteTimer);
+
+	uint16_t PufferPosEin, PufferPosAus;
+	bool EmpfZifferMode = false;
+	bool UmsetzZifferMode = false;
+	uint8_t BildSpalte = 0;
+
+	PufferPosEin = 0;
+	PufferPosAus = 0;
+
+	while (true)
+		{
+		uint8_t c;
+
+		if (KoEmpfCode(&c))
+			{
+			if (c == TtyCodeZiUm)
+				EmpfZifferMode = true;
+			else if (c == TtyCodeBuUm)
+				EmpfZifferMode = false;
+
+			if (c == TtyCodeZiWerDa && EmpfZifferMode)
+				KennungsausgabeUndKennwortAbfrage(SUBADDR_BILDLOCH);
+			else
+				{ // im Puffer ablegen
+				if (PufferPosEin < MAXPUFFER)
+					Puffer[PufferPosEin++] = c;
+				StartTimer(&WarteTimer);
+				}
+			}
+
+		if (KoAusschalten())
+			{
+			GeAusschalten();
+			break;
+			}
+
+		if (PufferPosEin > 0)
+			{
+			if (PufferPosAus >= PufferPosEin)
+				PufferPosEin = PufferPosAus = 0;
+			else if (TimerVal(&WarteTimer) > 3000 && GeSendePufferLeer())
+				{
+				uint8_t c = Puffer[PufferPosAus];
+				if (c == TtyCodeBuUm)
+					{
+					UmsetzZifferMode = false;
+					PufferPosAus++;
+					}
+				else if (c == TtyCodeZiUm)
+					{
+					UmsetzZifferMode = true;
+					PufferPosAus++;
+					}
+				else // doch ein Zeichen
+					{
+					uint8_t BildCode = pgm_read_byte(&BildTab[UmsetzZifferMode][BildGroesse * c + BildSpalte]);
+					if (BildCode == 255)
+						{ // aktuelles Zeichen zu ende --> nicht senden
+						BildSpalte = 0;
+						PufferPosAus++;
+						}
+					else
+						{
+						GeSendeCode(BildCode);
+						if (BildSpalte == BildGroesse-1)
+							{ // aktuelles Zeichen zu ende
+							BildSpalte = 0;
+							PufferPosAus++;
+							}
+						else
+							BildSpalte++;
+						}
+					} // Zeichen im Puffer
+				} // Sendepuffer leer und Wartezeit für Echo abgelaufen
+			} // if PufferPosEin > 0
+
+		LEDAktualisieren();
+		}
+
+	}
+
+
+
+static void PruefSendeZeichen(uint8_t Funktion, uint8_t Code, int8_t Zerrgrad)
+	{
+	TMsTimer SendeTimer;
+	uint8_t TimerTab[7]; 
+		// Start + 5 * Daten + Stop, Abgelegt ist jeweiliges Ende des Bits in Millisekunden
+	uint8_t Bit;
+
+	for (Bit = 0 ; Bit <= 5 ; Bit++)
+		TimerTab[Bit] = 20 * (Bit + 1);
+	TimerTab[6] = 150; // Stop-Bit
+
+	Code |= 0xE0;
+
+	// Verzerrung durchführen
+	switch (Funktion)
+		{
+		case 1 ... 5: // Verzerrte Datenbits, Zerrgrad = Abweichung in Millisekunden
+			TimerTab[Funktion] += Zerrgrad;
+			break;
+
+		case 6: // verzerrtes Startbit
+			for (Bit = 0 ; Bit <= 5 ; Bit++)
+				TimerTab[Bit] += Zerrgrad;
+			if (Zerrgrad > 0)
+				TimerTab[6] += Zerrgrad; // ggf. auch Stop-Bit nach hinten verlängern, aber nicht verkürzen
+			break;
+
+		case 7: // verzerrtes Stopbit
+			TimerTab[6] += Zerrgrad;
+			break;
+
+		case 8: // abweichende Baudrate
+			for (Bit = 0 ; Bit <= 6 ; Bit++)
+				TimerTab[Bit] += TimerTab[Bit] * Zerrgrad / 100;
+			break;
+
+		case 9: // Mark/Space-Verzerrung
+			// Entgegen Wirklichkeit wird das Startbit nicht verzerrt...
+			for (Bit = 0 ; Bit <= 5 ; Bit++)
+				if (BIT_IS_SET(Code, Bit))
+					// Bit ist eins, daher Anfang vorziehen...
+					TimerTab[Bit] -= Zerrgrad / 2;
+				else
+					// Bit ist Null, daher Anfang verzögern...
+					TimerTab[Bit] += (Zerrgrad + 1) / 2;
+
+			// Diagramm:
+			//   Original:    Start Bit 1 Bit 2 Bit 3 Bit 4 Bit 5   Stop
+			//     Mark   ---+     +-----+           +-----+     +--------+
+			//     Space     +-----+     +-----+-----+     +-----+        +----
+			//
+			// + Verzerrt:    Start Bit 1 Bit 2 Bit 3 Bit 4 Bit 5   Stop
+			//     Mark   ---+    +<----->+    >    +<----->+   +<--------+
+			//     Space     +----+       +-----+---+       +---+         +----
+			//
+			// - Verzerrt:    Start Bit 1 Bit 2 Bit 3 Bit 4 Bit 5   Stop
+			//     Mark   ---+     >+---+<     <     >+---+<     >+-------+
+			//     Space     +------+   +-----+-------+   +-------+       +----
+
+			break;
+		}
+
+	// Senden
+
+	StartTimer(&SendeTimer);
+	GeSendeMark(false);
+	for (Bit = 0 ; Bit <= 6 ; Bit++)
+		{
+		while (TimerVal(&SendeTimer) < TimerTab[Bit])
+			;
+		if (BIT_IS_SET(Code, Bit))
+			GeSendeMark(true);
+		else
+			GeSendeMark(false);
+			// Stop-Bit wird gesendet, weil entsprechendes Bit in Code gelöscht wurde...
+		}
+	}
+
+
+static void Pruefsendung(uint8_t Funktion)
+	{
+				// Funktionen:		0,	1,	2,	3,	4,	5,	6,	7,	8,	9 
+	static int8_t ZerrgradMin[] = { 0, -10,-10,-10,-10,-10,-10,-10,-10, -5 };
+	static int8_t ZerrgradMax[] = { 0,	10,	10,	10,	10,	10,	10, 10, 10,  5 };
+		 
+	int8_t Zerrgrad;
+	uint8_t Pos;
+
+	KurzePause();
+
+	for (Zerrgrad = ZerrgradMin[Funktion] ; Zerrgrad <= ZerrgradMax[Funktion] ; Zerrgrad++)
+		{
+		GeSendeCode(TtyCodeWR);
+		GeSendeCode(TtyCodeZL);
+		GeSendeCode(TtyCodeZiUm);
+		GeSendeVorzeichenZahl(Zerrgrad);
+		GeSendeZeichen(':');
+		GeSendeZeichen(' ');
+		GeSendeCode(TtyCodeBuUm);
+		while (!GeSendePufferLeer())
+			;
+
+		KurzePause();
+
+		for (Pos = 0 ; Pos < 25 ; Pos++)
+			{
+			PruefSendeZeichen(Funktion, 0x0A, Zerrgrad); // R
+			PruefSendeZeichen(Funktion, 0x15, Zerrgrad); // Y
+			}
+
+		KurzePause();
+
+		GeSendeCode(TtyCodeBuUm);
+		}
+	}
+
+
+static void VerbindungTestsender()
+	{
+	KurzePause();	
+
+	GeSendeTextP(PSTR("\r\nPruefsender."));
+
+	while (true)
+		{
+		char c;
+
+		GeSendeTextP(PSTR("\r\nFunktion waehlen:     "));
+
+		while (!KoEmpfZeichen(&c))
+			{
+			if (KoAusschalten())
+				{
+				GeAusschalten();
+				return;
+				}
+			}
+
+		if (c >= '0' && c <= '9')
+			Pruefsendung(c - '0');
+		else if (c == ' ' || c == '\r' || c == '\n')
+			; // ignorieren
+		else if (c == 'e')
+			{
+			GeAusschalten();
+			return;
+			}
+		else
+			{
+			if (c != '?')
+				GeSendeTextP(PSTR("\r\nunbekannte Funktion. Funktionsliste:"));
+			GeSendeTextP(PSTR("\r\n0: ohne Verzerrung"));
+			GeSendeTextP(PSTR("\r\n1..5: Verzerrte Datenbits "));
+			GeSendeTextP(PSTR("(bezogen auf Bit-Ende)"));
+			GeSendeTextP(PSTR("\r\n6: verzerrtes Startbit"));
+			GeSendeTextP(PSTR("\r\n7: verzerrtes Stopbit"));
+			GeSendeTextP(PSTR("\r\n8: abweichende Baudrate"));
+			GeSendeTextP(PSTR("\r\n9: Mark/Space-Verzerrung"));
+			GeSendeTextP(PSTR("\r\nE: Ende"));
+			while (!GeSendePufferLeer())
+				;
+			}
+		while (KoEmpfZeichen(&c))
+			; // weitere empfangene Zeichen ignorieren
+		} // while true
+	} // VerbindungTestsender
+
+
+// Verbindungen bearbeiten
+// =======================
+
+static void VerbindungKommend()
+	{
+	LED_EIN(GRUEN);
+	
+	if (GeEinschalten() != GeEinschAnrufquitt)
+		{
+		GeAusschalten();
+		}
+	else
+		{
+		if (WarteKonfig)
+			; // TODO
+		else
+			switch (KoAnwahlnummer())
+				{
+				case SUBADDR_MESSUNG:
+					VerbindungMessgeraet();
+					return;
+
+				case SUBADDR_PRUEFSEND:
+					VerbindungTestsender();
+					return;
+				
+				case SUBADDR_BILDLOCH:
+					VerbindungBildlocher();
+					return;
+
+				case SUBADDR_RUECKRUF:
+					VerbindungRueckruf();
+					return;
+			
+				}
+		}
+
+	// folgender Punkt wird nur bei ungültiger Anwahlnummer erreicht...
+	GeAusschalten();
+		
+	}
+	
+
+static void Deaktivieren()
+// wird nach kurzem Tastendruck aufgerufen
+	{
+	LED_EIN(BLAU);
+	Aktivieren(false);
+
+	while (Tastendruck == NichtGedr)
+		TastePruefen();
+	Tastendruck = NichtGedr;
+
+	Aktivieren(true);
+	LED_AUS(BLAU);
+
+	} // Deaktivieren
+
+
+static void Konfiguration()
+// wird nach langem Tastendruck aufgerufen
+	{
+	if (!WarteKonfig)
+		{
+		WarteKonfig = true;
+		LED_EIN(ROT);
+		}
+	else
+		{
+		WarteKonfig = false;
+		LED_AUS(ROT);
+		}
+	}
+
+
+
+int main()
+	{
+	// WD ein
+#ifndef NOWATCHDOG
+	wdt_enable(WDTO_2S);
+#endif //NOWATCHDOG
+
+	// nur für den Simulator:
+	PINB = 0xFF;
+	PINC = 0xFF;
+	PIND = 0xFF;
+
+	// PORTS initialisieren (Ausgabepins)
+	PORTB = 0;
+	PORTC = 0;
+	PORTD = 0;
+	DDRB = 0;
+	DDRC = 0;
+	DDRD = 0;
+
+	SET_BIT(TAST_PORT, TAST_BIT); // Pull-Up
+
+	LED_EIN(ROT);
+	SET_BIT(LED_ROT_DDR, LED_ROT_BIT);
+
+	LED_AUS(GELB);
+	SET_BIT(LED_GELB_DDR, LED_GELB_BIT);
+
+	LED_AUS(GRUEN);
+	SET_BIT(LED_GRUEN_DDR, LED_GRUEN_BIT);
+
+	LED_AUS(BLAU);
+	SET_BIT(LED_BLAU_DDR, LED_BLAU_BIT);
+
+	// Timer initialisieren
+	MsTimerInit();
+
+	/*/ TEST: Zeitbedarf für Berechnung der Prüfsendemuster ausprobieren...
+	PruefSendeZeichen(1, 0x15, 10);
+	// :TEST */
+
+	TMsTimer Timer;
+	StartTimer(&Timer);
+
+	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
+	BusEigenAdrMehrfach = BUS_MEHRFACH_ADR;
+
+	for (uint8_t i = 0 ; i < BUS_MEHRFACH_ADR ; i++)
+		eeprom_read_string(Kennung[i], Kennung_EE[i]);
+	eeprom_read_string(Kennwort, Kennwort_EE);
+
+	KommInit();
+
+	sei();
+	
+	// 0,25 Sek. warten
+	while (TimerVal(&Timer) < 250)
+		;
+		
+	LED_AUS(ROT);
+	LED_EIN(GELB);
+
+	TwiInit();
+
+	// 0,25 Sek. warten
+	while (TimerVal(&Timer) < 500)
+		;
+
+	LED_AUS(GELB);
+	LED_EIN(GRUEN);
+
+	// 0,25 Sek. warten
+	while (TimerVal(&Timer) < 750)
+		;
+
+	LED_AUS(GRUEN);
+	LED_EIN(BLAU);
+
+	// TWI nochmal resetten
+	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (1<<TWSTO) | (0<<TWEN) | (0<<TWIE);
+
+	while (TimerVal(&Timer) < 760)
+		;
+		
+	TWCR = (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (1<<TWEN) | (1<<TWIE);
+
+	while (TimerVal(&Timer) < 1000 + BusEigenAdresse)
+		;
+
+	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
+
+	WarteKonfig = false;
+	
+	while (true)
+		{
+		// aktueller Zustand: Ausgeschaltet
+		LED_AUS(GELB);
+		LED_AUS(GRUEN);
+		LED_AUS(BLAU);
+
+		TastePruefen();
+		
+		if (KoEinschalten())
+			{
+			VerbindungKommend();
+			}
+		
+		if (Tastendruck == Lang)
+			{
+			Tastendruck = NichtGedr;
+			Konfiguration();
+			}
+
+		else if (Tastendruck == Kurz)
+			{
+			Tastendruck = NichtGedr;
+			Deaktivieren();
+			}
+		
+		for (uint8_t i = 0 ; i < BUS_MEHRFACH_ADR ; i++)
+			eeprom_write_string_noblock(Kennung_EE[i], Kennung[i]);
+		eeprom_write_string_noblock(Kennwort_EE, Kennwort);
+
+		} // while (1)
+	} // main()
+
+
