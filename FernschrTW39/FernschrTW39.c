@@ -627,18 +627,31 @@ static bool WahlMitTastatur()
 			
 		if (KoEinschalten())
 			{
-			TMsTimer KurzePause;
-
 			GeSendeMark(true); // Erst mal einschalten...
 
-			StartTimer(&KurzePause);
-			while (TimerVal(&KurzePause) < 300)
+			TMsTimer PauseTimer;
+			StartTimer(&PauseTimer);
+			uint8_t AnzWdh = 0;
+
+			TW39IO();
+			
+			while (KoEmpfMark() || AnzWdh >= 3)
+				{
 				TW39IO();
 				
-			GeSendeCode(TtyCodeZiUm);
-			GeSendeCode(TtyCodeZiUm);
-			GeSendeCode(TtyCodeZiUm);
-			GeSendeCode(TtyCodeZiWerDa);
+				if (PauseTimer > 800)
+					{
+					AnzWdh++;
+					GeSendeCode(TtyCodeZiUm);
+					GeSendeCode(TtyCodeZiUm);
+					GeSendeCode(TtyCodeZiUm);
+					GeSendeCode(TtyCodeZiWerDa);
+					StartTimer(&PauseTimer);
+					}
+					
+				if (SerUmSendBitNr != SerUmSendWarte)
+					StartTimer(&PauseTimer); // nur bei nicht laufender Sendung warten...
+				}
 			
 			return true;
 			}
