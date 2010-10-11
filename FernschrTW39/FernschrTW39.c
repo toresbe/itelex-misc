@@ -71,66 +71,76 @@
 // ===========================
 
 
-//#define PARALLELAUSGABE
+#define PARALLELAUSGABE
 	// Für Platine TW39doppel: Sendung und Empfang wird auf der zweiten 
 	// Schnittstelle mitprotokolliert. Dann darf der Kontroller der 
-	// zweiten Schnittstelle nicht bestückt sein
+	// zweiten Schnittstelle nicht bestückt sein.
 
 //#define FALSCHKDO_FEHLERSTOP
-	// Unpassende Kommandos auf dem I²C-Bus werden mit Fehlerstop quittiert
+	// Unpassende Kommandos auf dem I²C-Bus werden mit Fehlerstop quittiert.
 
 //#define TWI_DEBUG
 	// TWI-Ereignisse werden protokolliert. 
 
 #define BUSFEHLER_ABBRUCH
-	// bei Bus-Fehlern Abbruch der Verbindung
+	// bei Bus-Fehlern Abbruch der Verbindung.
 
 #ifndef TWI_DEBUG
 #define WIEDERHOLUNGSSENDUNGEN
-	// Status Mark / Space regelmäßig senden 
+	// Status Mark / Space regelmäßig senden.
 #endif //TWI_DEBUG
 
 
 // #define LEDROT_BEI_UNERWARTETWDH
 	// LED rot wird eingeschaltet, wenn BusKdoSpaceWdh oder BusKdoMarkWdh empfangen wird, ohne
-	// das entsprechendes "Haupt-Kommando" empfangen wurde
+	// das entsprechendes "Haupt-Kommando" empfangen wurde.
 
 
 //#define NOWATCHDOG
 	// Watchdog abgeschaltet
 
 
-
+//! Marker im Code als Identifikation
 const char Identifier[] PROGMEM = "_TxP2_TW39_" __DATE__ "_" __TIME__ "_";
 
 
 // Eeprom-Speicher
 // ---------------
 
-uint8_t Platzhalter[4] EEMEM; // Anfang des EEPROM ist gern von Störungen betroffen
-uint8_t BusEigenAdresse_EE EEMEM = BusAdrUngueltig;
-uint8_t MitWaehlscheibe_EE EEMEM = 1;
-uint8_t WahlauffordImpulsLaenge_EE EEMEM = 30;
-uint8_t KommendSperreWahl_EE EEMEM = 0;
+uint8_t Platzhalter[4] EEMEM; //!< Platzhalter, da Anfang des EEPROM gern von Störungen betroffen ist
+uint8_t BusEigenAdresse_EE EEMEM = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
+uint8_t MitWaehlscheibe_EE EEMEM = 1; //!< Hat das Gerät eine Wählscheibe
+uint8_t WahlauffordImpulsLaenge_EE EEMEM = 30; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
+uint8_t KommendSperreWahl_EE EEMEM = 0; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 
 
 // Variablen
 // ---------
 
-bool MitWaehlscheibe;
-uint8_t WahlauffordImpulsLaenge; // in 1/100 Sekunden
-uint8_t KommendSperreWahl;
+bool MitWaehlscheibe; //!< Gerät het eine Wählscheibe
+uint8_t WahlauffordImpulsLaenge; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
+uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 
-bool BefehlEinschalten;
-bool MeldungEingeschaltet;
-bool BefehlMark;
-bool MeldungMark;
+bool BefehlEinschalten; //!< Fs soll laufen
+bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
+bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
+bool MeldungMark; //!< Fs Schleifenstrom ist Ein
 
-bool ModeZiffern;
+bool ModeZiffern; //!< Fs ist gerade im Ziffern-Bereich
 
-TMsTimer AusschaltungTimer;
-TMsTimer EntprellungTimer;
+TMsTimer AusschaltungTimer; //!< Zählt die Millisekunden von Schleifenunterbrechung bis Ausschaltung
+TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port bis tatsächlichem Pegelwechsel
 
+
+///////////////////////////////////////////////////////////////////////////////
+
+//! bedient Hardware-IO entsprechend der aktuellen Zustände
+
+/*!
+ * setzt FS_AKTIV_PORT und FS_AUSG _PORT entsprechend BefehlEinschalten und BefehlMark,
+ * setzt MeldungEingeschaltet und MeldungMark entsprechend FS_EING_IPORT,
+ * steuert die Status-LEDs
+ */ 
 
 static void TW39IO()
 	{
@@ -303,6 +313,10 @@ static void TW39IO()
 
 	} // TW39IO
 	
+	
+//////////////////////////////////////////////////////////////////
+
+//! Einschaltung des Fs auslösen
 
 static bool TW39Einschalten()
 	{
@@ -330,6 +344,10 @@ static bool TW39Einschalten()
 	}
 		
 
+//////////////////////////////////////////////////////////////////
+
+//! Ausschaltung des Fs auslösen
+
 static void TW39Ausschalten()
 	{
 	TMsTimer Timer;
@@ -350,7 +368,13 @@ static void TW39Ausschalten()
 	}
 		
 
-void FehlerStop(int Nummer)
+/////////////////////////////////////////////////////////////////////////////////////////7
+
+//! Modul / Schnittstelle irreversibel stoppen
+
+//! Nur Reset befreit, ein Tastendruck löst einen Reset aus
+
+void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ )
 // Nur ein Reset befreit
 	// Fehler-Codes: 
 	// 1: Bus-Empfang trotz Sperre
@@ -414,6 +438,13 @@ void FehlerStop(int Nummer)
 	}	
 
 
+/////////////////////////////////////////////////////////////
+
+//! Liest ein Zeichen vom angeschlossenen Fs ein
+
+//! Serialisiert die ankommenden Impulse und wandelt BAUDOT in ASCII
+//! \return Zeichen im ASCII-Code
+
 char LokalZeichenLesen()
 	{
 	char c;
@@ -434,6 +465,13 @@ char LokalZeichenLesen()
 		}
 	}
 
+
+/////////////////////////////////////////////////////////////
+
+//! Gibt ein Zeichen am angeschlossenen Fs aus
+
+//! wandelt ASCII in Baudort und serialisiert den Code
+//! \param code Zeichen im ASCII-Code
 
 static void LokalCodeAusgabe(uint8_t code)
 	{
@@ -884,9 +922,9 @@ static void Deaktivieren(bool WegenTimeout)
 	} // Deaktivieren
 
 
-// Hauptprogramm
-// -------------
+///////////////////////////////////////////////////////////////////////////////
 
+//! das Hauptprogramm
 
 int main()
 	{
