@@ -1,1 +1,1 @@
-<AVRWorkspace><IOSettings><CurrentRegisters/></IOSettings><part name="ATMEGA8"/><Files/></AVRWorkspace>
+<AVRWorkspace><IOSettings><CurrentRegisters/></IOSettings><part name="ATMEGA8"/><Files><File00000 Name="D:\Daten\AvrProgs\C-Libs\MsTimer.c" Position="226 109 1458 431" LineCol="0 0" State="Maximized"/><File00001 Name="D:\Daten\AvrProgs\TxP2\Gemeinsam\SeriellUmsetz.c" Position="220 82 1604 562" LineCol="0 0" State="Maximized"/></Files></AVRWorkspace>
