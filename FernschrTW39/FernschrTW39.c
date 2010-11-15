@@ -52,29 +52,15 @@
 #include <inttypes.h>
 
 
-#include "TwiEvents.h"
-#include "Bits.h"
-
-#include "TxP2-Defs.h"
-#include "MsTimer.h"
-#include "BusKomm.h"
-#include "TxP2-Endgeraet.h"
-#include "Taste.h"
-#include "Ports.h"
-#include "SeriellUmsetz.h"
-#include "BaudotCode.h"
-#include "KonfigDialog.h"
-#include "LokalAusgabe.h"
-
-
 // Schalter für Code-Varianten
 // ===========================
 
 
-#define PARALLELAUSGABE
+//#define PARALLELAUSGABE
 	// Für Platine TW39doppel: Sendung und Empfang wird auf der zweiten 
 	// Schnittstelle mitprotokolliert. Dann darf der Kontroller der 
 	// zweiten Schnittstelle nicht bestückt sein.
+	// 
 
 //#define FALSCHKDO_FEHLERSTOP
 	// Unpassende Kommandos auf dem I²C-Bus werden mit Fehlerstop quittiert.
@@ -98,6 +84,21 @@
 
 //#define NOWATCHDOG
 	// Watchdog abgeschaltet
+
+
+#include "TwiEvents.h"
+#include "Bits.h"
+
+#include "TxP2-Defs.h"
+#include "MsTimer.h"
+#include "BusKomm.h"
+#include "TxP2-Endgeraet.h"
+#include "Taste.h"
+#include "Ports.h"
+#include "SeriellUmsetz.h"
+#include "BaudotCode.h"
+#include "KonfigDialog.h"
+#include "LokalAusgabe.h"
 
 
 //! Marker im Code als Identifikation
@@ -673,7 +674,7 @@ static bool WahlMitTastatur()
 
 			TW39IO();
 			
-			while (KoEmpfMark() || AnzWdh >= 3)
+			while (KoEmpfMark() && AnzWdh <= 3)
 				{
 				TW39IO();
 				
