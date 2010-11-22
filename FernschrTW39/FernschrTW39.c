@@ -678,7 +678,7 @@ static bool WahlMitTastatur()
 				{
 				TW39IO();
 				
-				if (TimerVal(&PauseTimer) > 800)
+				if (TimerVal(&PauseTimer) > 2500)
 					{
 					AnzWdh++;
 					GeSendeCode(TtyCodeZiUm);
