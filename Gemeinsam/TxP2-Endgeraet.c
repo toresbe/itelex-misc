@@ -259,9 +259,9 @@ TGeEinschResultat GeEinschalten()
 	if (FsBetriebsart == EinschaltungKo)
 		{
 		BusKommSperre = true;
-		BusSenden(BusQuittEin, 30);
+		BusSenden(BusQuittEin);
 		BusWarteFertig();
-		BusSenden(BusLebenszeichen, 30); // wartet, dass BusQuittEin auch angekommen ist...
+		BusSenden(BusLebenszeichen); // wartet, dass BusQuittEin auch angekommen ist...
 		BetriebsartWechsel(Eingeschaltet);
 		BusKommSperre = false;
 		return GeEinschAnrufquitt;
@@ -291,7 +291,7 @@ static void InternWahlPruefen()
 	BusWarteFertig();
 	BusVerbPartner = WahlZuAdresse(InterneNummer, WahlZifferAnzahl);
 	
-	BusSenden(BusEigenAdresse >> 1, 50);
+	BusSenden(BusEigenAdresse >> 1);
 		// prüft vorher, ob Zielelement frei ist
 	BusWarteFertig();
 
@@ -330,7 +330,7 @@ static void InternWahlPruefen()
 	// Einschalten 
 	// -----------
 	AblaufMark(0x22);
-	BusSenden(BusKdoEin, 30);
+	BusSenden(BusKdoEin);
 	BusWarteFertig();
 	// TODO BusErgebnis prüfen...
 
@@ -498,12 +498,12 @@ void GeAusschalten()
 	AblaufMark(0x49);
 	if (FsBetriebsart == AusschaltungKo)
 		{ // nur noch quittieren
-		BusSenden(BusQuittSchluss, 30);
+		BusSenden(BusQuittSchluss);
 		BusWarteFertig();
 		}
 	else
 		{ // aktiv ausschalten
-		BusSenden(BusKdoSchluss, 30);
+		BusSenden(BusKdoSchluss);
 		WarteSchlussQuittung(3000);
 		}
 	BetriebsartWechsel(Ausgeschaltet);
@@ -655,7 +655,7 @@ static void BusKomm()
 				}
 			if (WahlPhase == WahlExtern)
 				{ 
-				BusSenden(BusKdoWahlziffer0 + Ziffer, 100);
+				BusSenden(BusKdoWahlziffer0 + Ziffer);
 				StartTimer(&PegelWdhTimer);
 				}
 			break;
@@ -698,23 +698,23 @@ static void BusKomm()
 				if (PegelGehend)
 					{ // Mark
 					if (GesendeterPegelStatus == Space1 || GesendeterPegelStatus == Space2)
-						BusSenden(BusKdoMark, 0);
+						BusSenden(BusKdoMark);
 					else if (GesendeterPegelStatus == Mark1)
-						BusSenden(BusKdoMarkWdh, 0);
+						BusSenden(BusKdoMarkWdh);
 #ifdef WIEDERHOLUNGSSENDUNGEN
 					else if (TimerVal(&PegelWdhTimer)) // mind. alle 0,4 Sek senden
-						BusSenden(BusKdoMarkWdh, 0);
+						BusSenden(BusKdoMarkWdh);
 #endif //WIEDERHOLUNGSSENDUNGEN
 					} // Mark
 				else
 					{ // Space
 					if (GesendeterPegelStatus == Mark1 || GesendeterPegelStatus == Mark2)
-						BusSenden(BusKdoSpace, 0);
+						BusSenden(BusKdoSpace);
 					else if (GesendeterPegelStatus == Space1)
-						BusSenden(BusKdoSpaceWdh, 0);
+						BusSenden(BusKdoSpaceWdh);
 #ifdef WIEDERHOLUNGSSENDUNGEN
 					else if (TimerVal(&PegelWdhTimer) > 400) // mind. alle 0,4 Sek senden
-						BusSenden(BusKdoSpaceWdh, 0);
+						BusSenden(BusKdoSpaceWdh);
 #endif //WIEDERHOLUNGSSENDUNGEN
 					} // Space
 
@@ -760,7 +760,7 @@ static void BusKomm()
 #ifdef BUSFEHLER_ABBRUCH
 			if (AnzFehlSend >= 5)
 				{ // 5 Fehl-Sendungen unmittelbar hintereinander
-				BusSenden(BusKdoSchluss, 0);
+				BusSenden(BusKdoSchluss);
 				Ende = true;
 				BetriebsartWechsel(AusschaltungF);
 				AusschaltCode = 'f';

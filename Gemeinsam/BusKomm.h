@@ -49,8 +49,7 @@ extern void TwiInit();
 
 extern void BusWarteFertig();
 
-extern void BusSenden(uint8_t Kdo, uint8_t BesetztWdhWartezeit);
-	// BesetztWdhWartezeit = 0: sofort senden 
+extern void BusSenden(uint8_t Kdo);
 
 extern void WarteSchlussQuittung(uint16_t MaxTimer);
 

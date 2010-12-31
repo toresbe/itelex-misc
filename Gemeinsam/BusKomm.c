@@ -212,16 +212,15 @@ ISR(TWI_vect)
 #ifdef TWI_DEBUG
 			DebSp(BusEmpfFremdStatus);
 #endif //TWI_DEBUG
-			if (BusAuftrag == BedSenden)
-				if (BIT_IS_SET(BusEmpfFremdStatus, StatBit_Frei) 
-			    	&& !BIT_IS_SET(BusEmpfFremdStatus, StatBit_BusKdoEmpfangen)) // TODO diese Abfrage sollte nicht mehr notwendig sein
+			if (BusAuftrag == BedSenden) // kommt nur bei Verbindungsaufnahme vor...
+				if (BIT_IS_SET(BusEmpfFremdStatus, StatBit_Frei)) 
 					{ // Empfänger ist frei
 					SET_BIT(NewStat, TWSTA); // repeated Start
 					}
 				else
 					{
 					BusAuftrag = Fertig;
-					BusErgebnis = Besetzt; // Zeichen der erfolgreichen Erledigung
+					BusErgebnis = Besetzt; // Zeichen der nicht erfolgreichen Erledigung
 					SET_BIT(NewStat, TWSTO);
 					BusFrei = true;
 					DEBUG_BUSTRANSFER_FERTIG;
@@ -325,51 +324,12 @@ void BusWarteFertig()
 	}
 	
 
-void BusSenden(uint8_t Kdo, uint8_t BesetztWdhWartezeit)
+void BusSenden(uint8_t Kdo)
 	{ // an BusVerbPartner 
 	DEBUG_BUSTRANSFER_INIT;
 
 	BusWarteFertig();
 	
-	if (BesetztWdhWartezeit > 0)
-		{
-		uint8_t AnzFehl = 0;
-
-		while (true)
-			{
-			while (!BusFrei)
-				;
-			while (BIT_IS_SET(TWCR, TWSTO))
-				;
-			BusAuftrag = Lesen;
-			SET_BIT(TWCR, TWSTA);
-			while (BusAuftrag != Fertig)
-				;
-			if (BusErgebnis == Ok)
-				if (!BIT_IS_SET(BusEmpfFremdStatus, StatBit_BusKdoEmpfangen)) // TODO dies sollte nicht mehr erforderlich sein
-					// Verbindungspartner hat letztes Kommando verarbeitet
-					break; 
-				else
-					// Verbindungspartner bearbeitet noch das letzte Kommando
-					; // nichts tun, warten und nochmal probieren --> "Besetzt"
-			else 
-				// Abfrage des Partner-Status nicht erfolgreich
-				if (AnzFehl > 2)
-					// mehr als 2 fehlerhafte Abfragen --> hat alles keinen Sinn
-					return;
-				else
-					// nochmal probieren
-					AnzFehl++;
-
-			// Nach "Besetzt" bzw. Kommunikationsfehler kurze Pause...
-			TMsTimer BusTimer;
-			StartTimer(&BusTimer); 
-			while (TimerVal(&BusTimer) < BesetztWdhWartezeit) 
-				;
-			}
-		DEBUG_BUSTRANSFER_INIT;
-		} // if (WarteVorhKdo)
-
 	cli();
 	
 	BusSendeDaten = Kdo;
@@ -537,7 +497,7 @@ void SendeLebenszeichen()
 		StartTimer(&LebenszTimer);
 	else if (TimerVal(&LebenszTimer) > 674 && BusFrei && (BusAuftrag == Nichts || BusAuftrag == Fertig))
 		{
-		BusSenden(BusLebenszeichen, 0);
+		BusSenden(BusLebenszeichen);
 		StartTimer(&LebenszTimer);
 		}
 	}
