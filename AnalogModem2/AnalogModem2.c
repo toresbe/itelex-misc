@@ -56,7 +56,7 @@ uint8_t KonfigBits;
 	// wenn Bit = 1 nach jedem durch Telefon angenommene Anruf nachträglich ein
 	// Verbindungsversuch gemacht, wenn das Telefon weniger als 20 Sekunden an war.
 #define KonfigBit_DurchwahlErlaubt 3		 
-	// wenn Bit = 1 wird eine eingehende Durchwahl ignoriert und auf jeden Fall der Hauptanschluss
+	// wenn Bit = 0 wird eine eingehende Durchwahl ignoriert und auf jeden Fall der Hauptanschluss
 	// ausgewertet
 #define KonfigBit_SucheAlternativBeiBesetzt 4
 	// wenn Bit = 1 wird eine eingehender Anruf auf einen anderen Apparat gelenkt, wenn Hauptanschluss
@@ -395,12 +395,19 @@ bool FreiesEndgeraetFuerAnruf()
 // 3. bei besetztem Gerät nach 1. bzw. 2. NÄCHSTER freier Anschluss
 // gefundener Anschluss steht nachher in AktuellEmpfaenger
 	{
-	if (BIT_IS_SET(KonfigBits, KonfigBit_FesterHauptanschluss) && Hauptanschluss != 0)
-		AktuellEmpfaenger = Hauptanschluss * 2;
-	else if (AktuellEmpfaenger == 0 && Hauptanschluss != 0)
-		AktuellEmpfaenger = Hauptanschluss * 2;
-	else
-		AktuellEmpfaenger = BusAdrMin;
+	if (BIT_IS_SET(KonfigBits, KonfigBit_FesterHauptanschluss))
+		if (Hauptanschluss != 0)
+			AktuellEmpfaenger = Hauptanschluss * 2;
+		else
+			AktuellEmpfaenger = BusAdrMin;
+	else // kein fester Hauptanschluss
+		if (AktuellEmpfaenger != 0)
+			; // die aktuelle Einstellung behalten
+		else
+		 	if (Hauptanschluss != 0)
+				AktuellEmpfaenger = Hauptanschluss * 2;
+			else
+				AktuellEmpfaenger = BusAdrMin;
 		
 	if (AktuellEmpfaenger != Hauptanschluss * 2 || BIT_IS_SET(KonfigBits, KonfigBit_SucheAlternativBeiBesetzt))
 		{
