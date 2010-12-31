@@ -19,20 +19,27 @@ volatile uint8_t Status;
 //#define ROT_AUS CLR_BIT(PORTD,1);
 
 
+#define EMPF_PUFFER_GROESSE 20
+
 // Variablen für Datenaustausch über I²C
 // -------------------------------------
 
-volatile TBusAuftrag BusAuftrag; 
+volatile TBusAuftrag BusAuftrag; //
 volatile TBusErgebnis BusErgebnis; // Besetzt nur nach BedSenden 
 uint8_t BusEigenAdresse; // als I²C-Adresse, also << 1. Bei Mehrfach-Adressen nur Basisadresse
 uint8_t BusEigenAdrMehrfach; // muss Potenz von 2 sein, Standard = 1
 volatile uint8_t BusAnrufSubAdresse; // tatsächlich als Adresse verwendete Nummer 
 volatile uint8_t BusVerbPartner; // als I²C-Adresse, also << 1
 volatile uint8_t BusSendeDaten;
-volatile uint8_t BusEmpfDaten;
+volatile uint8_t BusEmpfPuffer[EMPF_PUFFER_GROESSE];
+volatile uint8_t BusEmpfPufferSchreibPos;
+volatile uint8_t BusEmpfPufferLesePos;
+static volatile uint8_t BusEmpfFremdStatus;
 volatile bool BusFrei;
 volatile bool BusSlaveSend; // für Debugging-Zwecke
 volatile uint8_t BusKollisionZaehler; // nur zum Testen / Statistik
+volatile bool BusEmpfMark;
+volatile bool BusEmpfMarkwechsel;
 
 // Makros für Debugging
 // --------------------
@@ -48,14 +55,6 @@ volatile uint8_t BusKollisionZaehler; // nur zum Testen / Statistik
 #define DEBUG_BUSTRANSFER_EMPFANGFERTIG
 
 
-void StatusKdoEmpfReset()
-	{
-	cli();
-	CLR_BIT(Status, StatBit_BusKdoEmpfangen);
-	sei();
-	}
-
-	
 void CLR_BIT_Status(uint8_t BitNr)
 	{
 	cli();
@@ -74,6 +73,44 @@ void SET_BIT_Status(uint8_t BitNr)
 	
 void FehlerStop(int Nummer);
 
+
+static void EmpfByteSpeichern(uint8_t RecData)
+	{
+	switch (RecData)
+		{
+		case BusLebenszeichen:
+			break; // wird ignoriert
+		case BusKdoSpaceWdh:
+			// TODO fehlenden ersten Wechsel melden
+		case BusKdoSpace:
+			BusEmpfMarkwechsel = true;
+			BusEmpfMark = false;
+			break;
+		case BusKdoMarkWdh:
+			// TODO fehlenden ersten Wechsel melden
+		case BusKdoMark:
+			BusEmpfMarkwechsel = true;
+			BusEmpfMark = true;
+			break;
+		default: // alles andere in den Puffer
+			BusEmpfPuffer[BusEmpfPufferSchreibPos++] = RecData;
+			if (BusEmpfPufferSchreibPos >= EMPF_PUFFER_GROESSE)
+				{
+				if (BusEmpfPufferLesePos == 0) // Es würde ein Überlauf entstehen, also zurück...
+					BusEmpfPufferSchreibPos = EMPF_PUFFER_GROESSE - 1;
+				else // kein Überlauf...
+					BusEmpfPufferSchreibPos = 0;
+				}
+			else
+				{ 
+				if (BusEmpfPufferSchreibPos == BusEmpfPufferLesePos) // Es würde ein Überlauf entstehen, also zurück...
+					BusEmpfPufferSchreibPos--;
+				}
+			SET_BIT(Status, StatBit_BusKdoEmpfangen); // hier nicht SET_BIT_Status, da sonst das Interrupt-Flag wieder gesetzt wird!
+			break;
+		} // switch RecData
+	} // EmpfByteSpeichern
+	
 
 ISR(TWI_vect)
 	{
@@ -171,13 +208,13 @@ ISR(TWI_vect)
 
         case TwiEv_MR_DataACK		:
         case TwiEv_MR_DataNACK		:
-			BusEmpfDaten = TWDR;
+			BusEmpfFremdStatus = TWDR;
 #ifdef TWI_DEBUG
-			DebSp(BusEmpfDaten);
+			DebSp(BusEmpfFremdStatus);
 #endif //TWI_DEBUG
 			if (BusAuftrag == BedSenden)
-				if (BIT_IS_SET(BusEmpfDaten, StatBit_Frei) 
-			    	&& !BIT_IS_SET(BusEmpfDaten, StatBit_BusKdoEmpfangen))
+				if (BIT_IS_SET(BusEmpfFremdStatus, StatBit_Frei) 
+			    	&& !BIT_IS_SET(BusEmpfFremdStatus, StatBit_BusKdoEmpfangen)) // TODO diese Abfrage sollte nicht mehr notwendig sein
 					{ // Empfänger ist frei
 					SET_BIT(NewStat, TWSTA); // repeated Start
 					}
@@ -218,12 +255,7 @@ ISR(TWI_vect)
 #ifdef TWI_DEBUG
 			DebSp(RecData);
 #endif //TWI_DEBUG
-			if (RecData != BusLebenszeichen)
-				{
-				BusEmpfDaten = RecData;
-				SET_BIT(Status, StatBit_BusKdoEmpfangen);
-				// hier nicht SET_BIT_Status, da sonst das Interrupt-Flag wieder gesetzt wird!
-				}				
+			EmpfByteSpeichern(RecData);
 			CLR_BIT(NewStat, TWEA); // damit weiter NACK gesendet wird 
 			break;
 
@@ -232,13 +264,7 @@ ISR(TWI_vect)
 #ifdef TWI_DEBUG
 			DebSp(RecData);
 #endif //TWI_DEBUG
-			if (RecData != BusLebenszeichen)
-				{
-				BusEmpfDaten = RecData;
-				SET_BIT(Status, StatBit_BusKdoEmpfangen);
-				// hier nicht SET_BIT_Status, da sonst das Interrupt-Flag wieder gesetzt wird!
-				}				
-			// hier nicht SET_BIT_Status, da sonst das Interrupt-Flag wieder gesetzt wird!
+			EmpfByteSpeichern(RecData);
 			BusFrei = true;
 			DEBUG_BUSTRANSFER_FERTIG;
 			if (BusAuftrag == Lesen || BusAuftrag == Senden || BusAuftrag == BedSenden)
@@ -320,7 +346,7 @@ void BusSenden(uint8_t Kdo, uint8_t BesetztWdhWartezeit)
 			while (BusAuftrag != Fertig)
 				;
 			if (BusErgebnis == Ok)
-				if (!BIT_IS_SET(BusEmpfDaten, StatBit_BusKdoEmpfangen))
+				if (!BIT_IS_SET(BusEmpfFremdStatus, StatBit_BusKdoEmpfangen)) // TODO dies sollte nicht mehr erforderlich sein
 					// Verbindungspartner hat letztes Kommando verarbeitet
 					break; 
 				else
@@ -397,7 +423,7 @@ int16_t GetStatus(uint8_t Adr)
 	if (BusErgebnis != Ok)
 		return -1;
 	else
-		return BusEmpfDaten;
+		return BusEmpfFremdStatus; // wurde von der ISR gefüllt
 	}
 	
 
@@ -448,6 +474,8 @@ void TwiInit()
 		FehlerStop(12);
 #endif //def TWAMR
 	BusKollisionZaehler = 0;
+	BusEmpfPufferLesePos = 0;
+	BusEmpfPufferSchreibPos = 0;
 	}
 
 
@@ -458,17 +486,17 @@ void WarteSchlussQuittung(uint16_t MaxTimer)
 	StartTimer(&Timer);
 	while (true)
 		{
-		if (BIT_IS_SET(Status, StatBit_BusKdoEmpfangen)) // wird in Interrupt gesetzt
+		uint8_t Code;
+
+		if (GetEmpfByte(&Code)) 
 			{
-			if (BusEmpfDaten == BusQuittSchluss)
+			if (Code == BusQuittSchluss)
 				break;
-			StatusKdoEmpfReset();
 			}
 		if (TimerVal(&Timer) > MaxTimer) 
 			break;
 		wdt_reset(); // nach Schluss-Kommando keine Lebenszeichen mehr...
 		}
-	StatusKdoEmpfReset();
 	}
 	
 
@@ -514,3 +542,25 @@ void SendeLebenszeichen()
 		}
 	}
 	
+
+bool GetEmpfByte(uint8_t *Code)
+	//!< holt aus dem Empfangspuffer den nächsten Code
+	//!< \retval false, wenn Empfangspuffer leer ist.
+	{
+	if (BusEmpfPufferLesePos == BusEmpfPufferSchreibPos)
+		return false;
+	*Code = BusEmpfPuffer[BusEmpfPufferLesePos++];
+	if (BusEmpfPufferLesePos >= EMPF_PUFFER_GROESSE)
+		BusEmpfPufferLesePos = 0;
+	if (BusEmpfPufferLesePos == BusEmpfPufferSchreibPos)
+		CLR_BIT_Status(StatBit_BusKdoEmpfangen);
+	return true;
+	}
+	
+	
+bool EmpfPufferLeer()
+	{
+	return BusEmpfPufferLesePos == BusEmpfPufferSchreibPos;
+	}
+	
+

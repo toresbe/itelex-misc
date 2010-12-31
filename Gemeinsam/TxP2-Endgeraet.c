@@ -36,8 +36,6 @@ static volatile TFsBetriebsart FsBetriebsart;
 	
 static volatile bool PegelGehend; // wird von Schnittstellenprogramm gesetzt (vom Fernschreiber)
 
-static volatile bool PegelKommend; // wird von Rahmenanwendung gesetzt (zum Fernschreiber)
-
 
 // Debug-Speicher
 // --------------
@@ -151,7 +149,7 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 			SET_BIT(Status, StatBit_Frei); // kein SET_BIT_Status, weil sonst das Interrupt-Flag wieder gesetzt wird
 			CLR_BIT(Status, StatBit_LeitungFrei); // es ist keine Leitung, löscht auch ggf. StatBit_AngerufenBelegt
 			PegelGehend = true;
-			PegelKommend = true;
+			BusEmpfMark = true;
 			BusVerbPartner = 0;
 			break;
 
@@ -185,7 +183,7 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 			PufferInit(&EmpfPuffer);
 			SeriellUmsetzInit();
 			PegelGehend = true;
-			PegelKommend = true;
+			BusEmpfMark = true;
 			break;
 
 		case FremdKonfig:
@@ -279,7 +277,6 @@ TGeEinschResultat GeEinschalten()
 
 	cli();
 	CLR_BIT(Status, StatBit_Frei);
-	CLR_BIT(Status, StatBit_BusKdoEmpfangen);
 	CLR_BIT(Status, StatBit_AngerufenBelegt);
 	sei();
 	
@@ -365,7 +362,7 @@ uint8_t LetzteInterneWahl()
 	
 bool KoEmpfMark() // true bei Mark
 	{
-	return PegelKommend;
+	return BusEmpfMark;
 	}
 	
 	
@@ -507,7 +504,6 @@ void GeAusschalten()
 	else
 		{ // aktiv ausschalten
 		BusSenden(BusKdoSchluss, 30);
-		StatusKdoEmpfReset();
 		WarteSchlussQuittung(3000);
 		}
 	BetriebsartWechsel(Ausgeschaltet);
@@ -533,27 +529,29 @@ void Aktivieren(bool Aktiv)
 		
 
 static void BusKomm()
-// darf nur bei aktivem Interrupt-Flag aufgerufen werden!
+// darf nur bei aktivem Interrupt-Enable aufgerufen werden!
 	{
 	//HACK LED_EIN(ROT);
 	
-	// TODO: Erstes BusKdoMark oder BusKdoSpace darf nicht den vorherigen Befehl überschreiben...
-	
-	if (BIT_IS_SET(Status, StatBit_BusKdoEmpfangen))
+	uint8_t Kdo;
+
+	if (GetEmpfByte(&Kdo))
 		{
+		bool Bearbeitet = true;
+
 		if (FsBetriebsart == Inaktiv)
 			{
 			FehlerStop(1);
 			}
-
-		switch (BusEmpfDaten)
+		
+		switch (Kdo)
 			{
 			case 0 ... BusKdoVerbAufnahme:
 				if (FsBetriebsart == Ausgeschaltet)
 					{
-					BusVerbPartner = BusEmpfDaten << 1;
+					BusVerbPartner = Kdo << 1;
 					BetriebsartWechsel(Reserviert);
-					StatusKdoEmpfReset(); 
+					Bearbeitet = true;
 					}
 				break;
 
@@ -562,7 +560,7 @@ static void BusKomm()
 					{ 
 					AblaufMark(0xFF); 
 					BetriebsartWechsel(EinschaltungKo);
-					StatusKdoEmpfReset();
+					Bearbeitet = true;
 					}					
 				break;
 
@@ -571,7 +569,7 @@ static void BusKomm()
 					{ // Gegenstelle läuft
 					AblaufMark(0x2e);
 					BetriebsartWechsel(Eingeschaltet);
-					StatusKdoEmpfReset();
+					Bearbeitet = true;
 					}					
 				break; // case BusQuittEin
 
@@ -582,7 +580,7 @@ static void BusKomm()
 					{ // Gegenstelle läuft
 					AblaufMark(0xFF); // TODO ???
 					WahlPhase = WahlExtern;
-					StatusKdoEmpfReset();
+					Bearbeitet = true;
 					}					
 				break; // case BusKdoWahlFreigabe
 
@@ -599,64 +597,26 @@ static void BusKomm()
 					BetriebsartWechsel(Ausgeschaltet);
 				else if (FsBetriebsart != Ausgeschaltet)
 					BetriebsartWechsel(AusschaltungKo);
-				StatusKdoEmpfReset();
-				break;
-
-			case BusKdoSpace:
-				PegelKommend = false;
-				CLR_BIT_Status(StatBit_FsBefEin);
-				StatusKdoEmpfReset();
-				break;
-									
-			case BusKdoSpaceWdh:
-				if (PegelKommend)
-					{
-					#ifdef LEDROT_BEI_UNERWARTETWDH
-						LED_EIN(ROT);
-					#endif 
-					PegelKommend = false;
-					CLR_BIT_Status(StatBit_FsBefEin);
-					}
-				StatusKdoEmpfReset();
-				break;
-									
-			case BusKdoMark:
-				PegelKommend = true;
-				SET_BIT_Status(StatBit_FsBefEin);
-				StatusKdoEmpfReset();
-				break;
-			
-			case BusKdoMarkWdh:
-				if (!PegelKommend)
-					{
-					#ifdef LEDROT_BEI_UNERWARTETWDH
-						LED_EIN(ROT);
-					#endif
-					PegelKommend = true;
-					SET_BIT_Status(StatBit_FsBefEin);
-					}
-				StatusKdoEmpfReset();
+				Bearbeitet = true;
 				break;
 
 			case 0xF0 ... 0xFF :
 				if (FsBetriebsart == FremdKonfig)
 					{
-					PufferSpeich(&EmpfPuffer, BusEmpfDaten);
-					StatusKdoEmpfReset();
+					PufferSpeich(&EmpfPuffer, Kdo);
+					Bearbeitet = true;
 					}
 				break;
 				
 			} // case BusEmpfDaten
 
-		if (BIT_IS_SET(Status, StatBit_BusKdoEmpfangen))
-			{ // immer noch gesetzt, also nicht behandelt...
+		if (!Bearbeitet)
+			{ 
 #ifdef FALSCHKDO_FEHLERSTOP
 			FehlerStop(3);
-#else
-			StatusKdoEmpfReset(); // ignorieren
 #endif
 			}
-		} // if BIT_IS_SET(Status, StatBit_BusKdoEmpfangen)
+		} // if GetEmpfByte(&Kdo)
 
 	// selbsttätige Aktionen... (ggf. eingeleitet vom Endgerät oder durch Telegramme)
 	// ------------------------
@@ -694,7 +654,7 @@ static void BusKomm()
 					}
 				}
 			if (WahlPhase == WahlExtern)
-				{ // TODO Timer für Mindestabstände zwischen den Ziffern...
+				{ 
 				BusSenden(BusKdoWahlziffer0 + Ziffer, 100);
 				StartTimer(&PegelWdhTimer);
 				}
@@ -704,6 +664,15 @@ static void BusKomm()
 			break;
 
 		case Eingeschaltet:
+			// Kommenden Pegel verarbeiten
+			if (BusEmpfMarkwechsel)
+				{
+				if (BusEmpfMark)
+					SET_BIT_Status(StatBit_FsBefEin);
+				else
+					CLR_BIT_Status(StatBit_FsBefEin);
+				}
+
 			// Gehenden Pegel vorbereiten
 			if (!PufferLeer(&SendePuffer) && SerUmSendBitNr == SerUmSendWarte)
 				{
@@ -711,14 +680,12 @@ static void BusKomm()
 				SerUmSendBitNr = SerUmSendStart;
 				}
 
-			SeriellUmsetzung(PegelKommend, (bool*) &PegelGehend);
+			SeriellUmsetzung(BusEmpfMark, (bool*) &PegelGehend);
 
-			cli();
 			if (PegelGehend)
 				SET_BIT_Status(StatBit_FsMeldEin);
 			else
 				CLR_BIT_Status(StatBit_FsMeldEin);
-			sei();
 
 			if (SerUmEmpfBitNr == SerUmEmpfFertig)
 				{

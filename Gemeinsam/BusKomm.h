@@ -30,15 +30,15 @@ extern volatile TBusAuftrag BusAuftrag;
 extern volatile TBusErgebnis BusErgebnis; // Besetzt nur nach BedSenden 
 extern volatile uint8_t BusVerbPartner; // als I²C-Adresse, also * 2
 extern uint8_t BusEigenAdresse; // als I²C-Adresse, also * 2. Bei Mehrfach-Adressen nur Basisadresse
-extern uint8_t BusEigenAdrMehrfach; // muss Potenz von 2 sein, Standard = 1
+extern uint8_t BusEigenAdrMehrfach; // muss Potenz von 2 sein (also 1, 2, 4, 8, 16, ... , Standard = 1
 extern volatile uint8_t BusAnrufSubAdresse; // tatsächlich als Adresse verwendete Nummer 
-extern volatile uint8_t BusSendeDaten;
-extern volatile uint8_t BusEmpfDaten;
+extern volatile uint8_t BusSendeDaten; //!< zu sendendes Byte
 extern volatile bool BusFrei;
 extern volatile uint8_t BusKollisionZaehler; // nur zum Testen / Statistik
+extern volatile bool BusEmpfMark;
+extern volatile bool BusEmpfMarkwechsel;
 
-
-extern void StatusKdoEmpfReset();
+// extern void StatusKdoEmpfReset(); --> macht jetzt GetEmpfDaten
 
 extern void CLR_BIT_Status(uint8_t BitNr);
 	
@@ -63,6 +63,12 @@ extern uint8_t WahlZuAdresse(uint8_t Wahl, uint8_t AnzZiffern);
 extern uint8_t AdresseZuWahl(uint8_t Adresse, uint8_t *AnzZiffern);
 
 extern void SendeLebenszeichen();
+
+extern bool GetEmpfByte(uint8_t *Code);
+	//!< holt aus dem Empfangspuffer den nächsten Code
+	//!< \retval false, wenn Empfangspuffer leer ist.
+	
+extern bool EmpfPufferLeer();
 
 
 #endif //ndef __BUSKOMM_H__
