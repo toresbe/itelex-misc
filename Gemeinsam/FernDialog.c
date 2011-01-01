@@ -49,7 +49,7 @@ bool FernDialogVerbinden(uint8_t SucheStartAdresse)
 
 	BusVerbPartner = PartnerAdresse;
 
-	BusSenden(BusEigenAdresse >> 1, 50);
+	BusSenden(BusEigenAdresse >> 1);
 	BusWarteFertig();
 	
 	if (BusErgebnis != Ok)
@@ -61,7 +61,7 @@ bool FernDialogVerbinden(uint8_t SucheStartAdresse)
 	BusErgebnis = Ok; // um spätere Probleme zu vermeiden
 	BusAuftrag = Nichts;
 	
-	BusSenden(BusKdoEin, 30);
+	BusSenden(BusKdoEin);
 	BusWarteFertig();
 
 	TMsTimer Timer;
@@ -70,14 +70,13 @@ bool FernDialogVerbinden(uint8_t SucheStartAdresse)
 
 	while (true)
 		{
+		uint8_t Code;
+
 		SendeLebenszeichen();
-		if (BIT_IS_SET(Status, StatBit_BusKdoEmpfangen))
+		if (GetEmpfByte(&Code))
 			{
-			if (BusEmpfDaten == BusQuittEin)
-				{
-				StatusKdoEmpfReset();
+			if (Code == BusQuittEin)
 				break; // der einzige normale Ausstieg aus dieser Schleife
-				}
 			else
 				return false;
 			} // if BusKdo empfangen
@@ -85,7 +84,7 @@ bool FernDialogVerbinden(uint8_t SucheStartAdresse)
 		if (TimerVal(&Timer) > 5000)
 			// Einschalt-Quittung braucht zu lange... Achtung: Umschaltung aus Lokal-Betrieb berücksichtigen
 			{
-			BusSenden(BusKdoSchluss, 0);
+			BusSenden(BusKdoSchluss);
 			WarteSchlussQuittung(1500);
 			return false;
 			}
@@ -106,7 +105,6 @@ bool FernDialogVerbinden(uint8_t SucheStartAdresse)
 bool CodeEmpfangenFern(uint8_t *c)
 // false bei Verbindungsende
 	{
-	bool EmpfMark = true;
 	bool Dummy;
 	
 	SerUmEmpfBitNr = SerUmEmpfWarte;
@@ -117,31 +115,10 @@ bool CodeEmpfangenFern(uint8_t *c)
 
 		FernDialogCallback();
 
-		if (BIT_IS_SET(Status, StatBit_BusKdoEmpfangen))
-			{
-			switch (BusEmpfDaten)
-				{
-				case BusKdoMark:
-				case BusKdoMarkWdh:
-					EmpfMark = true;
-					SET_BIT_Status(StatBit_FsBefEin);
-					break;
-					
-				case BusKdoSpace:
-				case BusKdoSpaceWdh:
-					EmpfMark = false;
-					CLR_BIT_Status(StatBit_FsBefEin);
-					break;
-					
-				case BusKdoSchluss:
-				case BusQuittSchluss:
-					return false;
+		if (!EmpfPufferLeer())
+			return false;
 
-				} // switch BusEmpfDaten
-			StatusKdoEmpfReset();
-			} // if BusKdo empfangen
-
-		SeriellUmsetzung(EmpfMark, &Dummy);
+		SeriellUmsetzung(BusEmpfMark, &Dummy);
 		} // while SerUmEmpfBitNr != SerUmEmpfFertig
 		
 	*c = SerUmEmpfDaten;
@@ -271,32 +248,26 @@ bool CodeAusgabeFern(uint8_t code)
 			{
 			if (SendMark)
 				{
-				BusSenden(BusKdoMark, 0);
+				BusSenden(BusKdoMark);
 				SET_BIT_Status(StatBit_FsMeldEin);
 				}
 			else
 				{
-				BusSenden(BusKdoSpace, 0);
+				BusSenden(BusKdoSpace);
 				CLR_BIT_Status(StatBit_FsMeldEin);
 				}
 
 			WarMark = SendMark;
 			}
 
-		if (BIT_IS_SET(Status, StatBit_BusKdoEmpfangen))
-			{
-			if (BusEmpfDaten == BusKdoMark
-				|| BusEmpfDaten == BusKdoMarkWdh
-				|| BusEmpfDaten == BusKdoSpace
-				|| BusEmpfDaten == BusKdoSpaceWdh)
-				// ignorieren
-				StatusKdoEmpfReset();
-			else 
-				return false;
-			}
+		uint8_t Code;
+
+		SendeLebenszeichen();
+		if (GetEmpfByte(&Code))
+			return false;
 		
 		}
-	BusSenden(BusKdoMarkWdh, 3); // auf erfolgreiche Verarbeitung der vorherigen Kommandos warten...
+	BusSenden(BusKdoMarkWdh); // auf erfolgreiche Verarbeitung der vorherigen Kommandos warten...
 	return true;
 	}
 	

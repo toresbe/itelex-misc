@@ -250,8 +250,10 @@ void Grundstellen(bool SchlussQuittSenden)
 	{
 	void SeriellAus();
 
-	StatusKdoEmpfReset();
-	
+	uint8_t Code;
+	while (GetEmpfByte(&Code))
+		; // einfach den Puffer leeren
+
 	clr_LEDGELB();
 	clr_LEDGRUEN();
 	clr_LEDBLAU();
@@ -259,7 +261,7 @@ void Grundstellen(bool SchlussQuittSenden)
 	SeriellAus();
 	if (SchlussQuittSenden && BusVerbPartner != 0)
 		{
-		BusSenden(BusQuittSchluss, 0);
+		BusSenden(BusQuittSchluss);
 		}
 	if (get_GABEL() || get_TELAUS())
 		{
@@ -559,25 +561,24 @@ SchnellstartLoeschen:
 */
 
 
-static bool PruefeBusSchluss(uint8_t FehlerCode)
+static bool PruefeBusSchluss(uint8_t Code, uint8_t FehlerCode)
+	// Wenn Code != 0 wurde Empfangs-Code schon vorher aus puffer geholt 
 	// liefert true, wenn abgebrochen werden soll.
 	{
-	if (!BIT_IS_SET(Status, StatBit_BusKdoEmpfangen))
-		return false;
+	if (Code == 0)
+		if (!GetEmpfByte(&Code))
+			return false;
 		
-	if (BusEmpfDaten == BusKdoSchluss || BusEmpfDaten == BusQuittSchluss)
+	if (Code == BusKdoSchluss || Code == BusQuittSchluss)
 		{
-		Grundstellen(BusEmpfDaten == BusKdoSchluss);
-		StatusKdoEmpfReset();
+		Grundstellen(Code == BusKdoSchluss);
 		return true;
 		}
 
-	DiagDatenSpeichern(BusEmpfDaten); // HACK für TEST
+	DiagDatenSpeichern(Code); // HACK für TEST
 
 #ifdef FALSCHKDO_FEHLERSTOP
 	FehlerStop(FehlerCode);
-#else
-	StatusKdoEmpfReset();
 #endif //def FALSCHKDO_FEHLERSTOP
 	return false; 
 	}
@@ -588,7 +589,7 @@ static bool PruefeTimerAbbruch(TMsTimer *Timer, uint16_t MaxTimer)
 	if (TimerVal(Timer) > MaxTimer)
 		{ // es braucht zu lange...
 		set_LEDROT();
-		BusSenden(BusKdoSchluss, 0);
+		BusSenden(BusKdoSchluss);
 		WarteSchlussQuittung(1500);
 		Grundstellen(false);
 		return true;
@@ -707,8 +708,7 @@ void VerbindungKommend()
 		}
 	
 	BusVerbPartner = AktuellEmpfaenger; // beide sind schon << 1 für I²C-Adressen
-	StatusKdoEmpfReset();
-	BusSenden(BusEigenAdresse >> 1, 50);
+	BusSenden(BusEigenAdresse >> 1);
 	BusWarteFertig();
 	
 	if (BusErgebnis == Ok)
@@ -723,21 +723,20 @@ void VerbindungKommend()
 	BusErgebnis = Ok; // um spätere Probleme zu vermeiden
 	BusAuftrag = Nichts;
 	
-	BusSenden(BusKdoEin, 30);
+	BusSenden(BusKdoEin);
 	BusWarteFertig();
 	
 	StartTimer(&Timer);
 	while (true)
 		{
 		SendeLebenszeichen();
-		if (BIT_IS_SET(Status, StatBit_BusKdoEmpfangen))
+
+		uint8_t Code;
+		if (GetEmpfByte(&Code))
 			{
-			if (BusEmpfDaten == BusQuittEin)
-				{
-				StatusKdoEmpfReset();
+			if (Code == BusQuittEin)
 				break; // der einzige normale Ausstieg aus dieser Schleife
-				}
-			else if (PruefeBusSchluss(7))
+			else if (PruefeBusSchluss(Code, 7))
 				return;
 			} // if BusKdo empfangen
 		
@@ -791,7 +790,7 @@ void VerbindungKommendSimulieren()
 	
 	BusVerbPartner = AktuellEmpfaenger; // beide sind schon << 1 für I²C-Adressen
 
-	BusSenden(BusEigenAdresse >> 1, 50);
+	BusSenden(BusEigenAdresse >> 1);
 	
 	BusWarteFertig();
 
@@ -822,7 +821,7 @@ void VerbindungKommendSimulieren()
 		return;
 		}
 
-	BusSenden(BusKdoEin, 30);
+	BusSenden(BusKdoEin);
 	BusWarteFertig();
 	
 	set_LEDGRUEN(); // und GELB
@@ -831,14 +830,13 @@ void VerbindungKommendSimulieren()
 	while (true)
 		{
 		SendeLebenszeichen();
-		if (BIT_IS_SET(Status, StatBit_BusKdoEmpfangen))
+		
+		uint8_t Code;
+		if (GetEmpfByte(&Code))
 			{
-			if (BusEmpfDaten == BusQuittEin)
-				{
-				StatusKdoEmpfReset();
+			if (Code == BusQuittEin)
 				break; // der einzige Ausstieg aus dieser Schleife
-				}
-			else if (PruefeBusSchluss(13))
+			else if (PruefeBusSchluss(Code, 13))
 				return;
 
 			} // if BusKdo empfangen
@@ -855,21 +853,20 @@ void VerbindungKommendSimulieren()
 	
 	while (true) // Simulation der Verbindung
 		{
-		if (BIT_IS_SET(Status, StatBit_BusKdoEmpfangen))
+		uint8_t Code;
+		if (GetEmpfByte(&Code))
 			{
-			if (BusEmpfDaten == BusKdoMark)
-				clr_LEDBLAU();
-			else if (BusEmpfDaten == BusKdoSpace)
-				set_LEDBLAU();
-			else if (PruefeBusSchluss(15))
+			if (PruefeBusSchluss(Code, 15))
 				return;
 			}
-			
+		
+		bset_LEDBLAU(!BusEmpfMark);
+		
 		if (TasteAlt == get_TASTE())
 			{
 			if (TimerVal(&Timer) > 934 && BusAuftrag == Fertig && BusFrei)
 				{
-				BusSenden(TasteAlt ? BusKdoMarkWdh : BusKdoSpaceWdh, 3);
+				BusSenden(TasteAlt ? BusKdoMarkWdh : BusKdoSpaceWdh);
 				StartTimer(&Timer);
 				}
 			}
@@ -877,7 +874,7 @@ void VerbindungKommendSimulieren()
 			{
 			TasteAlt = get_TASTE();
 			bset_LEDROT(!TasteAlt);
-			BusSenden(TasteAlt ? BusKdoMark : BusKdoSpace, 3);
+			BusSenden(TasteAlt ? BusKdoMark : BusKdoSpace);
 			StartTimer(&Timer);
 			}
 			
@@ -1212,416 +1209,29 @@ void TestAnruf(char* Nummer)
 // Gehende Verbindung
 // ==================
 
-//#define VERBINDUNG_GEHEND_ALT
-
-#ifdef VERBINDUNG_GEHEND_ALT
-
-
 static void VerbindungGehend()
 	{
 	// Empfangenen Befehl auswerten
 	// ----------------------------
-	if (BusEmpfDaten == BusQuittSchluss || BusEmpfDaten == BusKdoSchluss)
-		{
-		StatusKdoEmpfReset();
+	uint8_t Code;
+	if (!GetEmpfByte(&Code))
 		return;
-		}
-				
-	if (BusEmpfDaten > BusKdoVerbAufnahme)
+
+	if (Code == BusQuittSchluss || Code == BusKdoSchluss)
+		return;
+
+	if (Code > BusKdoVerbAufnahme)
 		{
 #ifdef FALSCHKDO_FEHLERSTOP
 		FehlerStop(4); 
 #else		
-		StatusKdoEmpfReset();
 		return;
 #endif
 		}
 
 	set_LEDGELB(); // bleibt als Zeichen für gehende Verbindung dauernd ein
 			
-	BusVerbPartner = BusEmpfDaten << 1;
-	StatusKdoEmpfReset();
-	CLR_BIT_Status(StatBit_Frei);
-	// CLR_BIT_Status(StatBit_LeitungFrei); wird gleich vom nächsten Bit überschrieben
-	CLR_BIT_Status(StatBit_AngerufenBelegt); 
-
-	if (!BIT_IS_SET(KonfigBits, KonfigBit_FesterHauptanschluss) || Hauptanschluss == 0)
-		{
-		Hauptanschluss = BusVerbPartner >> 1;
-		}
-		
-	wdt_reset();
-	
-	// warte auf Einschalt-Kommando
-	// ----------------------------
-	set_LEDROT();
-	while (true)
-		{
-		SendeLebenszeichen();
-		if (BIT_IS_SET(Status, StatBit_BusKdoEmpfangen))
-			{
-			if (BusEmpfDaten == BusKdoEin)
-				{
-				StatusKdoEmpfReset();
-				break; // der einzige Ausstieg aus dieser Schleife
-				}
-			else if (PruefeBusSchluss(5))
-				return;
-	
-			} // if BusKdo empfangen
-		} // while true
-
-	TMsTimer MessTimer;
-		
-	set_GABEL();
-	StartTimer(&MessTimer);
-	while (TimerVal(&MessTimer) < 100)
-		;
-	set_TELAUS(); // Telefon abschalten
-
-	wdt_reset();
-	
-	clr_LEDROT();
-	set_LEDBLAU();
-	
-	// warte auf Wählton
-	TMsTimer AbbruchTimer;
-
-	StartDetection(true);
-	StartTimer(&MessTimer);
-	StartTimer(&AbbruchTimer);
-	GetState(true);
-	while (TimerVal(&MessTimer) < 500)
-		{
-		SendeLebenszeichen();
-
-		if (!BIT_IS_SET(GetState(false), STATEBIT_CALLPROGRESS))
-			StartTimer(&MessTimer);
-
-		if (PruefeBusSchluss(4))
-			return;
-
-		if (PruefeTimerAbbruch(&AbbruchTimer, 10000))
-			return;
-	
-		}
-
-	clr_LEDBLAU();
-		
-	// Wahlaufforderung senden
-	BusSenden(BusKdoWahlFreigabe, true);
-	
-	// Auf Wählimpulse und anderes warten
-	bool NachwahlzifferGespeichert = false;
-	uint8_t Nachwahlziffer = 0;
-	uint8_t Ziffer;
-	bool ErsteZifferGewaehlt = false;
-	TMsTimer WahlAbstand;
-	TMsTimer StateFilterTimer;
-	uint8_t LastState = 0;
-	bool TonErkannt = false;
-	bool TonGezaehlt = false;
-	uint8_t BesetztZaehler = 0;
-	bool TraegerErkannt = false;
-
-	while (true)
-		{ // Wählschleife... LED: Grün = Wahlziffer, blau = Träger,  rot = Frei- oder Besetztton
-		SendeLebenszeichen();
-
-		if (BIT_IS_SET(Status, StatBit_BusKdoEmpfangen))
-			{ // Bus-Kommando empfangen
-			switch (BusEmpfDaten)
-				{
-				case BusKdoWahlziffer0 ... BusKdoWahlziffer9:
-					Ziffer = BusEmpfDaten - BusKdoWahlziffer0; // Damit die Ziffer nicht mehr zerstört werden kann
-					set_LEDGRUEN();
-					StopDetection();
-					if (NachwahlzifferGespeichert)
-						{
-						ZifferWaehlen(Nachwahlziffer);
-						NachwahlzifferGespeichert = false;
-						SendeLebenszeichen();
-						wdt_reset(); // da der Wählimpuls 0,2 Sekunden gedauert hat.
-						}
-					if (ErsteZifferGewaehlt && TimerVal(&WahlAbstand) > 2500)
-						{
-						Nachwahlziffer = Ziffer;
-						NachwahlzifferGespeichert = true;
-						}
-					else
-						{
-						ZifferWaehlen(Ziffer);
-						SendeLebenszeichen();
-						wdt_reset(); // da der Wählimpuls 0,2 Sekunden gedauert hat.
-						}
-
-					StatusKdoEmpfReset();	
-					StartTimer(&WahlAbstand);
-					ErsteZifferGewaehlt = true;
-					StartDetection(true);
-					StartTimer(&MessTimer);
-					GetState(true);
-					clr_LEDGRUEN();
-					break; // case BusKdoWahlziffer
-				
-				default:
-					if (PruefeBusSchluss(5))
-						return;
-					break;
-				
-				} // switch BusEmpfDaten
-				
-			} // if BIT_IS_SET(Status, StatBit_BusKdoEmpfangen)
-			
-		if (ErsteZifferGewaehlt)
-			{ // erst nach der Ersten Ziffer ist das Hören auf Träger oder Besetzt sinvoll...
-			
-			if (TimerVal(&WahlAbstand) > 800)
-				{
-				// Kurzzeitige Wechsel in den Status-Bits (Detection-Register) ausfiltern...
-				if (GetState(false) == LastState)
-					StartTimer(&StateFilterTimer);
-				else if (TimerVal(&StateFilterTimer) > 50)
-					LastState = GetState(false);
-				}
-			else
-				{ // bis 0,8 Sekunden nach Wählziffer alle Töne ignorieren...
-				LastState = 0; 
-				GetState(false);
-				StartTimer(&MessTimer);
-				}
-			
-			// TODO probeweise Träger senden...
-			
-			if (BIT_IS_SET(LastState, STATEBIT_CARRIER) || BIT_IS_SET(LastState, STATEBIT_ANSWERTONE))
-				{
-				set_LEDBLAU();
-				if (!TraegerErkannt)
-					{
-					StartTimer(&MessTimer);
-					TraegerErkannt = true;
-					}
-
-				if (TimerVal(&MessTimer) > 700)
-					break; // Einziger Ausstieg aus der großen Wählschleife ohne Return
-
-				} // Carrier vorhanden
-			else
-				{ // kein Carrier vorhanden
-				clr_LEDBLAU();
-				TraegerErkannt = false;
-				}
-
-			if (BIT_IS_SET(LastState, STATEBIT_CALLPROGRESS))
-				{ // es wird ein Ton empfangen (Besetzt oder Wählton ist unklar...)
-				set_LEDROT();
-				if (!TonErkannt)
-					{
-					StartTimer(&MessTimer);
-					TonErkannt = true;
-					}
-				else if (!TonGezaehlt && TimerVal(&MessTimer) > 200) 
-					{
-					TonGezaehlt = true;
-					BesetztZaehler++;
-					}
-				} // Signalton ist ein
-			else
-				{ // Signalton ist aus
-				clr_LEDROT();
-				if (TonErkannt)
-					{ // Wechsel auf aus
-					StartTimer(&MessTimer);
-					TonErkannt = false;
-					}
-				else if (TonGezaehlt && TimerVal(&MessTimer) > 200)
-					{
-					TonGezaehlt = false; // das Rücksetzen erst in der langen Pause bewirkt, dass kurze Unterbrechungen
-						// nicht gezählt werden
-					}
-				} // Signalton ist aus
-			
-			if (BesetztZaehler >= 6)
-				{
-				set_LEDROT();
-				clr_LEDGELB();
-				clr_LEDBLAU();
-				BusSenden(BusKdoSchluss, false);
-				WarteSchlussQuittung(2500);
-				Grundstellen(false);
-				return;
-				}
-			} // if ErsteZifferGewaehlt
-			
-		} // while (true)
-	// Ende der Schleife nur bei erkanntem Träger oder Answer-Tone
-
-	// gelb und blau leuchten
-
-	// TODO Answer-Tone auch in Org-Richtung (für VoIP?)
-	
-	// jetzt eigenen Träger senden
-	Transmit(true); // setzt nur "Mark".
-	StartV21(true);
-
-	// Auf Ende des Answer-Tones warten
-
-	StartTimer(&MessTimer);
-	StartTimer(&AbbruchTimer);
-	GetState(true);
-
-	set_LEDGRUEN();
-	clr_LEDBLAU();
-	clr_LEDROT();
-
-	while (true)
-		{ // LED: blau = Answer-Tone
-		SendeLebenszeichen();
-
-		if (!BIT_IS_SET(GetState(false), STATEBIT_ANSWERTONE))
-			{ 
-			clr_LEDBLAU();
-			if (TimerVal(&MessTimer) > 150)
-				break;
-			}
-		else
-			{
-			set_LEDBLAU();
-			StartTimer(&MessTimer);
-			}
-
-		if (BIT_IS_SET(Status, StatBit_BusKdoEmpfangen)) // Bus-Kommando empfangen
-			{
-			if (BusEmpfDaten >= BusKdoWahlziffer0 && BusEmpfDaten <= BusKdoWahlziffer9)
-				{
-				NachwahlzifferGespeichert = true;
-				Nachwahlziffer = BusEmpfDaten - BusKdoWahlziffer0;
-				StatusKdoEmpfReset();
-				}
-			else if (PruefeBusSchluss(13))
-				return;
-			}
-			
-		if (PruefeTimerAbbruch(&AbbruchTimer, 10000))
-			return; // Answer-Tone steht zu lange...
-		}
-
-	// gelb und grün leuchten
-	
-	// Auf Träger von der Gegenstelle warten
-	StartTimer(&MessTimer);
-	StartTimer(&AbbruchTimer);
-	GetState(true);
-
-	while (true)
-		{ // LED: grün = Carrier
-		SendeLebenszeichen();
-
-		if (BIT_IS_SET(GetState(false), STATEBIT_CARRIER))
-			{
-			set_LEDGRUEN();
-			if (TimerVal(&MessTimer) > 250)
-				break;
-			}
-		else
-			{
-			clr_LEDGRUEN();
-			StartTimer(&MessTimer);
-			}
-
-		if (BIT_IS_SET(Status, StatBit_BusKdoEmpfangen)) // Bus-Kommando empfangen
-			{
-			if (BusEmpfDaten >= BusKdoWahlziffer0 && BusEmpfDaten <= BusKdoWahlziffer9)
-				{
-				NachwahlzifferGespeichert = true;
-				Nachwahlziffer = BusEmpfDaten - BusKdoWahlziffer0;
-				StatusKdoEmpfReset();
-				}
-			else if (PruefeBusSchluss(13))
-				return;
-			}
-			
-		if (PruefeTimerAbbruch(&AbbruchTimer, 10000))
-			return; // kein Träger von Gegenstelle...
-
-		}
-
-	Seriell300Baud();
-
-	// kurz Warten...
-	StartTimer(&MessTimer);
-	while (TimerVal(&MessTimer) < 200)
-		SendeLebenszeichen();
-		
-	// gelb und grün leuchten...
-
-	if (!HandshakeGehend(NachwahlzifferGespeichert ? Nachwahlziffer : 0))
-		{
-		set_LEDROT();
-		clr_LEDGELB();
-		BusSenden(BusKdoSchluss, false);
-		WarteSchlussQuittung(2500);
-		Grundstellen(false);
-		return; // kein erfolgreiches Handshake
-		}
-
-	SeriellAus();
-	set_LEDBLAU();
-	clr_LEDROT(); // ist noch vom Handshake an
-	
-	// kurz Warten... TODO warum eigentlich?
-	StartTimer(&MessTimer);
-	while (TimerVal(&MessTimer) < 100)
-		SendeLebenszeichen();
-
-	StatusKdoEmpfReset(); // nur vorsorglich
-
-	// rufendes Endgerät einschalten		
-	BusSenden(BusQuittEin, true);
-	
-	wdt_reset();
-	
-	BusWarteFertig();
-
-	clr_LEDBLAU();
-	clr_LEDGRUEN();
-	// gelb bleibt an...
-	
-	void VerbindungHergestellt();
-	VerbindungHergestellt();	
-	
-	}
-
-
-#else // VERBINDUNG_GEHEND_ALT
-
-// Neue Version:
-
-
-static void VerbindungGehend()
-	{
-	// Empfangenen Befehl auswerten
-	// ----------------------------
-	if (BusEmpfDaten == BusQuittSchluss || BusEmpfDaten == BusKdoSchluss)
-		{
-		StatusKdoEmpfReset();
-		return;
-		}
-				
-	if (BusEmpfDaten > BusKdoVerbAufnahme)
-		{
-#ifdef FALSCHKDO_FEHLERSTOP
-		FehlerStop(4); 
-#else		
-		StatusKdoEmpfReset();
-		return;
-#endif
-		}
-
-	set_LEDGELB(); // bleibt als Zeichen für gehende Verbindung dauernd ein
-			
-	BusVerbPartner = BusEmpfDaten << 1;
-	StatusKdoEmpfReset();
+	BusVerbPartner = Code << 1;
 	CLR_BIT_Status(StatBit_Frei);
 	// SET_BIT_Status(StatBit_LeitungFrei);  wird gleich vom nächsten Bit überschrieben
 	CLR_BIT_Status(StatBit_AngerufenBelegt);
@@ -1639,20 +1249,18 @@ static void VerbindungGehend()
 	while (true)
 		{
 		SendeLebenszeichen();
-		if (BIT_IS_SET(Status, StatBit_BusKdoEmpfangen))
+
+		uint8_t Code;
+		if (GetEmpfByte(&Code))
 			{
-			if (BusEmpfDaten == BusKdoEin)
-				{
-				StatusKdoEmpfReset();
+			if (Code == BusKdoEin)
 				break; // der einzige Ausstieg aus dieser Schleife
-				}
-			else if (PruefeBusSchluss(5))
+			else if (PruefeBusSchluss(Code, 5))
 				return;
 	
 			} // if BusKdo empfangen
 		} // while true
 		
-
 	TMsTimer WahlAbstand;
 
 	set_GABEL();
@@ -1701,12 +1309,13 @@ static void VerbindungGehend()
 
 		// Aufgabe A: Telegramme bearbeiten
 		// --------------------------------
-		if (BIT_IS_SET(Status, StatBit_BusKdoEmpfangen))
+		uint8_t Code;
+		if (GetEmpfByte(&Code))
 			{ // Bus-Kommando empfangen
-			switch (BusEmpfDaten)
+			switch (Code)
 				{
 				case BusKdoWahlziffer0 ... BusKdoWahlziffer9:
-					Ziffer = BusEmpfDaten - BusKdoWahlziffer0; // Damit die Ziffer nicht mehr zerstört werden kann
+					Ziffer = Code - BusKdoWahlziffer0; // Damit die Ziffer nicht mehr zerstört werden kann
 					set_LEDGRUEN();
 					
 					if (Phase == PhWarteWaehlton)
@@ -1747,18 +1356,17 @@ static void VerbindungGehend()
 						NachwahlzifferGespeichert = true;
 						} // else Phase >= PhKlingeln
 
-					StatusKdoEmpfReset();	
 					clr_LEDGRUEN();
 					break; // case BusKdoWahlziffer
 				
 				default:
-					if (PruefeBusSchluss(5))
+					if (PruefeBusSchluss(Code, 5))
 						return;
 					break;
 				
-				} // switch BusEmpfDaten
+				} // switch Code
 				
-			} // if BIT_IS_SET(Status, StatBit_BusKdoEmpfangen)
+			} // if GetEmpfByte
 		
 		// Aufgabe B: Zustandswechsel des Modems
 		// -------------------------------------
@@ -1776,7 +1384,7 @@ static void VerbindungGehend()
 					if (TimerVal(&SignaltonTimer) >= 500)
 						{ // 0,5 Sekunden Wählton erkannt
 						clr_LEDBLAU();
-						BusSenden(BusKdoWahlFreigabe, 30); // Wahlaufforderung senden
+						BusSenden(BusKdoWahlFreigabe); // Wahlaufforderung senden
 						Phase = PhWahl;
 						}
 					}
@@ -1837,7 +1445,7 @@ static void VerbindungGehend()
 						set_LEDROT();
 						clr_LEDGELB();
 						clr_LEDBLAU();
-						BusSenden(BusKdoSchluss, 0);
+						BusSenden(BusKdoSchluss);
 						WarteSchlussQuittung(2500);
 						Grundstellen(false);
 						return;
@@ -1941,7 +1549,7 @@ static void VerbindungGehend()
 		{
 		set_LEDROT();
 		clr_LEDGELB();
-		BusSenden(BusKdoSchluss, 0);
+		BusSenden(BusKdoSchluss);
 		WarteSchlussQuittung(2500);
 		Grundstellen(false);
 		return; // kein erfolgreiches Handshake
@@ -1956,10 +1564,8 @@ static void VerbindungGehend()
 	while (TimerVal(&TraegerTimer) < 100)
 		SendeLebenszeichen();
 
-	StatusKdoEmpfReset(); // nur vorsorglich
-
 	// rufendes Endgerät einschalten		
-	BusSenden(BusQuittEin, 50);
+	BusSenden(BusQuittEin);
 	
 	wdt_reset();
 	
@@ -1971,10 +1577,7 @@ static void VerbindungGehend()
 	
 	void VerbindungHergestellt();
 	VerbindungHergestellt();	
-	
-	}
-
-#endif //VERBINDUNG_GEHEND_ALT
+	} // VerbindungGehend()
 
 
 void VerbindungHergestellt()
@@ -2001,40 +1604,18 @@ void VerbindungHergestellt()
 	
 	while (true)
 		{ // LED: rot = schlechter Pegel oder verlorenes Telegramm, gelb = Sende Space, blau = empfange Space
-		if (BIT_IS_SET(Status, StatBit_BusKdoEmpfangen))
+		uint8_t Code;
+
+		if (GetEmpfByte(&Code))
 			{
-			switch (BusEmpfDaten)
+			switch (Code)
 				{
-				case BusKdoMarkWdh:
-					// TODO: Fehlende Erstsendung bemerken...
-				case BusKdoMark:
-					Transmit(true);
-					if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
-						clr_LEDGELB();
-					else
-						clr_LEDGRUEN();
-					SET_BIT_Status(StatBit_FsBefEin);
-					break;
-					
-				case BusKdoSpaceWdh:
-					// TODO: Fehlende Erstsendung bemerken...
-				case BusKdoSpace:
-					Transmit(false);
-					if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
-						set_LEDGELB();
-					else
-						set_LEDGRUEN();
-					CLR_BIT_Status(StatBit_FsBefEin);
-					break;
-					
 				case BusKdoSchluss:
-					StatusKdoEmpfReset();
 					Grundstellen(true);
 					//eeprom_write_byte(&DiagnoseSpeicher[DiagnoseSpeicherLen-1], DiagnoseSpeicherPos);
 					return;
 					
 				case BusQuittSchluss:
-					StatusKdoEmpfReset();
 					Grundstellen(false);
 					return; // eigentlich komisch, dass die Quittung einfach so kommt...
 				
@@ -2047,17 +1628,39 @@ void VerbindungHergestellt()
 #endif //def FALSCHKDO_FEHLERSTOP
 					break;
 
-				} // switch BusEmpfDaten
-			StatusKdoEmpfReset();
-			} // if StatBit_BusKdoEmpfangen
+				} // switch Code
+			} // if GetEmpfByte
 			
-		// empfangenen Pegel an Endgerät weitergeben
+		// vom Bus kommandierten Pegel an Modem geben
+		if (BusEmpfMarkwechsel)
+			{
+			Transmit(BusEmpfMark);
+			if (BusEmpfMark)
+				{
+				if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
+					clr_LEDGELB();
+				else
+					clr_LEDGRUEN();
+				SET_BIT_Status(StatBit_FsBefEin);
+				}
+			else
+				{
+				if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
+					set_LEDGELB();
+				else
+					set_LEDGRUEN();
+				CLR_BIT_Status(StatBit_FsBefEin);
+				}
+			BusEmpfMarkwechsel = false;
+			}
+
+		// vom Modem empfangenen Pegel an Endgerät weitergeben
 		if (ReceiveMark())
 			{
 			clr_LEDBLAU();
 			if (!AltEmpfMark && BusAuftrag == Nichts)
 				{
-				BusSenden(BusKdoMark, 0);
+				BusSenden(BusKdoMark);
 				SET_BIT_Status(StatBit_FsMeldEin);
 				}
 			} // if ReceiveMark()
@@ -2066,7 +1669,7 @@ void VerbindungHergestellt()
 			set_LEDBLAU();
 			if (AltEmpfMark && BusAuftrag == Nichts)
 				{
-				BusSenden(BusKdoSpace, 0);
+				BusSenden(BusKdoSpace);
 				CLR_BIT_Status(StatBit_FsMeldEin);
 				}
 			} // else !ReceiveMark()
@@ -2074,7 +1677,7 @@ void VerbindungHergestellt()
 		// Wiederholungssendung des Pegels?
 		if (BusAuftrag == Nichts && TimerVal(&PegelWdhTimer) >= (PegelSchnellWdh ? 4 : 652))
 			{
-			BusSenden(AltEmpfMark ? BusKdoMarkWdh : BusKdoSpaceWdh, 0);
+			BusSenden(AltEmpfMark ? BusKdoMarkWdh : BusKdoSpaceWdh);
 			}
 			
 		// Gesendete (über I²C) Daten angekommen?
@@ -2115,7 +1718,7 @@ void VerbindungHergestellt()
 				if (TelegrammFehlerZaehler > 5)
 					{ // Abbruch wegen schlechter interner Verbindung
 					set_LEDROT();
-					BusSenden(BusKdoSchluss, 0);
+					BusSenden(BusKdoSchluss);
 					WarteSchlussQuittung(2500);
 					Grundstellen(false);
 					return; // Träger ist weg...
@@ -2239,7 +1842,13 @@ static bool AmtswahlAbfrage()
 			continue; // nochmal;
 			}
 			
-		NeuEigenAdresse = WahlZuAdresse(neu, ZahlEmpfangenFernAnzahlZiffern);
+		if (ZahlEmpfangenFernAnzahlZiffern > 0)
+			NeuEigenAdresse = WahlZuAdresse(neu, ZahlEmpfangenFernAnzahlZiffern);
+		else
+			{
+			NeuEigenAdresse = BusEigenAdresse;
+			ZahlEmpfangenFernAnzahlZiffern = AktAmtswahlZiffern;
+			}
 		
 		if (!TextAusgabeFern(PSTR("\r\n pruefe: "))
 			|| !ZahlAusgabeFern(neu, ZahlEmpfangenFernAnzahlZiffern))
@@ -2262,7 +1871,8 @@ static bool AmtswahlAbfrage()
 static bool DurchwahlenAbfrage()
 	{
 	if (!TextAusgabeFern(PSTR("\r\n nebenstellen fuer durchwahlziffer...")))
-		return false;	
+		return false;
+		
 	for (uint8_t i = 1 ; i <= 7 ; i += 3)
 		{
 		if (!TextAusgabeFern(PSTR("\r\n ... ist"))
@@ -2345,7 +1955,7 @@ static void Einstellen()
 	{
 	if (!FernDialogVerbinden(Hauptanschluss))
 		{
-		PruefeBusSchluss(7);
+		PruefeBusSchluss(0, 7);
 		Grundstellen(false);
 		return;
 		}
@@ -2370,13 +1980,13 @@ static void Einstellen()
 		&& ZahlAbfrageFern(PSTR("justierung verzoegerung auflegen - abheben nach taste ...\r\n ... (x/10 sek)"), &JustierNeustartPause, 1)
 		&& TextAusgabeFern(PSTR("\r\n fertig +++\r\n")))
 		{ // kein Abbruch, daher ordnungsgemäß abstellen
-		BusSenden(BusKdoSchluss, 0);
+		BusSenden(BusKdoSchluss);
 		WarteSchlussQuittung(2500);
 		Grundstellen(false);
 		}
 	else
 		{ // es wurde ein Kommando empfangen, welches nicht Mark oder Space befahl... Abbruch?
-		PruefeBusSchluss(7);
+		PruefeBusSchluss(0, 7); 
 		}
 
 	BusEigenAdressePruefenUndSetzen(NeuEigenAdresse);
@@ -2661,7 +2271,7 @@ int main()
 			Grundstellen(false);
 			} // if Anruf oder Telefon aktiv
 			
-		if (BIT_IS_SET(Status, StatBit_BusKdoEmpfangen))
+		if (!EmpfPufferLeer()) // auf TWI-Bus empfangenes Kommando
 			{
 			VerbindungGehend();
 			Grundstellen(false);

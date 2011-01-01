@@ -16,6 +16,10 @@ extern void FernDialogCallback();
 
 extern bool FernDialogVerbinden(uint8_t SucheStartAdresse);
 
+// alle folgenden Funktionen liefern false, wenn ein 
+// "unerwarteter" Code auf dem Bus empfangen wurde. Also alles
+// auﬂer Mark und Space und Lebenszeichen
+
 extern bool CodeEmpfangenFern(uint8_t *c);
 // false bei Verbindungsende
 
