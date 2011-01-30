@@ -998,18 +998,28 @@ int main()
 	
 	TMsTimer Timer;
 	StartTimer(&Timer);
+
+	TwiInit();
 	
 	sei();
 	
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 250)
 		;
-		
+	
+	// Bei Tastendruck Watchdog AUS
+	if (!BIT_IS_SET(TAST_IPORT, TAST_BIT))
+		{ // Gedrückt = LOW	
+		wdt_disable();
+		while (!BIT_IS_SET(TAST_IPORT, TAST_BIT))
+			; // Warten, bis Taste wieder losgelassen
+		LED_EIN(GELB);
+		StartTimer(&Timer);
+		}
+
 	LED_AUS(ROT);
 	LED_EIN(GELB);
 
-	TwiInit();
-	
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 500)
 		;
