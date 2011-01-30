@@ -419,6 +419,7 @@ void TwiInit()
 	// TWI initilaisieren
 	BusFrei = true;
 	BusAuftrag = Nichts;
+	BusErgebnis = Ok;
 
 #define TWI_PSBITS 1
 #define TWI_PRESCALER (1<<(2*TWI_PSBITS))
@@ -436,6 +437,7 @@ void TwiInit()
 	BusKollisionZaehler = 0;
 	BusEmpfPufferLesePos = 0;
 	BusEmpfPufferSchreibPos = 0;
+	BusSendeDaten = 0;
 	}
 
 
