@@ -715,6 +715,19 @@ void Wiedergabe(void (*FnZchnAusg)(char c),
 	{ 
 	bool Beenden;
 	uint8_t ZeichenZaehler, ZeilenZaehler;
+	TMsTimer Timer;
+
+	// warten, bis nicht mehr geschrieben wird...
+	StartTimer(&Timer);
+	while (TimerVal(&Timer) < 500)
+		{
+		if ((*FnUnterbrechung)())
+			{
+			(*FnZeichenEing)(); // nachlaufende Zeichen verwerfen
+			StartTimer(&Timer);
+			}
+		DoSwTwi();
+		} 
 
 	WiedergabeStart();
 
@@ -782,8 +795,6 @@ void Wiedergabe(void (*FnZchnAusg)(char c),
 				ZeilenZaehler++;
 				if (ZeichenZaehler > 160 || ZeilenZaehler > 3)
 					{
-					TMsTimer Timer;
-
 					ZeichenZaehler = 0;
 					ZeilenZaehler = 0;
 					
@@ -811,6 +822,21 @@ void Wiedergabe(void (*FnZchnAusg)(char c),
 			{
 			DoSwTwi();
 			char z = (*FnZeichenEing)();
+
+			// mehrfache Zeichen verwerfen...
+			StartTimer(&Timer);
+
+			while (TimerVal(&Timer) < 300)
+				{
+				if ((*FnUnterbrechung)())
+					{
+					(*FnZeichenEing)(); // nachlaufende Zeichen verwerfen
+					StartTimer(&Timer);
+					}
+				DoSwTwi();
+				} 
+
+			// nur das erste Zeichen auswerten...
 			switch (z)
 				{
 				case 'l':
