@@ -31,14 +31,16 @@ inline bool PufferVoll(TPuffer *p)
 	}
 	
 	
+//! Schreibt ein Byte in den Puffer.
 bool PufferSpeich(TPuffer *p, uint8_t code)
 	{
 	if (!PufferVoll(p))
 		{
+		uint8_t SregTemp = SREG; // sichert Interrupt-Enable
 		cli();
 		p->Puffer[p->SpeichP] = code;
 		p->SpeichP = PufferNP(p->SpeichP);
-		sei();
+		SREG = SregTemp;
 		return true;
 		}
 	else
@@ -46,21 +48,26 @@ bool PufferSpeich(TPuffer *p, uint8_t code)
 	}
 	
 
+//! Holt ein Byte aus dem Puffer
 uint8_t PufferAusg(TPuffer *p)
 	{
+	uint8_t SregTemp = SREG; // sichert Interrupt-Enable
 	cli();
 	uint8_t res = p->Puffer[p->AusgP];
 	p->AusgP = PufferNP(p->AusgP);
-	sei();
+	SREG = SregTemp;
 	return res;
 	}
 	
  
+ //! liefert Anzahl Zeichen im Puffer.
  uint8_t PufferAnzahl(TPuffer *p)
 	{
-	if (p->AusgP < p->SpeichP)
-		return MaxPuffer + p->AusgP - p->SpeichP;
+	if (p->SpeichP >= p->AusgP)
+		// Normalfall
+		return p->SpeichP - p->AusgP;
 	else
-		return p->AusgP - p->SpeichP;
+		// genutzer Speicher "geht ein mal rum"
+		return (p->SpeichP +  MaxPuffer) - p->AusgP;
 	}
 

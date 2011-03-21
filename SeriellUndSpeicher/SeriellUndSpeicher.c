@@ -382,7 +382,10 @@ void SeriellIO()
 			} // PufferAnzahl(&SerInBuf) < MaxPuffer - 3
 			
 		if (PufferAnzahl(&SerInBuf) > MaxPuffer / 2)
+			{
 			SET_BIT(SER_RTS_OPORT, SER_RTS_BIT);
+			//LED_EIN(ROT); // Test HACK
+			}
 
 		} // Serielles Zeichen empfangen
 
@@ -415,7 +418,10 @@ char SerEmpfZ(bool Loesch)
 	if (!Loesch)
 		PufferSpeich(&SerInBuf, Res);
 	else if (PufferAnzahl(&SerInBuf) < MaxPuffer / 2)
+		{
 		CLR_BIT(SER_RTS_OPORT, SER_RTS_BIT);
+		//LED_AUS(ROT); // Test HACK
+		}
 
 	return Res;
 	}
@@ -791,7 +797,7 @@ void Wiedergabe(void (*FnZchnAusg)(char c),
 			
 			if (c == '\n')
 				{
-				LED_EIN(ROT); // HACK
+				// LED_EIN(ROT); // HACK
 				ZeilenZaehler++;
 				if (ZeichenZaehler > 160 || ZeilenZaehler > 3)
 					{
@@ -806,7 +812,7 @@ void Wiedergabe(void (*FnZchnAusg)(char c),
 						DoSwTwi();
 						}
 					} // 4. Zeile oder >160 Zeichen
-				LED_AUS(ROT); // HACK
+				// LED_AUS(ROT); // HACK
 				} // Zeilenvorschub
 				
 			if ((*FnUnterbrechung)())
@@ -814,7 +820,7 @@ void Wiedergabe(void (*FnZchnAusg)(char c),
 				
 			}
 
-		LED_EIN(ROT); // HACK
+		// LED_EIN(ROT); // HACK
 
 		bool Verstanden = false;
 		bool SpringeNaechste = false;
@@ -872,7 +878,7 @@ void Wiedergabe(void (*FnZchnAusg)(char c),
 				
 			} // while !Verstanden
 
-		LED_AUS(ROT); // HACK
+		// LED_AUS(ROT); // HACK
 
 #ifdef DEBUG_OUT
 		LokalTextAusgabeP(PSTR("\r\nNach WiedAktion: "));
@@ -1039,7 +1045,7 @@ void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 			return;
 			}
 
-		if (!PufferLeer(&SerInBuf))
+		if (!PufferLeer(&SerInBuf) && GeSendePufferLeer())
 			{
 			char c;
 			c = SerEmpfZ(true);
@@ -1256,17 +1262,17 @@ int main()
 
 	KommInit();
 
+	sei();
+
+	if (SeriellBereit())
+		LokalTextAusgabeP(PSTR("\r\nSTART" __DATE__ "/" __TIME__));
+
 	TMsTimer Timer;
 	StartTimer(&Timer);
-
-	sei();
 
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 250)
 		SeriellIO();
-
-	if (SeriellBereit())
-		LokalTextAusgabeP(PSTR("\r\nSTART" __DATE__ "/" __TIME__));
 
 	LED_AUS(ROT);
 	LED_EIN(GELB);
