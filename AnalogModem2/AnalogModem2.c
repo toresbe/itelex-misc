@@ -123,11 +123,15 @@ enum { DiagnoseSpeicherLen = 50 } ;
 
 uint8_t DiagnoseSpeicher[DiagnoseSpeicherLen] EEMEM = { 0x11, 0x22, 0x33, 0x44, 0x55 } ;
 
+// Inhalte:
+// 0x01 + Code: PruefeBusSchluss hat ungültigen Befehlscode erkannt.
+// 0x02 + Code: HandshakeGehend hat nicht funktioniert
+// 0x03 + Code: VerbindungGehend hat unplanmäßig abgebrochen
 
+static uint8_t DiagnoseSpeicherPos = 0;
+	
 void DiagDatenSpeichern(uint8_t d)
 	{
-	static uint8_t DiagnoseSpeicherPos = 0;
-	
 	if (DiagnoseSpeicherPos < DiagnoseSpeicherLen)
 		{
 		eeprom_write_byte(&DiagnoseSpeicher[DiagnoseSpeicherPos], d);
@@ -135,6 +139,14 @@ void DiagDatenSpeichern(uint8_t d)
 		}
 	}
 
+	
+void DiagDatenLoeschen()
+	{
+	for (uint8_t i = 0 ; i < DiagnoseSpeicherLen ; i++)
+		eeprom_write_byte(&DiagnoseSpeicher[i], 0x55);
+	DiagnoseSpeicherPos = 0;
+	}
+	
 
 static void Seriell300Baud()
 	{
@@ -575,7 +587,8 @@ static bool PruefeBusSchluss(uint8_t Code, uint8_t FehlerCode)
 		return true;
 		}
 
-	DiagDatenSpeichern(Code); // HACK für TEST
+	DiagDatenSpeichern(0x01);
+	DiagDatenSpeichern(Code);
 
 #ifdef FALSCHKDO_FEHLERSTOP
 	FehlerStop(FehlerCode);
@@ -625,7 +638,7 @@ void VerbindungKommend()
 	{
 	if (!FreiesEndgeraetFuerAnruf())
 		{
-		FehlerStop(15); //HACK
+		// FehlerStop(15); //HACK
 		WarteEndeTelefonat();
 		return;
 		}
@@ -766,6 +779,7 @@ void VerbindungKommend()
 	}
 	
 
+/*
 void VerbindungKommendSimulieren()
 	{
 	if (!FreiesEndgeraetFuerAnruf())
@@ -808,7 +822,7 @@ void VerbindungKommendSimulieren()
 		}
 	else
 		{ // interner Teilnehmer nicht existent
-		FehlerStop(14); // HACK
+		// FehlerStop(14); // HACK
 		return;
 		}
 
@@ -881,6 +895,8 @@ void VerbindungKommendSimulieren()
 		} // while true
 	}
 	
+//*/
+
 
 void ZifferWaehlen(uint8_t Ziffer)
 	{
@@ -908,6 +924,8 @@ void NummerWaehlen(char *Nummer)
 	
 // Test-Routine für Tonerkennung
 // =============================
+
+/*
 
 static void DetectionTest(bool Orig, char *Nummer)
 	{
@@ -964,25 +982,36 @@ static void DetectionTest(bool Orig, char *Nummer)
 			} // if Tastendruck != NichtGedr
 		} // while true
 	} // DetectionTest
+
+//*/
 	
 
 static bool HandshakeGehend(uint8_t Nebenstelle)
 	{
 	// auf Zeichen 't' warten
 	if (!Handshake300('\0', '\0', 't', 15 * 10/3)) // 15 Sekunden
+		{
+		DiagDatenSpeichern(0x02); DiagDatenSpeichern(0x01); 
 		return false;
-
+		}
+		
 	set_LEDBLAU();
 	
 	// 'x' senden und auf Zeichen 'p' warten
-	if (!Handshake300('x', 'x', 'p', 3 * 10/3))
+	if (!Handshake300('x', 'x', 'p', 6 * 10/3))
+		{
+		DiagDatenSpeichern(0x02); DiagDatenSpeichern(0x02); 
 		return false;
+		}
 
 	set_LEDROT();
 	
 	// Nebenstellen-Nummer und 'O' senden und auf Zeichen 'K' warten
-	if (!Handshake300((Nebenstelle > 0) ? ('0' + Nebenstelle) : 'O', 'O', 'K', 2 * 10/3))
+	if (!Handshake300((Nebenstelle > 0) ? ('0' + Nebenstelle) : 'O', 'O', 'K', 6 * 10/3))
+		{
+		DiagDatenSpeichern(0x02); DiagDatenSpeichern(0x03); 
 		return false;
+		}
 
 	clr_LEDBLAU();
 	clr_LEDROT();
@@ -993,6 +1022,8 @@ static bool HandshakeGehend(uint8_t Nebenstelle)
 
 // Test-Routine für abgehenden Anruf...
 // ====================================
+
+/*
 
 void TestAnruf(char* Nummer)
 	{
@@ -1205,6 +1236,7 @@ void TestAnruf(char* Nummer)
 	ModemReset();
 	}
 	
+//*/
 
 // Gehende Verbindung
 // ==================
@@ -1287,7 +1319,7 @@ static void VerbindungGehend()
 	bool TonErkannt = false;
 	bool TonGezaehlt = false;
 	uint8_t BesetztZaehler = 0;
-	uint8_t AnzahlWahlZiffern = 0; // hur für HACK???
+	//uint8_t AnzahlWahlZiffern = 0; wird nicht mehr gebraucht
 
 	StartDetection(true);
 	StartTimer(&TraegerTimer); 
@@ -1327,7 +1359,7 @@ static void VerbindungGehend()
 						if (NachwahlzifferGespeichert)
 							{
 							ZifferWaehlen(Nachwahlziffer);
-							AnzahlWahlZiffern++;
+							// AnzahlWahlZiffern++; wird nicht mehr gebraucht
 							NachwahlzifferGespeichert = false;
 							SendeLebenszeichen();
 							wdt_reset(); // da der Wählimpuls 0,2 Sekunden gedauert hat.
@@ -1340,7 +1372,7 @@ static void VerbindungGehend()
 						else
 							{
 							ZifferWaehlen(Ziffer);
-							AnzahlWahlZiffern++;
+							// AnzahlWahlZiffern++; wird nicht mehr gebraucht
 							SendeLebenszeichen();
 							wdt_reset(); // da der Wählimpuls 0,2 Sekunden gedauert hat.
 							}
@@ -1445,6 +1477,7 @@ static void VerbindungGehend()
 						set_LEDROT();
 						clr_LEDGELB();
 						clr_LEDBLAU();
+						DiagDatenSpeichern(0x03); DiagDatenSpeichern(0x01); 
 						BusSenden(BusKdoSchluss);
 						WarteSchlussQuittung(2500);
 						Grundstellen(false);
@@ -1455,9 +1488,7 @@ static void VerbindungGehend()
 					
 					if (BIT_IS_SET(LastState, STATEBIT_CARRIER) || BIT_IS_SET(LastState, STATEBIT_ANSWERTONE))
 						{
-						if (TimerVal(&TraegerTimer) > 700 && AnzahlWahlZiffern > 5)
-														// ^^^^^^^^^^^^^^^^^^^^^^ HACK
-
+						if (TimerVal(&TraegerTimer) > 700)
 							{ // Träger ODER Answerton ist vorhanden, WECHSEL zum Warten auf Träger allein...
 							// jetzt eigenen Träger senden
 							Transmit(true); // setzt nur "Mark".
@@ -1532,7 +1563,10 @@ static void VerbindungGehend()
 		// Aufgabe C: ggf. Abbruch nach 10 Sekunden
 		// ----------------------------------------
 		if (PruefeTimerAbbruch(&AbbruchTimer, 10000))
+			{
+			DiagDatenSpeichern(0x03); DiagDatenSpeichern(0x02); 
 			return; // Answer-Tone steht zu lange...
+			}
 		
 		} // Ende der Hauptschleife: while (Phase != PhHandshake)
 		
@@ -1547,6 +1581,7 @@ static void VerbindungGehend()
 
 	if (!HandshakeGehend(NachwahlzifferGespeichert ? Nachwahlziffer : 0))
 		{
+		// DiagDatenSpeichern erfolgt schon durch HandshakeGehend
 		set_LEDROT();
 		clr_LEDGELB();
 		BusSenden(BusKdoSchluss);
@@ -1777,7 +1812,7 @@ static void TasteFunktion()
 	clr_LEDROT();
 	if (Lange)
 		{
-		TestAnruf("05314287741");
+		/* TestAnruf("05314287741"); */
 		return;
 		}
 
@@ -1786,7 +1821,7 @@ static void TasteFunktion()
 	clr_LEDGELB();
 	if (Lange)
 		{
-		TestAnruf("05312502174");
+		/* TestAnruf("05312502174"); */
 		return;
 		}
 
@@ -1795,7 +1830,7 @@ static void TasteFunktion()
 	clr_LEDGRUEN();
 	if (Lange)
 		{
-		VerbindungKommendSimulieren();
+		/* VerbindungKommendSimulieren(); //*/
 		return;
 		}
 
@@ -1804,7 +1839,7 @@ static void TasteFunktion()
 	clr_LEDBLAU();
 	if (Lange)
 		{
-		DetectionTest(true, "05314287741"); 
+		/* DetectionTest(true, "05314287741"); //*/
 		return;
 		}
 	}
@@ -2093,9 +2128,13 @@ static void HauptEinstellungen()
 // im Hauptprogramm kommt Grundstellen(false)
 	{
 	set_LEDROT();
-	
+
+	Tastendruck = NichtGedr;
+
 	CLR_BIT_Status(StatBit_Frei); // im Hauptprogramm macht Grundstellen wieder "Frei"
 	CLR_BIT_Status(StatBit_LeitungFrei);
+
+	DiagDatenLoeschen();
 	
 	while (true)
 		{
@@ -2223,7 +2262,7 @@ int main()
 
 	clr_LEDBLAU();
 
-	static bool ResetFlag = true; // HACK
+	//static bool ResetFlag = true; // HACK
 
 	while (true)
 		{ // Hauptschleife
@@ -2240,7 +2279,7 @@ int main()
 		else
 			{
 			bset_LEDROT(BusEigenAdresse == BusAdrUngueltig);
-			bset_LEDBLAU(ResetFlag);
+			//bset_LEDBLAU(ResetFlag);
 			}
 
 		if (TimerVal(&Timer) > 1600)
@@ -2249,14 +2288,14 @@ int main()
 		TastePruefen();
 		if (Tastendruck == Kurz)
 			{
-			ResetFlag = false;
+			//ResetFlag = false;
 			Tastendruck = NichtGedr;
 			TasteFunktion();
 			Grundstellen(false);
 			}
 		else if (Tastendruck == Lang)
 			{
-			ResetFlag = false;
+			//ResetFlag = false;
 			Tastendruck = NichtGedr;
 			HauptEinstellungen();
 			Grundstellen(false);
