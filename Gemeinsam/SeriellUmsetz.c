@@ -79,7 +79,6 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 		{
 		case 0: // warte auf Start-Bit
 		case 8: // letzer Empfang fertig, aber nicht ausgewertet, neues Zeichen überschreibt...
-			// HACK: TODO warum SendBitNr == 0 ???::: if (!SeriellEing && SerUmSendBitNr == 0) // Pausenschritt
 			if (!SeriellEing) // Pausenschritt
 				{
 				StartTimer(&SerUmTimerE);
