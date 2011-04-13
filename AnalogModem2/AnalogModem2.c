@@ -288,12 +288,7 @@ void Grundstellen(bool SchlussQuittSenden)
 	Tastendruck = NichtGedr;
 	BusWarteFertig();
 	BusVerbPartner = 0;
-	cli();
-	// CLR_BIT(Status, StatBit_AngerufenBelegt); wird gleich überschrieben
-	CLR_BIT(Status, StatBit_Verbunden);
-	SET_BIT(Status, StatBit_Frei);
-	SET_BIT(Status, StatBit_LeitungFrei);
-	sei();
+	Status = (1 << StatBit_Frei) | (1 << StatBit_LeitungKennung);
 	wdt_reset();
 	clr_LEDROT();
 	}
@@ -424,15 +419,18 @@ bool FreiesEndgeraetFuerAnruf()
 				AktuellEmpfaenger = BusAdrMin;
 		
 	if (AktuellEmpfaenger != Hauptanschluss * 2 || BIT_IS_SET(KonfigBits, KonfigBit_SucheAlternativBeiBesetzt))
-		{
+		{ // jetzt anderes Endgerät suchen, keine Leitung und kein Spezialgerät
 		wdt_reset();
 		SendeLebenszeichen();
 		uint8_t Start = AktuellEmpfaenger;
 		while (true)
 			{
 			int16_t Stat = GetStatus(AktuellEmpfaenger);
-			if (Stat >= 0 && BIT_IS_SET(Stat, StatBit_Frei) && !BIT_IS_SET(Stat, StatBit_LeitungFrei))
-				break;
+			if (Stat >= 0 
+				&& BIT_IS_SET(Stat, StatBit_Frei) 
+				&& !BIT_IS_SET(Stat, StatBit_LeitungKennung)
+				&& !BIT_IS_SET(Stat, StatBit_SpezialGeraetKennung))
+				break; // gefunden!
 			AktuellEmpfaenger += 2;
 			if (AktuellEmpfaenger > BusAdrMax)
 				AktuellEmpfaenger = BusAdrMin;
@@ -459,7 +457,7 @@ bool Anruferkennung()
 
 	// TODO: Schnellstart?
 	CLR_BIT_Status(StatBit_Frei);
-	// CLR_BIT_Status(StatBit_LeitungFrei); brauchen wir nicht, ist identisch mit nächstem Bit...
+	CLR_BIT_Status(StatBit_LeitungKennung); 
 	SET_BIT_Status(StatBit_AngerufenBelegt);
 	
 	set_LEDGELB();
@@ -713,10 +711,11 @@ void VerbindungKommend()
 	    && BIT_IS_SET(KonfigBits, KonfigBit_DurchwahlErlaubt)
 		&& NebenstellenTabelle[Nst] != 0
 		&& NebenstellenTabelle[Nst] << 1 != AktuellEmpfaenger)
-		{ // andere Nebenstelle versuchen...
+		{ // direkt angewählte Nebenstelle versuchen...
 		uint8_t GewaehlteNebenstelle = NebenstellenTabelle[Nst] << 1;
 		int16_t Stat = GetStatus(GewaehlteNebenstelle);
-		if (Stat >= 0 && BIT_IS_SET(Stat, StatBit_Frei) && !BIT_IS_SET(Stat, StatBit_LeitungFrei))
+		if (Stat >= 0 && BIT_IS_SET(Stat, StatBit_Frei) && !BIT_IS_SET(Stat, StatBit_LeitungKennung))
+			// hier darf es auch ein Spezialgerät sein
 			AktuellEmpfaenger = GewaehlteNebenstelle;
 		}
 	
@@ -1265,7 +1264,7 @@ static void VerbindungGehend()
 			
 	BusVerbPartner = Code << 1;
 	CLR_BIT_Status(StatBit_Frei);
-	// SET_BIT_Status(StatBit_LeitungFrei);  wird gleich vom nächsten Bit überschrieben
+	CLR_BIT_Status(StatBit_LeitungKennung); 
 	CLR_BIT_Status(StatBit_AngerufenBelegt);
 
 	if (!BIT_IS_SET(KonfigBits, KonfigBit_FesterHauptanschluss) || Hauptanschluss == 0)
@@ -1805,7 +1804,7 @@ static void TasteFunktion()
 	bool Lange;
 
 	CLR_BIT_Status(StatBit_Frei); // im Hauptprogramm macht Grundstellen wieder "Frei"
-	CLR_BIT_Status(StatBit_LeitungFrei);
+	CLR_BIT_Status(StatBit_LeitungKennung);
 	
 	set_LEDROT();
 	Lange = WarteTaste();
@@ -2132,7 +2131,7 @@ static void HauptEinstellungen()
 	Tastendruck = NichtGedr;
 
 	CLR_BIT_Status(StatBit_Frei); // im Hauptprogramm macht Grundstellen wieder "Frei"
-	CLR_BIT_Status(StatBit_LeitungFrei);
+	CLR_BIT_Status(StatBit_LeitungKennung);
 
 	DiagDatenLoeschen();
 	
@@ -2208,7 +2207,7 @@ int main()
 	ModemInit();
 	// TWI erst nach 0,25 Sek. initialisieren!
 	
-	Status = (1 << StatBit_Frei) | (1 << StatBit_LeitungFrei);
+	Status = (1 << StatBit_Frei) | (1 << StatBit_LeitungKennung);
 
 	TMsTimer Timer;
 	StartTimer(&Timer);

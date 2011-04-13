@@ -1093,7 +1093,6 @@ int main()
 			if (!BetriebsartAusgeschaltet())
 				LED_EIN(GRUEN);
 			}
-		
 
 		TastePruefen();
 		TW39IO();

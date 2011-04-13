@@ -981,6 +981,7 @@ static void Deaktivieren()
 	Tastendruck = NichtGedr;
 
 	Aktivieren(true);
+	
 	LED_AUS(BLAU);
 
 	} // Deaktivieren
@@ -1057,6 +1058,8 @@ int main()
 	KommInit();
 
 	sei();
+
+	SET_BIT_Status(StatBit_SpezialGeraetKennung);
 	
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 250)
@@ -1126,6 +1129,9 @@ int main()
 			eeprom_write_string_noblock(Kennung_EE[i], Kennung[i]);
 		eeprom_write_string_noblock(Kennwort_EE, Kennwort);
 
+		if (BIT_IS_SET(Status, StatBit_Frei))
+			SET_BIT_Status(StatBit_SpezialGeraetKennung);
+		
 		} // while (1)
 	} // main()
 

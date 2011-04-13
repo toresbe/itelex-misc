@@ -29,7 +29,10 @@ bool FernDialogVerbinden(uint8_t SucheStartAdresse)
 		if (Stat < 0 && BusEigenAdresse == BusAdrUngueltig)
 			BusEigenAdresse = Adresse;
 
-		if (Stat >= 0 && BIT_IS_SET(Stat, StatBit_Frei) && !BIT_IS_SET(Stat, StatBit_LeitungFrei))
+		if (Stat >= 0 
+		    && BIT_IS_SET(Stat, StatBit_Frei) 
+			&& !BIT_IS_SET(Stat, StatBit_LeitungKennung)
+			&& !BIT_IS_SET(Stat, StatBit_SpezialGeraetKennung))
 			PartnerAdresse = Adresse;
 
 		if (Adresse < BusAdrMax)

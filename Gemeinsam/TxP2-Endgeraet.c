@@ -141,13 +141,15 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 		{
 		case Inaktiv:
 			CLR_BIT(Status, StatBit_Frei); // kein CLR_BIT_Status, weil sonst das Interrupt-Flag wieder gesetzt wird
+			CLR_BIT(Status, StatBit_SpezialGeraetKennung); // weil dieses Bit nur bei StatBit_Frei = 1 erlaubt ist
 			BusVerbPartner = 0;
 			break;
 
 		case Ausgeschaltet:
 			Status &= (1<<StatBit_BusKdoEmpfangen); // alle anderen Bits löschen
 			SET_BIT(Status, StatBit_Frei); // kein SET_BIT_Status, weil sonst das Interrupt-Flag wieder gesetzt wird
-			CLR_BIT(Status, StatBit_LeitungFrei); // es ist keine Leitung, löscht auch ggf. StatBit_AngerufenBelegt
+			CLR_BIT(Status, StatBit_LeitungKennung); // es ist keine Leitung, löscht auch ggf. StatBit_AngerufenBelegt
+				// StatBit_SpezialGeraetKennung muss vom Hauptprogramm gesetzt werden!
 			PegelGehend = true;
 			BusEmpfMark = true;
 			BusVerbPartner = 0;
@@ -155,10 +157,12 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 
 		case Reserviert:
 			CLR_BIT(Status, StatBit_Frei);
+			CLR_BIT(Status, StatBit_SpezialGeraetKennung); // weil dieses Bit nur bei StatBit_Frei = 1 erlaubt ist
 			break;
 
 		case Wahl:
 			CLR_BIT(Status, StatBit_Frei);
+			CLR_BIT(Status, StatBit_SpezialGeraetKennung); // weil dieses Bit nur bei StatBit_Frei = 1 erlaubt ist
 			LetzteWahlZiffer = 0;
 			WahlZifferAnzahl = 0;
 			InterneNummer = 0;
@@ -168,12 +172,18 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 
 		case EinschaltungKo:
 			CLR_BIT(Status, StatBit_Frei);
+			CLR_BIT(Status, StatBit_SpezialGeraetKennung); // weil dieses Bit nur bei StatBit_Frei = 1 erlaubt ist
 			SET_BIT(Status, StatBit_AngerufenBelegt);
 			SET_BIT(Status, StatBit_FsBefBetrieb);
 			break;
 
 		case Eingeschaltet:
-			CLR_BIT(Status, StatBit_Frei);
+			if (BIT_IS_SET(Status, StatBit_Frei))
+				{
+				CLR_BIT(Status, StatBit_Frei);
+				CLR_BIT(Status, StatBit_SpezialGeraetKennung); // weil dieses Bit nur bei StatBit_Frei = 1 erlaubt ist
+				SET_BIT(Status, StatBit_AngerufenBelegt);
+				}
 			SET_BIT(Status, StatBit_Verbunden);
 			SET_BIT(Status, StatBit_FsMeldBetrieb);
 			SET_BIT(Status, StatBit_FsBefEin);
@@ -232,7 +242,7 @@ void KommInit()
 #endif //def TCCR0A
 
 	// sonstige Initialisierungen
-	Status = (1 << StatBit_Frei);
+	Status = (1 << StatBit_Frei); // StatBit_SpezialGeraetKennung muss vom Hauptprogramm gesetzt werden
 	SeriellUmsetzInit();
 	BetriebsartWechsel(Ausgeschaltet);
 	PufferInit(&SendePuffer);
@@ -277,6 +287,7 @@ TGeEinschResultat GeEinschalten()
 
 	cli();
 	CLR_BIT(Status, StatBit_Frei);
+	CLR_BIT(Status, StatBit_SpezialGeraetKennung); // weil dieses Bit nur bei StatBit_Frei = 1 erlaubt ist
 	CLR_BIT(Status, StatBit_AngerufenBelegt);
 	sei();
 	
