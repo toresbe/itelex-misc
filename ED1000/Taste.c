@@ -21,8 +21,12 @@ void TastePruefen()
 	switch (TasteZustandIntern)
 		{
 		case TasteAus:
-			if (get_TASTE())
-				{ // Gedrückt = HIGH!
+#ifdef TASTE_NACH_PLUS
+			if (get_TASTE()) // Gedrückt = HIGH!
+#else
+			if (!get_TASTE()) // Gedrückt = LOW!
+#endif
+				{
 				if (TimerVal(&TasteTimer) > 50)
 					{ // ausreichend lang gedrückt
 					TasteZustandIntern = TasteEin;
@@ -36,8 +40,12 @@ void TastePruefen()
 			break;
 
 		case TasteEin: 
-			if (get_TASTE())
-				{ // Gedrückt = HIGH
+#ifdef TASTE_NACH_PLUS
+			if (get_TASTE()) // Gedrückt = HIGH!
+#else
+			if (!get_TASTE()) // Gedrückt = LOW!
+#endif
+				{
 				if (TimerVal(&TasteTimer) > 800) // 0,8 Sek. = lang
 					{ // lang gedrückt
 					TasteZustandIntern = TasteSperr;
@@ -52,8 +60,12 @@ void TastePruefen()
 			break;
 
 		case TasteSperr:
-			if (get_TASTE())
-				{ // Gedrückt = HIGH
+#ifdef TASTE_NACH_PLUS
+			if (get_TASTE()) // Gedrückt = HIGH!
+#else
+			if (!get_TASTE()) // Gedrückt = LOW!
+#endif
+				{
 				// immer noch gedrückt...
 				}
 			else

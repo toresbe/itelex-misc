@@ -353,7 +353,11 @@ void FehlerStop(int Nummer)
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
+#ifdef TASTE_NACH_PLUS
+			if (get_TASTE())
+#else
 			if (!get_TASTE())
+#endif
 				{ // Taste nicht gedrückt
 				if (TasteZ > 0)
 					{
@@ -766,7 +770,6 @@ int main()
 #endif //NOWATCHDOG
 
 	// Ports Initialisieren
-	init_VERSTAERK();
 	init_LEDROT();
 	init_LEDGELB();
 	init_LEDGRUEN();
@@ -813,7 +816,11 @@ int main()
 	clr_LEDROT();
 	set_LEDGELB();
 
+#ifdef TASTE_NACH_PLUS
 	bool SelbsttestAusfuehen = get_TASTE();
+#else
+	bool SelbsttestAusfuehen = !get_TASTE();
+#endif
 
 	TwiInit();
 	
@@ -853,8 +860,13 @@ int main()
 		{
 		while (1)
 			{
+#ifdef TASTE_NACH_PLUS
 			BefehlMark = !get_TASTE();
 				// Gedrückt = HIGH
+#else
+			BefehlMark = get_TASTE();
+				// Gedrückt = LOW
+#endif
 
 			ED1000IO();
 
