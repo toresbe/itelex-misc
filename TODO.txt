@@ -1,0 +1,11 @@
+TODO:
+
+StatBit_BusKdoEmpfangen
+BusKdoSpace*
+BusKdoMark*
+PegelKommend --> BusEmpfMark
+EmpfPuffer
+StatusKdoEmpfReset
+BusEmpfDaten
+BusSenden
+FremdKonfig
