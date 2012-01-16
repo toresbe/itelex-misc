@@ -716,10 +716,11 @@ void VerbindungKommend()
 		int16_t Stat = GetStatus(GewaehlteNebenstelle);
 		if (Stat >= 0 && BIT_IS_SET(Stat, StatBit_Frei) && !BIT_IS_SET(Stat, StatBit_LeitungKennung))
 			// hier darf es auch ein Spezialgerät sein
-			AktuellEmpfaenger = GewaehlteNebenstelle;
+			BusVerbPartner = GewaehlteNebenstelle; // beide sind schon << 1 für I²C-Adressen
 		}
-	
-	BusVerbPartner = AktuellEmpfaenger; // beide sind schon << 1 für I²C-Adressen
+	else 
+		BusVerbPartner = AktuellEmpfaenger; // beide sind schon << 1 für I²C-Adressen
+		
 	BusSenden(BusEigenAdresse >> 1);
 	BusWarteFertig();
 	
@@ -1267,10 +1268,10 @@ static void VerbindungGehend()
 	CLR_BIT_Status(StatBit_LeitungKennung); 
 	CLR_BIT_Status(StatBit_AngerufenBelegt);
 
-	if (!BIT_IS_SET(KonfigBits, KonfigBit_FesterHauptanschluss) || Hauptanschluss == 0)
-		{
+	if (Hauptanschluss == 0)
 		Hauptanschluss = BusVerbPartner >> 1;
-		}
+		
+	AktuellEmpfaenger = BusVerbPartner;
 		
 	wdt_reset();
 	
