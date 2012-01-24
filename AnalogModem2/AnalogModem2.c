@@ -27,6 +27,9 @@
 
 #include "73K221.h"
 
+#include "../SvnVersion.h"
+
+
 // Einstellung der Platinen-Version
 // ================================
 
@@ -38,7 +41,7 @@
 // #define NOWATCHDOG // Watchdog abgeschaltet
 
 
-const char Identifier[] PROGMEM = "___TxP2_LeitungAnalog2___" __DATE__ "___" __TIME__ "___";
+const char Identifier[] PROGMEM = "___TxP2_LeitungAnalog2___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 
 
 // Konfigurationsdaten
@@ -1999,7 +2002,7 @@ static void Einstellen()
 
 	set_LEDGRUEN();			
 
-	if (TextAusgabeFern(PSTR("\r\n konfiguration leitungsschnittstelle analog version " __DATE__))
+	if (TextAusgabeFern(PSTR("\r\n konfiguration leitungsschnittstelle analog version " SVNVERSION " datum " __DATE__))
 		&& ZahlAbfrageFern(PSTR("anzahl klingelzeichen bis annahme"), &AnnahmeKlingelzeichen, 1)
 		&& AmtswahlAbfrage()
 		&& BitAbfrageFern(PSTR("feste hauptstelle"), &KonfigBits, 1 << KonfigBit_FesterHauptanschluss)

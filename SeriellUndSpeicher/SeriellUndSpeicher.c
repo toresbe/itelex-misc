@@ -100,6 +100,8 @@
 #define DoSwTwi() // nichts tun
 #endif
 
+#include "../SvnVersion.h"
+
 
 // Schalter für Code-Varianten
 // ===========================
@@ -125,7 +127,7 @@
 	// Watchdog abgeschaltet
 
 
-const char Identifier[] PROGMEM = "___TxP2_SeriellUndSpeicher___" __DATE__ "___" __TIME__ "___";
+const char Identifier[] PROGMEM = "___TxP2_SeriellUndSpeicher___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 
 
 #include "timercs.h"
@@ -1112,6 +1114,8 @@ void Konfiguration()
 	LokalTextAusgabeP(PSTR(" <<<"));
 	DebugBufP = DebugBuf;
 #endif //!TWI_DEBUG
+
+	LokalTextAusgabeP(PSTR("\r\n seriell+speicher version " SVNVERSION " datum " __DATE__));
 
 	if (!KonfigurationAllgemein())
 		{

@@ -100,9 +100,10 @@
 #include "KonfigDialog.h"
 #include "LokalAusgabe.h"
 
+#include "../SvnVersion.h"
 
 //! Marker im Code als Identifikation
-const char Identifier[] PROGMEM = "_TxP2_TW39_" __DATE__ "_" __TIME__ "_";
+const char Identifier[] PROGMEM = "_TxP2_TW39_" __DATE__ "_" __TIME__ "_" SVNVERSION "_";
 
 
 // Eeprom-Speicher
@@ -806,6 +807,8 @@ static void Konfiguration()
 	if (!TW39Einschalten())
 		return;
 	
+	LokalTextAusgabeP(PSTR("\r\n tw39 version " SVNVERSION " datum " __DATE__));
+
 	// Durchwahl...
 	if (!KonfigurationAllgemein())
 		return;

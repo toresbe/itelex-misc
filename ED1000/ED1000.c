@@ -28,6 +28,8 @@
 
 #include "WaveTab.h"
 
+#include "../SvnVersion.h"
+
 
 // Schalter für Code-Varianten
 // ===========================
@@ -58,7 +60,7 @@
 
 
 
-const char Identifier[] PROGMEM = "_TxP2_ED1000_" __DATE__ "_" __TIME__ "_";
+const char Identifier[] PROGMEM = "___TxP2_ED1000___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 
 
 // Einstellungen für Timer 1: Sinus-Ausgabe und ADC-Start und Empfangsfilterung
@@ -668,6 +670,8 @@ static void Konfiguration()
 	
 	if (!ED1000Einschalten())
 		return;
+	
+	LokalTextAusgabeP(PSTR("\r\n ed1000 version " SVNVERSION " datum " __DATE__));
 	
 	// Durchwahl...
 	if (!KonfigurationAllgemein())

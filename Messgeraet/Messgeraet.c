@@ -60,6 +60,8 @@
 #include "BusKomm.h"
 //#include "FifoPuffer.h"
 
+#include "../SvnVersion.h"
+
 
 // Schalter für Code-Varianten
 // ===========================
@@ -85,7 +87,7 @@
 	// Watchdog abgeschaltet
 
 
-const char Identifier[] PROGMEM = "___TxP2_Messgeraet___" __DATE__ "___" __TIME__ "___";
+const char Identifier[] PROGMEM = "___TxP2_Messgeraet___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 
 
 #include "timercs.h"

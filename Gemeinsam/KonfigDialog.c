@@ -186,8 +186,6 @@ extern uint8_t BusEigenAdresse_EE EEMEM;
 
 bool KonfigurationAllgemein()
 	{
-	LokalTextAusgabeP(PSTR("\r\n version: " __DATE__));
-
 	while (true)
 		{ // solange Durchwahl abfragen, bis gültige Eingabe erfolgt
 		uint8_t ZifferAnz;
