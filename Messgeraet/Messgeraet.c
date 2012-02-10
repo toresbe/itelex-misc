@@ -1005,7 +1005,6 @@ static void Konfiguration()
 	}
 
 
-
 int main()
 	{
 	// WD ein

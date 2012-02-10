@@ -23,7 +23,7 @@ extern bool FernDialogVerbinden(uint8_t SucheStartAdresse);
 extern bool CodeEmpfangenFern(uint8_t *c);
 // false bei Verbindungsende
 
-extern bool ZeichenEmpfangenFern(char *c, bool *ModeZifferE);
+extern bool ZeichenEmpfangenFern(char *c, char *BuZiMode);
 // false bei Abbruch
 
 extern bool BoolEmpfangenFern(bool *b);
@@ -36,7 +36,7 @@ extern bool CodeAusgabeFern(uint8_t code);
 // gibt an über Bus verbundenes Endgerät einen Baudot-Code aus...
 // Rückgabe true, wenn kein Abbruch
 
-extern bool ZeichenAusgabeFern(char c, bool *ModeZifferS);
+extern bool ZeichenAusgabeFern(char c, char *BuZiMode);
 // gibt an über Bus verbundenes Endgerät einen Buchstaben aus...
 // Rückgabe true, wenn kein Abbruch
 

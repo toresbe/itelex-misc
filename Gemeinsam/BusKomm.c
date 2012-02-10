@@ -6,7 +6,6 @@
 
 #include "TxP2-Defs.h"
 #include "BusKomm.h"
-#include "MsTimer.h"
 #include "BaudotCode.h"
 #include "SeriellUmsetz.h"
 
@@ -40,6 +39,7 @@ volatile bool BusSlaveSend; // für Debugging-Zwecke
 volatile uint8_t BusKollisionZaehler; // nur zum Testen / Statistik
 volatile bool BusEmpfMark;
 volatile bool BusEmpfMarkwechsel;
+volatile uint16_t TwiIsrCount;
 
 // Makros für Debugging
 // --------------------
@@ -57,17 +57,19 @@ volatile bool BusEmpfMarkwechsel;
 
 void CLR_BIT_Status(uint8_t BitNr)
 	{
+	uint8_t SregAlt = SREG;
 	cli();
 	CLR_BIT(Status, BitNr);
-	sei();
+	SREG = SregAlt;
 	}
 	
 	
 void SET_BIT_Status(uint8_t BitNr)
 	{
+	uint8_t SregAlt = SREG;
 	cli();
 	SET_BIT(Status, BitNr);
-	sei();
+	SREG = SregAlt;
 	}
 	
 	
@@ -80,18 +82,21 @@ static void EmpfByteSpeichern(uint8_t RecData)
 		{
 		case BusLebenszeichen:
 			break; // wird ignoriert
+
 		case BusKdoSpaceWdh:
 			// TODO fehlenden ersten Wechsel melden
 		case BusKdoSpace:
 			BusEmpfMarkwechsel = true;
 			BusEmpfMark = false;
 			break;
+
 		case BusKdoMarkWdh:
 			// TODO fehlenden ersten Wechsel melden
 		case BusKdoMark:
 			BusEmpfMarkwechsel = true;
 			BusEmpfMark = true;
 			break;
+
 		default: // alles andere in den Puffer
 			BusEmpfPuffer[BusEmpfPufferSchreibPos++] = RecData;
 			if (BusEmpfPufferSchreibPos >= EMPF_PUFFER_GROESSE)
@@ -107,8 +112,11 @@ static void EmpfByteSpeichern(uint8_t RecData)
 					BusEmpfPufferSchreibPos--;
 				}
 			SET_BIT(Status, StatBit_BusKdoEmpfangen); // hier nicht SET_BIT_Status, da sonst das Interrupt-Flag wieder gesetzt wird!
+			CLR_BIT(Status, StatBit_Frei); // hier nicht SET_BIT_Status, da sonst das Interrupt-Flag wieder gesetzt wird!
 			break;
+
 		} // switch RecData
+
 	} // EmpfByteSpeichern
 	
 
@@ -122,6 +130,8 @@ ISR(TWI_vect)
 	void DebSp(uint8_t x);
 	DebSp(TWSR & TwiEv_Mask);
 #endif //TWI_DEBUG
+	
+	TwiIsrCount++;
 	
 	switch (TWSR & TwiEv_Mask)
 		{
@@ -188,6 +198,7 @@ ISR(TWI_vect)
 
         case TwiEv_MT_ArbitrLost	:
 			SET_BIT(NewStat, TWSTA); // gleich nochmal probieren
+				// Bei BedSenden wird auf jeden Fall zuerst wieder das Status-Lesen begonnen
 			BusKollisionZaehler++;
 			DEBUG_BUSTRANSFER_KOLLISION;
 			break;
@@ -329,7 +340,8 @@ void BusSenden(uint8_t Kdo)
 	DEBUG_BUSTRANSFER_INIT;
 
 	BusWarteFertig();
-	
+
+	uint8_t sreg_alt = SREG;
 	cli();
 	
 	BusSendeDaten = Kdo;
@@ -348,7 +360,7 @@ void BusSenden(uint8_t Kdo)
 	else
 		DEBUG_BUSTRANSFER_KOLLISION;
 		
-	sei();
+	SREG = sreg_alt; // setzt altes Interrupt-Enable zurück
 
 	DEBUG_BUSTRANSFER_INITEND;
 
@@ -437,30 +449,10 @@ void TwiInit()
 	BusKollisionZaehler = 0;
 	BusEmpfPufferLesePos = 0;
 	BusEmpfPufferSchreibPos = 0;
-	BusSendeDaten = 0;
+	TwiIsrCount = 0;
+ 	BusSendeDaten = 0;
 	}
 
-
-void WarteSchlussQuittung(uint16_t MaxTimer)
-	{
-	TMsTimer Timer;
-	
-	StartTimer(&Timer);
-	while (true)
-		{
-		uint8_t Code;
-
-		if (GetEmpfByte(&Code)) 
-			{
-			if (Code == BusQuittSchluss)
-				break;
-			}
-		if (TimerVal(&Timer) > MaxTimer) 
-			break;
-		wdt_reset(); // nach Schluss-Kommando keine Lebenszeichen mehr...
-		}
-	}
-	
 
 uint8_t WahlZuAdresse(uint8_t Wahl, uint8_t AnzZiffern)
 	// 0 - 9 --> 110, 101-109
@@ -490,20 +482,6 @@ uint8_t AdresseZuWahl(uint8_t Adresse, uint8_t *AnzZiffern)
 		}
 	}
 
-
-static TMsTimer LebenszTimer;
-
-void SendeLebenszeichen()
-	{
-	if (BusVerbPartner == 0)
-		StartTimer(&LebenszTimer);
-	else if (TimerVal(&LebenszTimer) > 674 && BusFrei && (BusAuftrag == Nichts || BusAuftrag == Fertig))
-		{
-		BusSenden(BusLebenszeichen);
-		StartTimer(&LebenszTimer);
-		}
-	}
-	
 
 bool GetEmpfByte(uint8_t *Code)
 	//!< holt aus dem Empfangspuffer den nächsten Code

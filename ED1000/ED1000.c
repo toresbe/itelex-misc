@@ -282,7 +282,7 @@ static void ED1000IO()
 	
 uint8_t KommendSperreWahl;
 
-bool ModeZiffern;
+char BuZiMode;
 
 
 static bool ED1000Einschalten()
@@ -409,7 +409,7 @@ char LokalZeichenLesen()
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
 			{
-			c = CodeZuZeichen(SerUmEmpfDaten, &ModeZiffern);
+			c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
 			SerUmEmpfBitNr = SerUmEmpfWarte;
 			if (c != '\0')
 				return c;
@@ -434,20 +434,15 @@ static void LokalCodeAusgabe(uint8_t code)
 
 void LokalZeichenAusgabe(char c)
 	{
-	uint8_t code;
+	uint8_t code1, code2;
 	
 	if (c >= 'A' && c <= 'Z')
 		c += 'a'-'A';
-	code = ZeichenZuCode(c, ModeZiffern);
-	if (code == 255)
-		{
-		code = ZeichenZuCode(c, !ModeZiffern);
-		if (code == 255)
-			return;
-		ModeZiffern = !ModeZiffern;
-		LokalCodeAusgabe(ModeZiffern ? TtyCodeZiUm : TtyCodeBuUm);
-		}
-	LokalCodeAusgabe(code);
+	if (!ZeichenZuCode2(c, &BuZiMode, &code1, &code2))
+		return;
+	LokalCodeAusgabe(code1);
+	if (code2 != 255)
+		LokalCodeAusgabe(code2);
 	}
 			
 		
@@ -515,7 +510,7 @@ static bool WahlMitTastatur()
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
 	Falschziffern = 0;
-	ModeZiffern = true;
+	BuZiMode = '\0';
 
 	while (true)
 		{
@@ -524,7 +519,7 @@ static bool WahlMitTastatur()
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
 			{
-			c = CodeZuZeichen(SerUmEmpfDaten, &ModeZiffern);
+			c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
 			SerUmEmpfBitNr = SerUmEmpfWarte;
 			if (c >= '0' && c <= '9')
 				{
@@ -664,14 +659,14 @@ static void VerbindungSteht()
 static void Konfiguration()
 	{
 	SeriellUmsetzInit();
-	ModeZiffern = true;
+	BuZiMode = '\0';
 	Aktivieren(false);
 	set_LEDROT();
 	
 	if (!ED1000Einschalten())
 		return;
 	
-	LokalTextAusgabeP(PSTR("\r\n ed1000 version " SVNVERSION " datum " __DATE__));
+	LokalTextAusgabeP(PSTR("\r\n konfiguration ed1000 version " SVNVERSION " datum " __DATE__));
 	
 	// Durchwahl...
 	if (!KonfigurationAllgemein())

@@ -1918,9 +1918,9 @@ static bool DurchwahlenAbfrage()
 			return false;
 
 		for (uint8_t j = i ; j <= i+2 ; j++)
-			if (!CodeAusgabeFern(ZeichenZuCode(' ', true)) // true = ModeZiffern
+			if (!CodeAusgabeFern(ZeichenZuCode(' ', ZiMode)) 
 				|| !ZahlAusgabeFern(j, 1)
-				|| !CodeAusgabeFern(ZeichenZuCode('=', true)) // true = ModeZiffern
+				|| !CodeAusgabeFern(ZeichenZuCode('=', ZiMode)) 
 				|| !ZahlAusgabeFern(NebenstellenTabelle[j], 2))
 				return false;
 
@@ -1930,9 +1930,9 @@ static bool DurchwahlenAbfrage()
 			
 		for (uint8_t j = i ; j <= i+2 ; j++)
 			{
-			if (!CodeAusgabeFern(ZeichenZuCode(' ', true)) // true = ModeZiffern
+			if (!CodeAusgabeFern(ZeichenZuCode(' ', ZiMode)) 
 				|| !ZahlAusgabeFern(j, 1)
-				|| !CodeAusgabeFern(ZeichenZuCode('=', true)) // true = ModeZiffern
+				|| !CodeAusgabeFern(ZeichenZuCode('=', ZiMode)) 
 				|| !ZahlEmpfangenFern(&NebenstellenTabelle[j]))
 				return false;
 			// Bereichs-Check erfolgt in der Funktion Anruf kommend
@@ -1952,19 +1952,19 @@ static bool JustierWahlziffernAbfragen()
 		{
 		if (JustierWahlziffern[i] >= 10)
 			break;
-		if (!CodeAusgabeFern(ZeichenZuCode('0' + JustierWahlziffern[i], true)))
+		if (!CodeAusgabeFern(ZeichenZuCode('0' + JustierWahlziffern[i], ZiMode)))
 			return false;
 		}
 	if (!TextAusgabeFern(PSTR("+  neu = "))
 		|| !CodeAusgabeFern(TtyCodeZiUm))
 		return false;
 
-	bool ModeZiffern = true;
+	char BuZiMode = ZiMode;
 	char c;
 	i = 0;
 	while (i < AnzJustierWahlziffern)
 		{
-		if (!ZeichenEmpfangenFern(&c, &ModeZiffern))
+		if (!ZeichenEmpfangenFern(&c, &BuZiMode))
 			return false;
 		switch (c)
 			{

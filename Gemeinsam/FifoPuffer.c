@@ -4,7 +4,7 @@
 
 void PufferInit(TPuffer *p)
 	{
-	p->ModeZiffern = false;
+	p->BuZiMode = '\0'; // undefiniert
 	p->SpeichP = 0;
 	p->AusgP = 0;
 	}
@@ -19,13 +19,13 @@ static uint8_t PufferNP(uint8_t p)
 	}
 
 
-inline bool PufferLeer(TPuffer *p) 
+extern bool PufferLeer(TPuffer *p) 
 	{
 	return p->AusgP == p->SpeichP;
 	}
 	
 	
-inline bool PufferVoll(TPuffer *p) 
+extern bool PufferVoll(TPuffer *p) 
 	{
 	return PufferNP(p->SpeichP) == p->AusgP;
 	}

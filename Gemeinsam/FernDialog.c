@@ -130,7 +130,7 @@ bool CodeEmpfangenFern(uint8_t *c)
 	}
 
 	
-bool ZeichenEmpfangenFern(char *c, bool *ModeZifferE)
+bool ZeichenEmpfangenFern(char *c, char *BuZiMode)
 // false bei Abbruch
 	{
 	uint8_t Code;
@@ -139,7 +139,7 @@ bool ZeichenEmpfangenFern(char *c, bool *ModeZifferE)
 		{
 		if (!CodeEmpfangenFern(&Code))
 			return false;
-		*c = CodeZuZeichen(Code, ModeZifferE);
+		*c = CodeZuZeichen(Code, BuZiMode);
 		if (*c != '\0')
 			return true;
 		}
@@ -149,10 +149,11 @@ bool ZeichenEmpfangenFern(char *c, bool *ModeZifferE)
 bool BoolEmpfangenFern(bool *b)
 	{
 	char c;
-	bool ModeZi = false;
+	char BuZiMode = BuMode;
+
 	while (true)
 		{
-		if (!ZeichenEmpfangenFern(&c, &ModeZi))
+		if (!ZeichenEmpfangenFern(&c, &BuZiMode))
 			return false;
 		switch (c)
 			{
@@ -192,11 +193,11 @@ uint8_t ZahlEmpfangenFernAnzahlZiffern;
 bool ZahlEmpfangenFern(uint8_t *n)
 	{
 	char c;
-	bool ModeZi = true;
+	char BuZiMode = ZiMode;
 	ZahlEmpfangenFernAnzahlZiffern = 0;
 	while (true)
 		{
-		if (!ZeichenEmpfangenFern(&c, &ModeZi))
+		if (!ZeichenEmpfangenFern(&c, &BuZiMode))
 			return false;
 		switch (c)
 			{
@@ -275,14 +276,14 @@ bool CodeAusgabeFern(uint8_t code)
 	}
 	
 	
-bool ZeichenAusgabeFern(char c, bool *ModeZifferS)
+bool ZeichenAusgabeFern(char c, char *BuZiMode)
 // gibt an über Bus verbundenes Endgerät einen Buchstaben aus...
 // Rückgabe true, wenn kein Abbruch
 	{
 	uint8_t Code1 = 255;
 	uint8_t Code2 = 255;
 
-	ZeichenZuCode2(c, ModeZifferS, &Code1, &Code2);
+	ZeichenZuCode2(c, BuZiMode, &Code1, &Code2);
 	if (Code1 != 255)
 		if (!CodeAusgabeFern(Code1))
 			return false;
@@ -299,12 +300,10 @@ bool TextAusgabeFern(PGM_P s)
 // gibt an über Bus verbundenes Endgerät einen Text aus...
 // Rückgabe true, wenn kein Abbruch
 	{
-	bool ModeZifferS = false;
-	if (!CodeAusgabeFern(TtyCodeBuUm))
-		return false;
+	char BuZiMode = '\0';
 	while (pgm_read_byte(s) != '\0')
 		{
-		if (!ZeichenAusgabeFern(pgm_read_byte(s), &ModeZifferS))
+		if (!ZeichenAusgabeFern(pgm_read_byte(s), &BuZiMode))
 			return false;
 		s++;
 		}
@@ -328,7 +327,7 @@ bool ZahlAusgabeFern(uint8_t n, uint8_t Ziffern)
 	if (z > 0 || Ziffern > 1)
 		if (!ZahlAusgabeFern(z, Ziffern - 1))
 			return false;
-	return CodeAusgabeFern(ZeichenZuCode(n + '0', true)); // true = ModeZiffern
+	return CodeAusgabeFern(ZeichenZuCode(n + '0', ZiMode)); 
 	}
 
 const char CrLf[] PROGMEM = "\r\n ";

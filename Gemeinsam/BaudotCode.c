@@ -8,9 +8,16 @@
 char TtyCodeTabBu[] PROGMEM = "#t\ro hnm\nlrgipcvezdbsyfxawj#uqk#";
 char TtyCodeTabZi[] PROGMEM = "#5\r9 #,.\n)4#80:=3+#?'6#/-2##71(#";
 
-uint8_t ZeichenZuCode(char c, bool Ziffer)
+
+uint8_t ZeichenZuCode(char c, char Mode)
 	{
-	volatile prog_char* tp = (Ziffer ? TtyCodeTabZi : TtyCodeTabBu);
+	volatile prog_char* tp;
+	if (Mode == BuMode)
+		tp = TtyCodeTabBu;
+	else if (Mode == ZiMode)
+		tp = TtyCodeTabZi;
+	else
+		return 255;
 
 	if (c >= 'A' && c <= 'Z')
 		c += 'a' - 'A';
@@ -23,56 +30,58 @@ uint8_t ZeichenZuCode(char c, bool Ziffer)
 	}
 
 
-char CodeZuZeichen(uint8_t code, bool *Ziffer)
+char CodeZuZeichen(uint8_t code, char *Mode)
 	{
 	if (code == TtyCodeZiUm)
-		*Ziffer = true;
+		*Mode = ZiMode;
 	else if (code == TtyCodeBuUm)
-		*Ziffer = false;
+		*Mode = BuMode;
 	else
-		if (*Ziffer)
+		{
+		if (*Mode == ZiMode)
 			return pgm_read_byte(&TtyCodeTabZi[code]);
-		else
+		else if (*Mode == BuMode)
 			return pgm_read_byte(&TtyCodeTabBu[code]);
+		}
 	return '\0';
 	}
 	
 
 #ifndef FUER_TW39
 
-bool ZeichenZuCode2(char c, bool* Ziffer, uint8_t* Code1, uint8_t* Code2)
+bool ZeichenZuCode2(char c, char *Mode, uint8_t* Code1, uint8_t* Code2)
 	{
 	if (c == CodeChrWerDa)
 		{
 		*Code1 = TtyCodeZiUm;
 		*Code2 = TtyCodeZiWerDa;
-		*Ziffer = true;
+		*Mode = '\0'; // undefiniert!
 		return true;
 		}
 
-	*Code1 = ZeichenZuCode(c, *Ziffer);
+	*Code1 = ZeichenZuCode(c, *Mode);
 	*Code2 = 255;
 
-	if (*Code1 == 255)
+	if (*Code1 != 255)
+		return true; // fertig
+
+	*Code2 = ZeichenZuCode(c, BuMode); // andere Tabelle probieren
+	if (*Code2 != 255)
 		{
-		*Code2 = ZeichenZuCode(c, !*Ziffer); // andere Tabelle probieren
-		if (*Code2 == 255)
-			return false;
-		else
-			{
-			if (*Ziffer)
-				{
-				*Code1 = TtyCodeBuUm;
-				*Ziffer = false;
-				}
-			else
-				{
-				*Code1 = TtyCodeZiUm;
-				*Ziffer = true;
-				}
-			}
+		*Code1 = TtyCodeBuUm;
+		*Mode = BuMode;
+		return true;
 		}
-	return true;
+
+	*Code2 = ZeichenZuCode(c, ZiMode); // andere Tabelle probieren
+	if (*Code2 != 255)
+		{
+		*Code1 = TtyCodeZiUm;
+		*Mode = ZiMode;
+		return true;
+		}
+
+	return false; // Zeichen gar nicht umsetzbar
 	}
 
 		

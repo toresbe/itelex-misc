@@ -128,7 +128,7 @@ bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
 bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
 bool MeldungMark; //!< Fs Schleifenstrom ist Ein
 
-bool ModeZiffern; //!< Fs ist gerade im Ziffern-Bereich
+char BuZiMode; //!< Fs ist gerade im Ziffern-Bereich
 
 TMsTimer AusschaltungTimer; //!< Zählt die Millisekunden von Schleifenunterbrechung bis Ausschaltung
 TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port bis tatsächlichem Pegelwechsel
@@ -457,7 +457,7 @@ char LokalZeichenLesen()
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
 			{
-			c = CodeZuZeichen(SerUmEmpfDaten, &ModeZiffern);
+			c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
 			SerUmEmpfBitNr = SerUmEmpfWarte;
 			if (c != '\0')
 				return c;
@@ -493,16 +493,23 @@ void LokalZeichenAusgabe(char c)
 	
 	if (c >= 'A' && c <= 'Z')
 		c += 'a'-'A';
-	code = ZeichenZuCode(c, ModeZiffern);
-	if (code == 255)
+
+	if ((code = ZeichenZuCode(c, BuZiMode)) != 255)
 		{
-		code = ZeichenZuCode(c, !ModeZiffern);
-		if (code == 255)
-			return;
-		ModeZiffern = !ModeZiffern;
-		LokalCodeAusgabe(ModeZiffern ? TtyCodeZiUm : TtyCodeBuUm);
+		LokalCodeAusgabe(code);
 		}
-	LokalCodeAusgabe(code);
+	else if ((code = ZeichenZuCode(c, BuMode)) != 255)
+		{
+		LokalCodeAusgabe(TtyCodeBuUm);
+		LokalCodeAusgabe(code);
+		BuZiMode = BuMode;
+		}
+	else if ((code = ZeichenZuCode(c, ZiMode)) != 255)
+		{
+		LokalCodeAusgabe(TtyCodeZiUm);
+		LokalCodeAusgabe(code);
+		BuZiMode = ZiMode;
+		}
 	}
 			
 		
@@ -629,7 +636,7 @@ static bool WahlMitTastatur()
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
 	Falschziffern = 0;
-	ModeZiffern = true;
+	BuZiMode = '\0';
 
 	while (true)
 		{
@@ -638,7 +645,7 @@ static bool WahlMitTastatur()
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
 			{
-			c = CodeZuZeichen(SerUmEmpfDaten, &ModeZiffern);
+			c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
 			SerUmEmpfBitNr = SerUmEmpfWarte;
 			if (c >= '0' && c <= '9')
 				{
@@ -800,14 +807,14 @@ static void VerbindungSteht()
 static void Konfiguration()
 	{
 	SeriellUmsetzInit();
-	ModeZiffern = true;
+	BuZiMode = '\0';
 	Aktivieren(false);
 	LED_EIN(ROT);
 	
 	if (!TW39Einschalten())
 		return;
 	
-	LokalTextAusgabeP(PSTR("\r\n tw39 version " SVNVERSION " datum " __DATE__));
+	LokalTextAusgabeP(PSTR("\r\n konfiguration tw39 version " SVNVERSION " datum " __DATE__));
 
 	// Durchwahl...
 	if (!KonfigurationAllgemein())

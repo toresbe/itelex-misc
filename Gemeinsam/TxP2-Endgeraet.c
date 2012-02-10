@@ -398,9 +398,9 @@ bool KoEmpfCode(uint8_t *Code) // wenn Zeichen empfangen wurde, wird dieses in C
 bool GeSendeCode(uint8_t Code) // true, wenn Sendepuffer nicht voll
 	{
 	if (Code == TtyCodeBuUm)
-		SendePuffer.ModeZiffern = false;
+		SendePuffer.BuZiMode = BuMode;
 	else if (Code == TtyCodeZiUm)
-		SendePuffer.ModeZiffern = true;
+		SendePuffer.BuZiMode = ZiMode;
 
 	return PufferSpeich(&SendePuffer, Code);
 	}
@@ -416,7 +416,7 @@ bool KoEmpfZeichen(char *Zeichen) // ASCII-Code
 			return false;
 
 		// war es vielleicht ein Sonderzeichen?
-		if (EmpfPuffer.ModeZiffern)
+		if (EmpfPuffer.BuZiMode == ZiMode)
 			{
 			if (code == TtyCodeZiKlingel)
 				{
@@ -430,7 +430,7 @@ bool KoEmpfZeichen(char *Zeichen) // ASCII-Code
 				}
 			}
 
-		*Zeichen = CodeZuZeichen(code, (bool*) &EmpfPuffer.ModeZiffern);
+		*Zeichen = CodeZuZeichen(code, (char*) &EmpfPuffer.BuZiMode);
 		if (*Zeichen != '\0')
 			return true;
 
@@ -447,25 +447,25 @@ bool GeSendeZeichen(char c)
 		case CodeChrBuUm:
 			if (!PufferSpeich(&SendePuffer, TtyCodeBuUm))
 				return false;
-			SendePuffer.ModeZiffern = false;
+			SendePuffer.BuZiMode = BuMode;
 			return true;
 
 		case CodeChrZiUm:
 			if (!PufferSpeich(&SendePuffer, TtyCodeZiUm))
 				return false;
-			SendePuffer.ModeZiffern = true;
+			SendePuffer.BuZiMode = ZiMode;
 			return true;
 
 		case CodeChrKlingel:
-			if (!SendePuffer.ModeZiffern && !PufferSpeich(&SendePuffer, TtyCodeZiUm))
+			if (SendePuffer.BuZiMode != ZiMode && !PufferSpeich(&SendePuffer, TtyCodeZiUm))
 				return false;
-			SendePuffer.ModeZiffern = true;
+			SendePuffer.BuZiMode = ZiMode;
 			return PufferSpeich(&SendePuffer, TtyCodeZiKlingel);
 
 		case CodeChrWerDa:
-			if (!SendePuffer.ModeZiffern && !PufferSpeich(&SendePuffer, TtyCodeZiUm))
+			if (SendePuffer.BuZiMode != ZiMode && !PufferSpeich(&SendePuffer, TtyCodeZiUm))
 				return false;
-			SendePuffer.ModeZiffern = true;
+			SendePuffer.BuZiMode = ZiMode;
 			return PufferSpeich(&SendePuffer, TtyCodeZiWerDa);
 
 		}
@@ -475,8 +475,8 @@ bool GeSendeZeichen(char c)
 
 	uint8_t code1, code2;
 	
-	if (ZeichenZuCode2(c, (bool*) &SendePuffer.ModeZiffern, &code1, &code2))
-		// (bool*) schmeiﬂt absichtlich das volatile weg
+	if (ZeichenZuCode2(c, (char *) &SendePuffer.BuZiMode, &code1, &code2))
+		// (char*) schmeiﬂt absichtlich das volatile weg
 		{
 		if (!PufferSpeich(&SendePuffer, code1))
 			return false;

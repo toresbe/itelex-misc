@@ -27,7 +27,6 @@ enum { StatBit_FsBefEin			= 2	}; //!< Fernschreiber Stromschleife ist aktivert (
 enum { StatBit_FsMeldBetrieb	= 1	}; //!< Fernschreiber angeschaltet (Stromschleife aktiv oder nur kurz unterbrochen
 enum { StatBit_FsMeldEin		= 0 }; //!< Fernschreiber Stromschleife mit Stromfluß (Einlesung)
 
-
 typedef volatile enum { Ok, KeineAntwort, Abbruch, Besetzt } TBusErgebnis;
 typedef volatile enum { Nichts, Senden, BedSenden, Lesen, Fertig } TBusAuftrag;
 
@@ -42,6 +41,7 @@ extern volatile bool BusFrei;
 extern volatile uint8_t BusKollisionZaehler; // nur zum Testen / Statistik
 extern volatile bool BusEmpfMark;
 extern volatile bool BusEmpfMarkwechsel;
+extern volatile uint16_t TwiIsrCount;
 
 // extern void StatusKdoEmpfReset(); --> macht jetzt GetEmpfDaten
 
@@ -49,10 +49,10 @@ extern void CLR_BIT_Status(uint8_t BitNr);
 	
 extern void SET_BIT_Status(uint8_t BitNr);
 
-extern void TwiInit();
+extern void TwiInit(void);
 // vorher muss BusEigenAdresse und BusEigenAdrMehrfach gesetzt sein!
 
-extern void BusWarteFertig();
+extern void BusWarteFertig(void);
 
 extern void BusSenden(uint8_t Kdo);
 
@@ -66,13 +66,13 @@ extern uint8_t WahlZuAdresse(uint8_t Wahl, uint8_t AnzZiffern);
 
 extern uint8_t AdresseZuWahl(uint8_t Adresse, uint8_t *AnzZiffern);
 
-extern void SendeLebenszeichen();
+extern void SendeLebenszeichen(void);
 
 extern bool GetEmpfByte(uint8_t *Code);
 	//!< holt aus dem Empfangspuffer den nächsten Code
 	//!< \retval false, wenn Empfangspuffer leer ist.
 	
-extern bool EmpfPufferLeer();
+extern bool EmpfPufferLeer(void);
 
 
 #endif //ndef __BUSKOMM_H__

@@ -12,6 +12,10 @@
 
 #include "bool.h"
 
+#include "FifoPuffer.h"
+
+extern TPuffer SendePuffer, EmpfPuffer;
+
 extern void FehlerStop(int Nummer);
 
 extern void KommInit();

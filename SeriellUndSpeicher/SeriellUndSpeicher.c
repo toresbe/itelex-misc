@@ -288,6 +288,7 @@ void DatumAusgabe()
 // ---------------------------------------------
 
 volatile bool SerInEsc = false; // Flag für Umsetzung ESC-X in Ctrl-X (wird nach ESC gesetzt)
+
 TPuffer SerInBuf, SerOutBuf;
 
 // Übersetzung bestimmter Tasten in Doppel-Codes
@@ -1115,7 +1116,7 @@ void Konfiguration()
 	DebugBufP = DebugBuf;
 #endif //!TWI_DEBUG
 
-	LokalTextAusgabeP(PSTR("\r\n seriell+speicher version " SVNVERSION " datum " __DATE__));
+	LokalTextAusgabeP(PSTR("\r\n konfiguration seriell+speicher version " SVNVERSION " datum " __DATE__));
 
 	if (!KonfigurationAllgemein())
 		{
@@ -1171,7 +1172,6 @@ static void BusteilnehmerListen()
 				}
 			}
 	}
-
 
 
 /*/ nur für Debugging...
