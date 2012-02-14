@@ -5,24 +5,35 @@
 #include "MsTimer.h"
 
 // Empfang: Umsetzung Seriell (Baudot) --> Parallel (Daten)
-	
-volatile uint8_t SerUmEmpfBitNr; 
-	// 0 = Grundzustand, 1 = Startbit-Prüfung, 2-6 = Datenbits 1-5, 7 = Stopbit-Prüfung, 
-	// 8 = Empfang beendet, Daten zur Verarbeitung bereit
 
+//! Aktuell von Seriell nach Parallel umgesetztes Bit.
+//----------------------------------------------------
+//! 0 = Grundzustand, 1 = Startbit-Prüfung, 2-6 = Datenbits 1-5, 7 = Stopbit-Prüfung, 
+//! 8 = Empfang beendet, Daten zur Verarbeitung bereit.
+volatile uint8_t SerUmEmpfBitNr; 
+
+//! Hier wird das von seriell zu parallel umgesetzte Byte gespeichert.
 volatile uint8_t SerUmEmpfDaten; 
 
-volatile bool SerUmEmpfFehler; // Stop-Bit war nicht 1
+//! Wird auf true gesetzt, wenn Stop-Bit  nicht 1 war.
+volatile bool SerUmEmpfFehler; 
 
-volatile int16_t SerUmEmpfPegel; // zur Ausfilterung von Störimpulsen
+//! Zähler zum Ausfiltern von kurzen Störimpulsen.
+static volatile int16_t SerUmEmpfPegel; 
 
 // Senden: Umsetzung Parallel (Daten) --> Seriell (Baudot)
+//--------------------------------------------------------
 
+//! Aktuell von parallel nach seriell umgesetztes Bit.
+// ---------------------------------------------------
+//! 0 = Grundzustand, 1 = Sendedaten bereit, 2 = Startbit, 3-7 = Datenbits 1-5, 8 = Stopbit.
 volatile uint8_t SerUmSendBitNr; 
-	// 0 = Grundzustand, 1 = Sendedaten bereit, 2 = Startbit, 3-7 = Datenbits 1-5, 8 = Stopbit
-
+	
+//! Aktuell von parallel nach seriell umzusetzendes Byte.
 volatile uint8_t SerUmSendDaten;
 
+
+//! Initialisiert die serielle Umsetzung 
 void SeriellUmsetzInit()
 	{
 	SerUmEmpfBitNr = SerUmEmpfWarte;
@@ -31,9 +42,21 @@ void SeriellUmsetzInit()
 	}
 
 	
-TMsTimer SerUmTimerE, SerUmTimerA;
+//! Zeitgeber für Umsetzung seriell - parallel.	
+TMsTimer SerUmTimerE;
+
+
+//! Zeitgeber für Umsetzung parallel - seriell.
+TMsTimer SerUmTimerA;
 	
 
+//! Durchführung der Seriell - Parallel - Umsetzung und umgekehrt.
+// ----------------------------------------------------------------
+//! Funktion ist zyklisch aufzurufen, um die Umsetzung durchzuführen.
+//! Keine Synchronisation erforderlich, bei Umsetzung von seriell nach parallel
+//! sollte aber die Zykluszeit dieses Aufrufs unter 1 Millisekunde sein.
+//! \param[in] SeriellEing Zustand Mark / Space für Umsetzung seriell - parallel.
+//! \param[out] SeriellAusg Zustand Mark / Space für Umsetzung parallel - seriell.
 void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 	{
 	// Code-Ausgabe
@@ -143,6 +166,5 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 
 		} // switch (SerUmEmpfBitNr)
 	}
-
 
 

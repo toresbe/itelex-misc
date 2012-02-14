@@ -8,19 +8,17 @@
 // Empfang: Umsetzung Seriell (Baudot) --> Parallel (Daten)
 	
 enum { SerUmEmpfWarte = 0, SerUmEmpfFertig = 8, SerUmSendWarte = 0, SerUmSendStart = 1 } ;
-	
+//!< Wichtige Zustände von SerUmEmpfBitNr und SerUmSendBitNr.
+
 extern volatile uint8_t SerUmEmpfBitNr; 
-	// 0 = Grundzustand, 1 = Startbit-Prüfung, 2-6 = Datenbits 1-5, 7 = Stopbit-Prüfung, 
-	// 8 = Empfang beendet, Daten zur Verarbeitung bereit
 
 extern volatile uint8_t SerUmEmpfDaten; 
 
-extern volatile bool SerUmEmpfFehler; // Stop-Bit war nicht 1
+extern volatile bool SerUmEmpfFehler; 
 
 // Senden: Umsetzung Parallel (Daten) --> Seriell (Baudot)
 
 extern volatile uint8_t SerUmSendBitNr; 
-	// 0 = Grundzustand, 1 = Sendedaten bereit, 2 = Startbit, 3-7 = Datenbits 1-5, 8 = Stopbit
 
 extern volatile uint8_t SerUmSendDaten;
 

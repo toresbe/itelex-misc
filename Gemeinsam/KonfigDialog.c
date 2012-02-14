@@ -11,11 +11,19 @@
 
 
 extern char LokalZeichenLesen();
+// Diese Funktion muss in der Anwendung definiert werden.
 
+
+//! Dialog-Abfrage einer Zahl.
+//----------------------------
+//! kann nur positive Zahlen.
+//! \param[out] z Eingegebene Zahl.
+//! \param[in] maxzif Maximale Anzahl Ziffern bei der Eingabe.
+//! \retval 0 abbruch
+//! \retval 1 unverändert
+//! \retval 2 eingabe erfolgt
 
 uint8_t LokalZahlEingabe(uint8_t* z, uint8_t maxzif)
-	// return: 0 = abbruch, 1 = unverändert, 2 = eingabe erfolgt
-	// kann nur positive Zahlen
 	{
 	uint8_t Pos = 0; // 0 = noch keine Ziffer eingegeben, 1 = erste Ziffer, ...
 
@@ -54,8 +62,14 @@ uint8_t LokalZahlEingabe(uint8_t* z, uint8_t maxzif)
 	}
 
 
+//! Dialog-Abfrage für Ja / Nein.
+//----------------------------
+//! \param[out] b Das Ergebnis Ja oder Nein.
+//! \retval 0 abbruch
+//! \retval 1 unverändert
+//! \retval 2 eingabe erfolgt
+
 uint8_t LokalBoolEingabe(bool* b)
-	// return: 0 = abbruch, 1 = unverändert, 2 = eingabe erfolgt
 	{
 	while (true)
 		{
@@ -92,16 +106,26 @@ uint8_t LokalBoolEingabe(bool* b)
 		}
 	}
 	
-		
+
+
+#ifndef FUER_TW39
+
+//! Dialog-Abfrage für einen Text.
+//--------------------------------
+//! Abschluss nur mit WR oder ZL.
+//! WR, ZL oder Leerzeichen am Anfang wird ignoriert. 
+//! nur Leerzeichen und WR oder ZL = löschen
+//! . (Punkt) oder - oder + oder = oder / als einziges Zeichen vor WR oder ZL = alten Wert behalten.
+//! \param[out] s Puffer des eingegebenen Textes.
+//! \param[in] maxbuchst Anzahl erlaubter Zeichen bei der Eingabe, auch Puffergröße.
+//! \retval 0 abbruch
+//! \retval 1 unverändert
+//! \retval 2 eingabe erfolgt
+
 uint8_t LokalTextEingabe(char* s, uint8_t maxbuchst)
-	// return: 0 = abbruch, 1 = unverändert, 2 = eingabe erfolgt
-	// Abschluss nur mit CR oder LF, nur CR oder LF = alter wert, nur Leer = löschen
-	// Leer am Anfang wird ignoriert
 	{
 	uint8_t Pos = 0; 
 	char ErstesZeichen = '\0';
-
-	// TODO: CR am Anfang kann durch Zeilenende bedingt sein.
 
 	while (true)
 		{
@@ -137,7 +161,7 @@ uint8_t LokalTextEingabe(char* s, uint8_t maxbuchst)
 							s[1] = '\0';
 							return 2;
 							}
-				else
+				else // Pos > 0
 					{
 					s[Pos] = '\0';
 					return 2;
@@ -177,12 +201,22 @@ uint8_t LokalTextEingabe(char* s, uint8_t maxbuchst)
 		} // while true
 	} // LokalTextEingabe
 
+#endif
 
-void LokalZeichenAusgabe(char c);
+
+extern void LokalZeichenAusgabe(char c);
+// Diese Funktion muss in der Anwendung definiert werden.
 
 
-extern uint8_t BusEigenAdresse_EE EEMEM;
+//! Eigene Adresse des Endgeräts, abgelegt im EEPROM.
+EEMEM extern uint8_t BusEigenAdresse_EE;
 
+
+//! Dialog-Abfrage für die allgemeinen Einstellungen eines Endgeräts.
+//-------------------------------------------------------------------
+//! Bisher nur Abfrage der eigenen Adresse = eigene Durchwahl.
+//! Eingegebene Adresse / Durchwahl wird auch im EEPROM gespeichert.
+//! \returns Erfolgreiche Eingabe der eigenen Adresse.
 
 bool KonfigurationAllgemein()
 	{

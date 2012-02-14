@@ -4,36 +4,32 @@
 
 #include <bool.h>
 
-enum { TtyCodeWR = 2 } ;
-enum { TtyCodeZL = 8 } ;
-enum { TtyCodeBuUm = 31 } ;
-enum { TtyCodeZiUm = 27 } ;
-enum { TtyCodeSPC = 0 } ;
-enum { TtyCodeLeer = 4 } ;
-enum { TtyCodeZiWerDa = 18 /* bei Ziffern! */ } ;
-enum { TtyCodeZiKlingel = 26 /* bei Ziffern! */} ;
+enum { TtyCodeWR = 2 } ; //!< Baudot-Code für Wagenrücklauf.
+enum { TtyCodeZL = 8 } ; //!< Baudot-Code für Zeilenvorschub.
+enum { TtyCodeBuUm = 31 } ; //!< Baudot-Code für Buchstaben-Umschaltung.
+enum { TtyCodeZiUm = 27 } ; //!< Baudot-Code für Ziffern-Umschaltung.
+enum { TtyCodeSPC = 0 } ; //!< Baudot-Code für NUL-Zeichen (Code 32).
+enum { TtyCodeLeer = 4 } ; //!< Baudot-Code für Leerzeichen.
+enum { TtyCodeZiWerDa = 18 /* bei Ziffern! */ } ; //!< Baudot-Code für Kennungsgeber-Abfrage.
+enum { TtyCodeZiKlingel = 26 /* bei Ziffern! */} ; //!< Baudot-Code für Klingelzeichen.
 
 #define CTRL(z) ((z) & 0b00011111)
 
-enum { CodeChrBuUm = CTRL('b') } ;   
-enum { CodeChrZiUm = CTRL('z') } ;   
-enum { CodeChrKlingel = CTRL('k') } ;
-enum { CodeChrWerDa = CTRL('w') } ;
+enum { CodeChrBuUm = CTRL('b') } ; //!< Hilfs-ASCII-Code für Buchstaben-Umschaltung.
+enum { CodeChrZiUm = CTRL('z') } ; //!< Hilfs-ASCII-Code für Ziffern-Umschaltung.
+enum { CodeChrKlingel = CTRL('k') } ; //!< Hilfs-ASCII-Code für Klingelzeichen.
+enum { CodeChrWerDa = CTRL('w') } ; //!< Hilfs-ASCII-Code für Kennungsgeber-Abfrage.
 
 #define ESC 27
 
-enum { BuMode = 'a', ZiMode = '1' } ;
+enum { BuMode = 'a', ZiMode = '1' } ; //!< Werte für BuZiMode / Mode.
 
 extern uint8_t ZeichenZuCode(char c, char Mode);
-//!< /param c Zeichen in ASCII
-//!< /param Mode Buchstaben oder Ziffern
-//!< /retval 255 bei nicht passendem c (nicht in Code-Tabelle oder falscher Modus Bu/Zi)
 
 extern bool ZeichenZuCode2(char c, char* Mode, uint8_t* Code1, uint8_t* Code2);
 // true bei erfolgreicher Umsetzung
 
 extern char CodeZuZeichen(uint8_t code, char *Mode);
-// '\0' bei Steuerzeichen
 
 
 #endif //ndef __BAUDOTCODE_H__

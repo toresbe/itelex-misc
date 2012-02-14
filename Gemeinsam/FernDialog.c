@@ -11,6 +11,14 @@
 #include "BaudotCode.h"
 
 
+//! Startet ein Konfigurations-Dialog mit einem Fernschreiber als Verbindungspartner 
+//! auf dem TWI-Bus.
+//---------------------------------------------------------------------------------
+//! Funktion baut Verbindung zum Dialogpartner auf. 
+//! \param SucheStartAdresse Erste TWI-Bus-Adresse ( * 2 ) wo nach einem Fernschreiber
+//!        gesucht wird.
+//! \return Erfolgreicher Verbindungsaufbau.
+
 bool FernDialogVerbinden(uint8_t SucheStartAdresse)
 	{
 	uint8_t Adresse, PartnerAdresse;
@@ -105,8 +113,11 @@ bool FernDialogVerbinden(uint8_t SucheStartAdresse)
 	}
 
 
+//! Empfängt einen Baudot-Code vom Dialogpartner.
+//-----------------------------------------------
+//! \param[out] c Empfangener Baudot-Code.	
+//! \retval false, wenn Verbindung abgebaut wurde.
 bool CodeEmpfangenFern(uint8_t *c)
-// false bei Verbindungsende
 	{
 	bool Dummy;
 	
@@ -130,8 +141,14 @@ bool CodeEmpfangenFern(uint8_t *c)
 	}
 
 	
+//! Empfängt ein Ascii-Zeichen vom Dialogpartner.
+//-----------------------------------------------
+//! Kehrt nicht zurück, wenn nur eine Buchstaben- oder Ziffern-Umschaltung
+//! empfangen wurde.
+//! \param[out] c Empfangenes Zeichen.
+//! \param[in,out] BuZiMode Flag für Buchstaben- / Ziffern-Umschaltung.
+//! \retval false, wenn Verbindung abgebaut wurde.
 bool ZeichenEmpfangenFern(char *c, char *BuZiMode)
-// false bei Abbruch
 	{
 	uint8_t Code;
 	
@@ -145,6 +162,12 @@ bool ZeichenEmpfangenFern(char *c, char *BuZiMode)
 		}
 	}
 		
+
+//! Empfängt eine Ja/Nein-Antwort vom Dialogpartner.
+//--------------------------------------------------
+//! Als Ja wird akzeptiert j y 1 + q, als Nein n 0 - p
+//! \param[out] b Die Antwort.
+//! \retval false, wenn Verbindung abgebaut wurde.
 
 bool BoolEmpfangenFern(bool *b)
 	{
@@ -188,7 +211,17 @@ bool BoolEmpfangenFern(bool *b)
 	} // BoolEmpfangenFern
 	
 
+//! Kann vom Anwendungsprogramm benutzt werden, um die Anzahl der in der Funktion
+//! ZahlEmpfangenFern eingegebenen Ziffern zu erfahren.
 uint8_t ZahlEmpfangenFernAnzahlZiffern;
+	
+	
+//! Empfängt eine Zahl vom Dialogpartner.
+//-----------------------------------------------
+//! Nur für Positive Zahlen.
+//! \param[out] n Empfangenes Zahl.
+//! \retval false, wenn Verbindung abgebaut wurde.
+//! \remarks Siehe auch ZahlEmpfangenFernAnzahlZiffern.
 	
 bool ZahlEmpfangenFern(uint8_t *n)
 	{
@@ -234,9 +267,12 @@ bool ZahlEmpfangenFern(uint8_t *n)
 	} // ZahlEmpfangenFern
 
 	
+//! Sendet ein Baudot-Code an den Dialogpartner.
+//----------------------------------------------
+//! \param code Der Baudot-Code.
+//! \retval false, wenn Verbindung abgebaut wurde.
+
 bool CodeAusgabeFern(uint8_t code)
-// gibt an über Bus verbundenes Endgerät einen Baudot-Code aus...
-// Rückgabe true, wenn kein Abbruch
 	{
 	bool WarMark = true, SendMark = true;
 
@@ -276,9 +312,13 @@ bool CodeAusgabeFern(uint8_t code)
 	}
 	
 	
+//! Sendet ein ASCII-Zeichen an den Dialogpartner.
+//----------------------------------------------
+//! \param[in] c Das ASCII-Zeichen.
+//! \param[in,out] BuZiMode Flag für Buchstaben- / Ziffern-Umschaltung.
+//! \retval false, wenn Verbindung abgebaut wurde.
+
 bool ZeichenAusgabeFern(char c, char *BuZiMode)
-// gibt an über Bus verbundenes Endgerät einen Buchstaben aus...
-// Rückgabe true, wenn kein Abbruch
 	{
 	uint8_t Code1 = 255;
 	uint8_t Code2 = 255;
@@ -296,9 +336,12 @@ bool ZeichenAusgabeFern(char c, char *BuZiMode)
 	}
 
 	
+//! Sendet ein Text aus dem Programmspeicher an den Dialogpartner.
+//----------------------------------------------------------------
+//! \param[in] s Zeiger auf den ASCII-Text im Programmspeicher.
+//! \retval false, wenn Verbindung abgebaut wurde.
+
 bool TextAusgabeFern(PGM_P s)
-// gibt an über Bus verbundenes Endgerät einen Text aus...
-// Rückgabe true, wenn kein Abbruch
 	{
 	char BuZiMode = '\0';
 	while (pgm_read_byte(s) != '\0')
@@ -311,17 +354,27 @@ bool TextAusgabeFern(PGM_P s)
 	}
 
 
+//! Sendet ein "Ja" oder "Nein" an den Dialogpartner.
+//----------------------------------------------------------------
+//! \param[in] b Ja oder Nein.
+//! \retval false, wenn Verbindung abgebaut wurde.
+
 bool BoolAusgabeFern(bool b)
 	{
 	return TextAusgabeFern(b ? PSTR(" ja ") : PSTR(" nein "));
 	}
 	
 	
+//! Sendet eine Zahl an den Dialogpartner.
+//----------------------------------------------------------------
+//! <b>Vorher muss auf Ziffern umgeschaltet worden sein! </b>
+//! \param n Die zu druckende Zahl.
+//! \param Ziffern Mindestanzahl an zu druckenden Ziffern.
+//! \retval false, wenn Verbindung abgebaut wurde.
+
 bool ZahlAusgabeFern(uint8_t n, uint8_t Ziffern)
-// gibt an über Bus verbundenes Endgerät eine Zahl aus, vorher muss auf Ziffern umgeschaltet worden sein!
-// Rückgabe true, wenn kein Abbruch
 	{
-	uint8_t z = 0;
+	uint8_t z = 0; // z = Zehner
 	while (n >= 10)
 		z++, n -= 10;
 	if (z > 0 || Ziffern > 1)
@@ -330,10 +383,21 @@ bool ZahlAusgabeFern(uint8_t n, uint8_t Ziffern)
 	return CodeAusgabeFern(ZeichenZuCode(n + '0', ZiMode)); 
 	}
 
-const char CrLf[] PROGMEM = "\r\n ";
-const char IstText[] PROGMEM = ": ist = ";
-const char NeuText[] PROGMEM = "  neu =   ";
 	
+PROGMEM const char CrLf[] = "\r\n ";
+PROGMEM const char IstText[] = ": ist = ";
+PROGMEM const char NeuText[] = "  neu =   ";
+	
+	
+//! Führt eine vollständige Zahlen-Abfrage durch.
+//----------------------------------------------------------------
+//! Ablauf der Abfrage: Drucken eines Textes, Drucken des alten Werts, 
+//! Drucken der Eingabeaufforderung, Warten auf die Eingabe.
+//! \param[in] Prompt Zeiger auf den Beschreibungstext im Programmspeicher
+//! \param[in,out] Wert Abgefragte Zahl.
+//! \param[in] Ziffern Mindestanzahl an zu druckenden Ziffern bei der Ausgabe des alten Wertes.
+//! \retval false, wenn Verbindung abgebaut wurde.
+
 bool ZahlAbfrageFern(PGM_P Prompt, uint8_t *Wert, uint8_t Ziffern)
 	{
 	if (!TextAusgabeFern(CrLf)
@@ -347,6 +411,15 @@ bool ZahlAbfrageFern(PGM_P Prompt, uint8_t *Wert, uint8_t Ziffern)
 	}
 	
 	
+//! Führt eine vollständige Ja-Nein-Abfrage durch.
+//----------------------------------------------------------------
+//! Ablauf der Abfrage: Drucken eines Textes, Drucken des alten Zustands, 
+//! Drucken der Eingabeaufforderung, Warten auf die Eingabe.
+//! \param[in] Prompt Zeiger auf den Beschreibungstext im Programmspeicher
+//! \param[in,out] Wert Variable, dessen Bit Gegenstand der Abfrage ist.
+//! \param[in] Mask Bitmaske für das relevante Bit.
+//! \retval false, wenn Verbindung abgebaut wurde.
+
 bool BitAbfrageFern(PGM_P Prompt, uint8_t *Wert, uint8_t Mask)
 	{
 	bool Eingabe;

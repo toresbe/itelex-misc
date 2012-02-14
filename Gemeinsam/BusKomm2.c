@@ -9,6 +9,11 @@
 #include "MsTimer.h"
 
 
+//! Wartet nach Verbindungsabbau auf Quittung der Gegenstelle.
+//------------------------------------------------------------
+//! Vorher sollte BusKdoSchluss gesendet worden sein.
+//! \param MaxTimer maximale Wartezeit in Timer-Einheiten.
+ 
 void WarteSchlussQuittung(uint16_t MaxTimer)
 	{
 	TMsTimer Timer;
@@ -29,9 +34,19 @@ void WarteSchlussQuittung(uint16_t MaxTimer)
 		}
 	}
 
+
+//! Interne Variable für die Überwachung des Zeitintervalls der Lebenszeichen
+//! auf dem TWI-Bus.
 	
 static TMsTimer LebenszTimer;
 
+
+//! Sendet Lebenszeichen bei Bedarf.
+//----------------------------------
+//! Prüft, ob seit dem letzten Senden eines Lebenszeichens es wieder Zeit ist,
+//! ein neues Lebenszeichen zu senden. Ist kein Verbindungspartner aktiv, wird
+//! nichts gesendet. Ebenso wird nichts gesendet, wenn noch TWI-Kommandos auf die 
+//! Übermittlung warten.
 
 void SendeLebenszeichen()
 	{

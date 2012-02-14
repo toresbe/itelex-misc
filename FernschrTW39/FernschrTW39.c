@@ -372,9 +372,9 @@ static void TW39Ausschalten()
 
 /////////////////////////////////////////////////////////////////////////////////////////7
 
-//! Modul / Schnittstelle irreversibel stoppen
+//! Modul / Schnittstelle irreversibel stoppen.
 
-//! Nur Reset befreit, ein Tastendruck löst einen Reset aus
+//! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
 
 void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ )
 // Nur ein Reset befreit

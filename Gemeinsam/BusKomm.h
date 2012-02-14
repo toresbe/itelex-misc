@@ -12,7 +12,9 @@
 // ----------------
 
 extern volatile uint8_t Status;
-//!< Bitcodiert, siehe folgende Definitionen. Manches Bit doppelt belegt, abhängig von Bit 7
+//!< Betriebszustand des eigenen Moduls. Bitcodiert, siehe folgende Definitionen StatBit_***.
+
+//!< Manches Bit doppelt belegt, abhängig von Bit 7.
 
 enum { StatBit_Frei				= 7	}; //!< keine Verbindung besteht (weder innen noch außen)
 enum { StatBit_BusKdoEmpfangen	= 6	}; //!< Empfangenes Kommando noch nicht abschließend bearbeitet
@@ -30,27 +32,31 @@ enum { StatBit_FsMeldEin		= 0 }; //!< Fernschreiber Stromschleife mit Stromfluß 
 typedef volatile enum { Ok, KeineAntwort, Abbruch, Besetzt } TBusErgebnis;
 typedef volatile enum { Nichts, Senden, BedSenden, Lesen, Fertig } TBusAuftrag;
 
-extern volatile TBusAuftrag BusAuftrag; 
-extern volatile TBusErgebnis BusErgebnis; // Besetzt nur nach BedSenden 
-extern volatile uint8_t BusVerbPartner; // als I²C-Adresse, also * 2
-extern uint8_t BusEigenAdresse; // als I²C-Adresse, also * 2. Bei Mehrfach-Adressen nur Basisadresse
-extern uint8_t BusEigenAdrMehrfach; // muss Potenz von 2 sein (also 1, 2, 4, 8, 16, ... , Standard = 1
-extern volatile uint8_t BusAnrufSubAdresse; // tatsächlich als Adresse verwendete Nummer 
-extern volatile uint8_t BusSendeDaten; //!< zu sendendes Byte
-extern volatile bool BusFrei;
-extern volatile uint8_t BusKollisionZaehler; // nur zum Testen / Statistik
-extern volatile bool BusEmpfMark;
-extern volatile bool BusEmpfMarkwechsel;
+extern volatile TBusAuftrag BusAuftrag; //!< Aktuell anstehende Bus-Aktivität des eigenen Moduls.
+extern volatile TBusErgebnis BusErgebnis; //!< Ergebnis des letzten BusSenden Aufrufs. Besetzt nur nach BedSenden. 
+extern volatile uint8_t BusVerbPartner; //!< Aktueller Verbindungspartner als I²C-Adresse, also * 2
+extern uint8_t BusEigenAdresse; //!< Aktuelle eigene Adresse als I²C-Adresse, also * 2. Bei Mehrfach-Adressen nur Basisadresse.
+extern uint8_t BusEigenAdrMehrfach; 
+	//!< Anzahl der Bus-Adressen des eigenen Moduls. Muss Potenz von 2 sein (also 1, 2, 4, 8, 16, ...) , Standard = 1
+extern volatile uint8_t BusAnrufSubAdresse; //!< Aktuelle eigene Adresse der aktuellen Verbindung.
+extern volatile uint8_t BusSendeDaten; //!< zu sendendes Byte.
+extern volatile bool BusFrei; //!< True, wenn Modul bereit für neue Bus-Aktivität.
+extern volatile uint8_t BusKollisionZaehler; //!< Zählt die Anzahl der verlorenen TWI-Arbitrierungen. Nur zum Testen / Statistik.
+extern volatile bool BusEmpfMark; //!< Aktueller "Empfangspegel". Wird durch Empfang von BusKdoMark gesetzt bzw. BusKdoSpace gelöscht.
+
+extern volatile bool BusEmpfMarkwechsel; //!< \brief Flag für Empfangspegel-Wechsel. 
+	//!< \details Wird durch Empfang von BusKdoMark oder BusKdoSpace gesetzt.
+	//!< Muss durch das Anwendungsprogramm gelöscht werden.
+	
 extern volatile uint16_t TwiIsrCount;
-
-// extern void StatusKdoEmpfReset(); --> macht jetzt GetEmpfDaten
-
+	//!< Zählt die Anzahl der Aufrufe der TWI-Interrupt-Routine. Nur für Debugging-Zwecke.
+	
+	
 extern void CLR_BIT_Status(uint8_t BitNr);
 	
 extern void SET_BIT_Status(uint8_t BitNr);
 
 extern void TwiInit(void);
-// vorher muss BusEigenAdresse und BusEigenAdrMehrfach gesetzt sein!
 
 extern void BusWarteFertig(void);
 
@@ -69,8 +75,6 @@ extern uint8_t AdresseZuWahl(uint8_t Adresse, uint8_t *AnzZiffern);
 extern void SendeLebenszeichen(void);
 
 extern bool GetEmpfByte(uint8_t *Code);
-	//!< holt aus dem Empfangspuffer den nächsten Code
-	//!< \retval false, wenn Empfangspuffer leer ist.
 	
 extern bool EmpfPufferLeer(void);
 

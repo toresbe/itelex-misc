@@ -1,5 +1,7 @@
 #include "AutoSenden.h"
 
+//! Sendet einen Text aus dem Flash.
+//! Verwendet (externe) Funktion AutoSendenZeichen.
 void AutoSendenTextP(PGM_P s)
 	{
 	while (pgm_read_byte(s) != '\0')

@@ -23,23 +23,30 @@ volatile uint8_t Status;
 // Variablen für Datenaustausch über I²C
 // -------------------------------------
 
-volatile TBusAuftrag BusAuftrag; //
-volatile TBusErgebnis BusErgebnis; // Besetzt nur nach BedSenden 
-uint8_t BusEigenAdresse; // als I²C-Adresse, also << 1. Bei Mehrfach-Adressen nur Basisadresse
-uint8_t BusEigenAdrMehrfach; // muss Potenz von 2 sein, Standard = 1
-volatile uint8_t BusAnrufSubAdresse; // tatsächlich als Adresse verwendete Nummer 
-volatile uint8_t BusVerbPartner; // als I²C-Adresse, also << 1
+// globale Variablen aus BusKomm.h
+
+volatile TBusAuftrag BusAuftrag; 
+volatile TBusErgebnis BusErgebnis; 
+uint8_t BusEigenAdresse; 
+uint8_t BusEigenAdrMehrfach; 
+volatile uint8_t BusAnrufSubAdresse; 
+volatile uint8_t BusVerbPartner; 
 volatile uint8_t BusSendeDaten;
-volatile uint8_t BusEmpfPuffer[EMPF_PUFFER_GROESSE];
-volatile uint8_t BusEmpfPufferSchreibPos;
-volatile uint8_t BusEmpfPufferLesePos;
-static volatile uint8_t BusEmpfFremdStatus;
 volatile bool BusFrei;
-volatile bool BusSlaveSend; // für Debugging-Zwecke
-volatile uint8_t BusKollisionZaehler; // nur zum Testen / Statistik
+volatile uint8_t BusKollisionZaehler; 
 volatile bool BusEmpfMark;
 volatile bool BusEmpfMarkwechsel;
 volatile uint16_t TwiIsrCount;
+
+// lokal:
+static volatile uint8_t BusEmpfPuffer[EMPF_PUFFER_GROESSE]; 
+	//!< Puffert empfangene Kommandos vom TWI-Bus \e außer BusKdoMark und BusKdoSpace.
+static volatile uint8_t BusEmpfPufferSchreibPos;
+	//!< Index für BusEmpfPuffer beim Eintragen von Daten.
+static volatile uint8_t BusEmpfPufferLesePos;
+	//!< Index für BusEmpfPuffer beim Auslesen von Daten.
+static volatile uint8_t BusEmpfFremdStatus;
+	//!< Ablage für Status-Byte eines abgefragten Bus-Partners.
 
 // Makros für Debugging
 // --------------------
@@ -55,6 +62,9 @@ volatile uint16_t TwiIsrCount;
 #define DEBUG_BUSTRANSFER_EMPFANGFERTIG
 
 
+//! Loscht ein Bit in der globalen Variable Status.
+//---------------------------------------------
+//! \param BitNr Bit-Nummer (Konstanten StatBit_* benutzen).
 void CLR_BIT_Status(uint8_t BitNr)
 	{
 	uint8_t SregAlt = SREG;
@@ -64,6 +74,9 @@ void CLR_BIT_Status(uint8_t BitNr)
 	}
 	
 	
+//! Setzt ein Bit in Status.
+//---------------------------------------------
+//! \param BitNr Bit-Nummer (Konstanten StatBit_* benutzen).
 void SET_BIT_Status(uint8_t BitNr)
 	{
 	uint8_t SregAlt = SREG;
@@ -76,6 +89,11 @@ void SET_BIT_Status(uint8_t BitNr)
 void FehlerStop(int Nummer);
 
 
+//! Interne Funktion zur Verarbeitung eines über TWI empfangenen Kommandos.
+// ---------------------------------------------------------------
+//! BusKdoMark und BusKdoSpace wirken auf BusEmpfMark. 
+//! Alle anderen Kommandos werden in einen Puffer geschrieben.
+//! \param RecData Empfangenes TWI-Kommando.
 static void EmpfByteSpeichern(uint8_t RecData)
 	{
 	switch (RecData)
@@ -120,6 +138,9 @@ static void EmpfByteSpeichern(uint8_t RecData)
 	} // EmpfByteSpeichern
 	
 
+//! Interrupt-Routine für TWI. 
+//----------------------------
+//! Verarbeitet Statusänderungen des Atmel-TWI-Interface.
 ISR(TWI_vect)
 	{
 	uint8_t NewStat, RecData;
@@ -304,7 +325,6 @@ ISR(TWI_vect)
 			DebSp(Status);
 #endif //TWI_DEBUG
 			BusFrei = false;
-			BusSlaveSend = true;
 			break;
 
         case TwiEv_ST_DataNACK		: // Beendigung durch Master
@@ -328,6 +348,9 @@ ISR(TWI_vect)
 	}
 	
 
+//! Wartet, bis TWI-Bus-Auftrag (lesen oder schreiben) beendet ist. 
+//-----------------------------------------------------------------
+//! Erfolgreich oder nicht ist egal.
 void BusWarteFertig()
 	{
 	while (BusAuftrag != Nichts && BusAuftrag != Fertig)
@@ -335,6 +358,13 @@ void BusWarteFertig()
 	}
 	
 
+//! Sendet ein TWI-Kommando an den aktuellen Verbindungspartner.
+// ---------------------------------------------------------------
+//! Der aktuelle Verbindungspartner ist BusVerbPartner.
+//! Wartet, bis vorheriger TWI-Transfer abgeschlossen ist.
+//! Wartet \e nicht auf Abschluss des aktuellen Transfers.
+//! Ergebnis (Erfolg) ist in den globalen Variablen BusAuftrag und BusErgebnis zu entnehmen.
+//! \param Kdo das zu sendende TWI-Kommando. Siehe Txp2-Defs.h.	
 void BusSenden(uint8_t Kdo)
 	{ // an BusVerbPartner 
 	DEBUG_BUSTRANSFER_INIT;
@@ -367,6 +397,12 @@ void BusSenden(uint8_t Kdo)
 	}
 	
 	
+//! Fragt aktuellen Modul-Zustand (Status) eines anderen Moduls ab. 
+// ----------------------------------------------------------------
+//! "Verbiegt" dazu vorübergehend BusVerbPartner.
+//! \param Adr Adresse des abzufragenden Moduls (schon *2)
+//! \return Status des abgefragten Moduls. Bitkombination aus StatBit_*.
+//! \retval -1 falls keine Verbindung zum anderen Modul hergestellt werden konnte.
 int16_t GetStatus(uint8_t Adr)
 	// liefert Status >= 0 oder -1 für keine Verbindung
 	{
@@ -399,6 +435,12 @@ int16_t GetStatus(uint8_t Adr)
 	}
 	
 
+//! Setzt neue eigene TWI-Adresse.
+// --------------------------------
+//! Prüft vorher, ob die Adresse bereits anderweitig genutzt ist.
+//! \todo BusEigenAdrMehrfach prüfen!
+//! \param neu Neue Adresse für TWI-Bus, bereits * 2
+//! \retval true bei erfolgreicher Adress-Umstellung.
 bool BusEigenAdressePruefenUndSetzen(uint8_t neu)
 	{
 	if (neu >= BusAdrMin
@@ -425,8 +467,11 @@ bool BusEigenAdressePruefenUndSetzen(uint8_t neu)
 	}
 
 
+//! Initialisiert die TWI-Schnittstelle.
+// --------------------------------------
+//! Vorher muss BusEigenAdresse und BusEigenAdrMehrfach gesetzt sein.
+//! Funktion prüft NICHT auf Mehrfachverwendung der eigenen Adresse.
 void TwiInit()
-// vorher muss BusEigenAdresse und BusEigenAdrMehrfach gesetzt sein!
 	{
 	// TWI initilaisieren
 	BusFrei = true;
@@ -454,9 +499,21 @@ void TwiInit()
 	}
 
 
+//! Übersetzt eine Wahlziffern-Folge in die TWI-Adresse.
+//------------------------------------------------------
+//! \param Wahl Wahlziffer bzw. Wahlziffern.
+//! \param AnzZiffern Anzahl der Ziffern der Wahlnummer.
+//! \return TWI-Adresse zur Wahlziffer(n), nicht * 2
+
+//! \remarks Beispiele zu den Parametern: 
+//! \n Ziffern: 3 4 --> Wahl = 34, AnzZiffern = 2
+//! \n Ziffern: 0 4 --> Wahl = 4, AnzZiffern = 2
+//! \n Ziffer:   4  --> Wahl = 4, AnzZiffern = 1
+//! \n Übersetzungsregel:
+//! \n einstellig 1 - 9 --> 101 - 109 ; 0 --> 110
+//! \n zweistellig 01 - 99 --> 1 - 99 ; 00 --> 100
+
 uint8_t WahlZuAdresse(uint8_t Wahl, uint8_t AnzZiffern)
-	// 0 - 9 --> 110, 101-109
-	// 00-99 --> 100, 1 - 99
 	{
 	if (AnzZiffern == 1)
 		return ((Wahl == 0) ? 110 : 100 + Wahl) << 1;
@@ -465,9 +522,15 @@ uint8_t WahlZuAdresse(uint8_t Wahl, uint8_t AnzZiffern)
 	}
 
 
+//! Übersetzt eine TWI-Adresse in eine Wahlziffern-Folge.
+//------------------------------------------------------
+//! \param[in] Adresse TWI-Adresse zur Wahlziffer(n), nicht * 2
+//! \param[out] AnzZiffern Anzahl der Ziffern der Wahlnummer.
+//! \return Wahlziffer bzw. Wahlziffern.
+
+//! \remarks Beispiele zu den Parametern und Übersetzungsregel siehe WahlZuAdresse.
+
 uint8_t AdresseZuWahl(uint8_t Adresse, uint8_t *AnzZiffern)
-	// 0 - 9 <-- 110, 101-109
-	// 00-99 <-- 100, 1 - 99
 	{
 	Adresse = Adresse >> 1;
 	if (Adresse > 100)
@@ -483,9 +546,11 @@ uint8_t AdresseZuWahl(uint8_t Adresse, uint8_t *AnzZiffern)
 	}
 
 
+//! Holt aus dem Empfangspuffer den nächsten Code.
+// ------------------------------------------------
+//! \param[out] Code TWI-Code nach Txp2-Defs.h.
+//! \retval false, wenn Empfangspuffer leer ist.
 bool GetEmpfByte(uint8_t *Code)
-	//!< holt aus dem Empfangspuffer den nächsten Code
-	//!< \retval false, wenn Empfangspuffer leer ist.
 	{
 	if (BusEmpfPufferLesePos == BusEmpfPufferSchreibPos)
 		return false;
@@ -498,6 +563,8 @@ bool GetEmpfByte(uint8_t *Code)
 	}
 	
 	
+//! Prüft, ob Empfangspuffer für TWI-Kommandos leer ist.
+//------------------------------------------------------	
 bool EmpfPufferLeer()
 	{
 	return BusEmpfPufferLesePos == BusEmpfPufferSchreibPos;

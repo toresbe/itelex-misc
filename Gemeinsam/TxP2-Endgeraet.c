@@ -257,11 +257,17 @@ bool KoEinschalten()
 	}
 	
 
+
+
+#ifndef FUER_TW39
+
 uint8_t KoAnwahlnummer()
 	// im Regelfall 0. Kann bei Mehrfach-Endgerät 0 bis BusEigenAdrMehrfach-1 sein
 	{
 	return BusAnrufSubAdresse;
 	}
+
+#endif //def FUER_TW39
 
 	
 TGeEinschResultat GeEinschalten()
@@ -406,6 +412,8 @@ bool GeSendeCode(uint8_t Code) // true, wenn Sendepuffer nicht voll
 	}
 
 
+#ifndef FUER_TW39
+
 bool KoEmpfZeichen(char *Zeichen) // ASCII-Code
 	{
 	uint8_t code;
@@ -437,8 +445,6 @@ bool KoEmpfZeichen(char *Zeichen) // ASCII-Code
 		}
 	}
 
-
-#ifndef FUER_TW39
 
 bool GeSendeZeichen(char c)
 	{
@@ -486,8 +492,6 @@ bool GeSendeZeichen(char c)
 	return true;
 	}
 
-#endif //def FUER_TW39
-
 
 bool GeSendePufferVoll()
 	{
@@ -499,6 +503,9 @@ bool GeSendePufferLeer()
 	{
 	return PufferLeer(&SendePuffer);
 	}
+
+#endif //def FUER_TW39
+
 
 
 void GeAusschalten()

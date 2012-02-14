@@ -1,1 +1,1 @@
-<AVRWorkspace><IOSettings><CurrentRegisters/></IOSettings><part name="ATMEGA168"/><Files><File00000 Name="D:\Daten\AvrProgs\TxP2\AnalogModem2\analogmodem2.c" Position="382 101 1455 787" LineCol="326 0"/></Files></AVRWorkspace>
+<AVRWorkspace><IOSettings><CurrentRegisters/></IOSettings><part name="ATMEGA168"/><Files><File00000 Name="D:\Daten\AvrProgs\TxP2\AnalogModem2\analogmodem2.c" Position="405 124 1263 624" LineCol="326 0"/><File00001 Name="D:\Daten\AvrProgs\TxP2\Gemeinsam\FernDialog.c" Position="430 149 1284 623" LineCol="0 0"/></Files></AVRWorkspace>
