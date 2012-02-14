@@ -4,14 +4,19 @@
 
 #include <inttypes.h>
 
+#include <avr/pgmspace.h>
+
 #include "bool.h"
 
-uint8_t LokalZahlEingabe(uint8_t* z, uint8_t maxzif);
+extern PROGMEM char* OkStrP;
 
-uint8_t LokalBoolEingabe(bool* b);
+extern uint8_t LokalZahlEingabe(uint8_t* z, uint8_t maxzif);
 
-uint8_t LokalTextEingabe(char* s, uint8_t maxbuchst);
+extern uint8_t LokalBoolEingabe(bool* b);
 
-bool KonfigurationAllgemein();
+extern uint8_t LokalTextEingabe(char* s, uint8_t maxbuchst);
+
+extern bool KonfigurationAllgemein();
+
 
 #endif //ndef __KONFIGDIALOG_H__

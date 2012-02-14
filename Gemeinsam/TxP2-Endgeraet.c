@@ -257,8 +257,6 @@ bool KoEinschalten()
 	}
 	
 
-
-
 #ifndef FUER_TW39
 
 uint8_t KoAnwahlnummer()
@@ -389,6 +387,8 @@ void GeSendeMark(bool Mark)
 	}
 
 
+#ifndef FUER_TW39
+	
 bool KoEmpfCode(uint8_t *Code) // wenn Zeichen empfangen wurde, wird dieses in Code gespeichert und true zurückgegeben
 	{
 	if (PufferLeer(&EmpfPuffer))
@@ -399,6 +399,8 @@ bool KoEmpfCode(uint8_t *Code) // wenn Zeichen empfangen wurde, wird dieses in C
 		return true;
 		}
 	}
+
+#endif //ndef FUER_TW39
 
 
 bool GeSendeCode(uint8_t Code) // true, wenn Sendepuffer nicht voll

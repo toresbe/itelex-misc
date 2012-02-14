@@ -562,6 +562,8 @@ bool GetEmpfByte(uint8_t *Code)
 	return true;
 	}
 	
+
+#ifndef FUER_TW39
 	
 //! Prüft, ob Empfangspuffer für TWI-Kommandos leer ist.
 //------------------------------------------------------	
@@ -570,4 +572,5 @@ bool EmpfPufferLeer()
 	return BusEmpfPufferLesePos == BusEmpfPufferSchreibPos;
 	}
 	
+#endif //ndef FUER_TW39
 

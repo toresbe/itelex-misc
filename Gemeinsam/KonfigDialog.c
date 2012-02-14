@@ -10,6 +10,9 @@
 #include "LokalAusgabe.h"
 
 
+PROGMEM char* OkStrP = " ok. ";
+
+
 extern char LokalZeichenLesen();
 // Diese Funktion muss in der Anwendung definiert werden.
 
@@ -241,7 +244,7 @@ bool KonfigurationAllgemein()
 
 		if (BusEigenAdressePruefenUndSetzen(WahlZuAdresse(Durchwahl, 2)))
 			{
-			LokalTextAusgabeP(PSTR("ok. "));
+			LokalTextAusgabeP(OkStrP);
 
 			if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
 				eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);

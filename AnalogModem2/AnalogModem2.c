@@ -2002,7 +2002,7 @@ static void Einstellen()
 
 	set_LEDGRUEN();			
 
-	if (TextAusgabeFern(PSTR("\r\n konfiguration leitungsschnittstelle analog version " SVNVERSION " datum " __DATE__))
+	if (TextAusgabeFern(PSTR("\r\n konfiguration analog modem version " SVNVERSION " datum " __DATE__))
 		&& ZahlAbfrageFern(PSTR("anzahl klingelzeichen bis annahme"), &AnnahmeKlingelzeichen, 1)
 		&& AmtswahlAbfrage()
 		&& BitAbfrageFern(PSTR("feste hauptstelle"), &KonfigBits, 1 << KonfigBit_FesterHauptanschluss)

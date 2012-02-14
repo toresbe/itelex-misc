@@ -85,7 +85,9 @@ uint8_t PufferAusg(TPuffer *p)
 	return res;
 	}
 	
- 
+
+#ifndef FUER_TW39
+	
 //! liefert Anzahl Zeichen im Puffer.
 // ------------------------------------
 //! \param p Zeiger auf den Puffer.
@@ -100,3 +102,4 @@ uint8_t PufferAnzahl(TPuffer *p)
 		return (p->SpeichP +  MaxPuffer) - p->AusgP;
 	}
 
+#endif //ndef FUER_TW39
