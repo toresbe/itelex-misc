@@ -36,67 +36,85 @@
 // Schalter für Code-Erzeugung
 // ===========================
 
-#define FALSCHKDO_FEHLERSTOP // Fehlerstop, wenn falsche Kommandos empfangen werden 
+#define FALSCHKDO_FEHLERSTOP //!< Fehlerstop, wenn falsche Kommandos empfangen werden 
 
-// #define NOWATCHDOG // Watchdog abgeschaltet
+// #define NOWATCHDOG //!< Watchdog abgeschaltet
 
 
-const char Identifier[] PROGMEM = "___TxP2_LeitungAnalog2___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
-
+PROGMEM const char Identifier[] = "___TxP2_LeitungAnalog2___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+	//!< Identifier im Programmspeicher.
 
 // Konfigurationsdaten
 // ===================
 
-uint8_t KonfigBits; 
+uint8_t KonfigBits; //!< Konfiurationsbits. Bedeutung siehe Konstanten KonfigBit_*.
 
-#define KonfigBit_FesterHauptanschluss 0 
-	// wenn Bit = 1 wird immer der Hauptanschluss bei kommenden Anrufen benutzt. Sonst wird die  
-	// Nebenstelle des letzten abgehenden Anrufen benutzt
+#define KonfigBit_FesterHauptanschluss 0
+	//!< wenn Bit = 1 in KonfigBits wird immer der Hauptanschluss bei kommenden Anrufen benutzt. Sonst wird die  
+	//!< Nebenstelle des letzten abgehenden Anrufen benutzt.
+	
 #define KonfigBit_AnrufMithoeren 1
-	// wenn Bit = 1 wird jeder durch Telefon angenommene Anruf mitgehört und bei Trägerton
-	// in die Verbindung eingetreten
+	//!< wenn Bit = 1 wird jeder durch Telefon angenommene Anruf mitgehört und bei Trägerton
+	//!< in die Verbindung eingetreten. \todo Noch nicht implementiert.
+	
 #define KonfigBit_AnrufNachhoeren 2
-	// wenn Bit = 1 nach jedem durch Telefon angenommene Anruf nachträglich ein
-	// Verbindungsversuch gemacht, wenn das Telefon weniger als 20 Sekunden an war.
+	//!< wenn Bit = 1 nach jedem durch Telefon angenommene Anruf nachträglich ein
+	//!< Verbindungsversuch gemacht, wenn das Telefon weniger als 20 Sekunden an war.
+	//!< \todo Noch nicht implementiert.
+	
 #define KonfigBit_DurchwahlErlaubt 3		 
-	// wenn Bit = 0 wird eine eingehende Durchwahl ignoriert und auf jeden Fall der Hauptanschluss
-	// ausgewertet
+	//!< wenn Bit = 0 wird eine eingehende Durchwahl ignoriert und auf jeden Fall der Hauptanschluss
+	//!< ausgewertet.
+	
 #define KonfigBit_SucheAlternativBeiBesetzt 4
-	// wenn Bit = 1 wird eine eingehender Anruf auf einen anderen Apparat gelenkt, wenn Hauptanschluss
-	// besetzt ist
+	//!< wenn Bit = 1 wird eine eingehender Anruf auf einen anderen Apparat gelenkt, wenn Hauptanschluss
+	//!< besetzt ist.
+	
 #define KonfigBit_Schnellstart 5
-	// wenn Bit = 1 wird nach "fehlgeschlagenen Anrufen" die Anzahl der Klingelzeichen bis zum
-	// Abheben auf 1 gesetzt. "fehlgeschlagener Anruf": Noch definieren
-	// TODO: ingesamt noch nicht implementiert
+	//!< wenn Bit = 1 wird nach "fehlgeschlagenen Anrufen" die Anzahl der Klingelzeichen bis zum
+	//!< Abheben auf 1 gesetzt. "fehlgeschlagener Anruf": Noch definieren
+	//!< \todo ingesamt noch nicht implementiert.
 								
 uint8_t AnnahmeKlingelzeichen; 
+	//!< Anzahl der Klingelzeichen, bis das TelexPhone den Anruf annimmt.
 
 enum { AnzJustierWahlziffern = 10 } ;
+	//!< Maximale Anzahl an Wahlziffern für den Anruf einer "stillen Gegenstelle" 
+	//!< bei der Leitungsjustierung.
 
-uint8_t JustierWahlziffern[AnzJustierWahlziffern]; // Ziffer, die am Anfang einer Leitungsjustierung gewählt werden
+uint8_t JustierWahlziffern[AnzJustierWahlziffern]; 
+    //!< Ziffern, die am Anfang einer Leitungsjustierung gewählt werden. Das Ende der Liste 
+	//!< ist definiert durch einen Eintrag >= 10.
 	
-uint8_t JustierWahlVerzoegerung; // Verzögerung in 1/10 sek. zwischen Schleifenschluss und Wahl der Ziffern
+uint8_t JustierWahlVerzoegerung; 
+	//!< Verzögerung in 1/10 sek. zwischen Schleifenschluss und Wahl der Ziffern
+	//!< bei der Leitungsjustierung.
 
-uint8_t JustierNeustartPause; // Verzögerung in 1/10 sek. zwischen Schleifenunterbrechung und Schleifenschluss 
-							// (also wie lange wird der Hörer aufgelegt)
+uint8_t JustierNeustartPause; 
+	//!< Verzögerung in 1/10 sek. zwischen Schleifenunterbrechung und Schleifenschluss 
+	//!< (also wie lange wird der Hörer aufgelegt) beim Neustart der Leitungsjustierung
+	//!< (zum Abschalten eines Besetztzeichens).
 	
-uint8_t VerbindungsaufbauVerzoegerung;	// Verzögerung in 1/10 sek. zwischen letzter Ziffer und Sendung des Kenntons (Originate Mark)
+uint8_t VerbindungsaufbauVerzoegerung;	
+	//!< Verzögerung in 1/10 sek. zwischen letzter Ziffer und Sendung des Kenntons (Originate Mark)
+	//!< beim Aufbau einer normalen TelexPhone-Verbindung.
 
-uint8_t NebenstellenTabelle[10]; // Nummern der Maschine, die bei Anrufen die Nachricht annehmen soll 
-				// (im Bereich 10 bis 99)
-				// [0]: 	Hauptstelle, die bei Anwahl ohne Nebenstellennummer oder bei besetzter direkt 
-				//		angewählter Endstelle benutzt wird. wird bei Programmstart nach AktuellEmpfaenger 
-				//		kopiert mit * 2.
-				// [1] bis [9]: Nebenstellen-Durchwahlen für direkte Durchwahlen				
+uint8_t NebenstellenTabelle[10]; 
+	//!< Nummern der Maschine, die bei Anrufen die Nachricht annehmen soll 
+	//!< (im Bereich 10 bis 99). \par
+	//!< [0]: 	Hauptstelle, die bei Anwahl ohne Nebenstellennummer oder bei besetzter direkt 
+	//!<		angewählter Endstelle benutzt wird. wird bei Programmstart nach AktuellEmpfaenger 
+	//!<		kopiert mit * 2. \par
+	//!< [1] bis [9]: Nebenstellen-Durchwahlen für direkte Durchwahlen.
 
 #define Hauptanschluss NebenstellenTabelle[0]
-				// siehe oben 
+	//!< siehe NebenstellenTabelle.
 				
 uint8_t AktuellEmpfaenger;
-	// aktuell bei kommenden Rufen zu verwendedendes Endgerät. 
-	// Hier wird bei GEHENDEN Anrufen auch die Endgeräte-Nummer gespeichert.
-	// Bei Flag KonfigBit_FesterHauptanschluss wird aber möglichst immer der Eintrag "Hauptanschluss" verwendet
-	// * 2 für I²C-Adressierung ist bei AktuellEmpfaenger bereits enthalten
+	//!< aktuell bei kommenden Rufen zu verwendedendes Endgerät. 
+	//!< Hier wird bei GEHENDEN Anrufen auch die Endgeräte-Nummer gespeichert.
+	//!< Bei Flag KonfigBit_FesterHauptanschluss wird aber möglichst immer der Eintrag "Hauptanschluss" verwendet
+	//!< * 2 für I²C-Adressierung ist bei AktuellEmpfaenger bereits enthalten
 
 
 // ****************************************************************
@@ -105,34 +123,49 @@ uint8_t AktuellEmpfaenger;
 
 // Erläuterung der Variablen-Inhalte siehe oben...
 
-uint8_t BusEigenAdresse_EE EEMEM = 110 << 1; 
+EEMEM uint8_t BusEigenAdresse_EE = 110 << 1; 
+	//!< \sa BusEigenAdresse, Kopie im EEPROM.
+	
+EEMEM uint8_t KonfigBits_EE = (1<<KonfigBit_FesterHauptanschluss) | (1<<KonfigBit_SucheAlternativBeiBesetzt);
+	//!< \sa KonfigBits, Kopie im EEPROM.
 
-uint8_t KonfigBits_EE EEMEM = (1<<KonfigBit_FesterHauptanschluss) | (1<<KonfigBit_SucheAlternativBeiBesetzt);
+EEMEM uint8_t AnnahmeKlingelzeichen_EE = 1;
+	//!< \sa AnnahmeKlingelzeichen, Kopie im EEPROM.
 
-uint8_t AnnahmeKlingelzeichen_EE EEMEM = 1;
+EEMEM uint8_t JustierWahlziffern_EE[AnzJustierWahlziffern] = { 5, 10 };
+	//!< \sa JustierWahlziffern, Kopie im EEPROM.
 
-uint8_t JustierWahlziffern_EE[AnzJustierWahlziffern] EEMEM = { 5, 10 }; // 10 beendet die Liste
+EEMEM uint8_t JustierWahlVerzoegerung_EE = 8;
+	//!< \sa JustierWahlVerzoegerung, Kopie im EEPROM.
 
-uint8_t JustierWahlVerzoegerung_EE EEMEM = 8;
+EEMEM uint8_t JustierNeustartPause_EE = 12;
+	//!< \sa JustierNeustartPause, Kopie im EEPROM.
 
-uint8_t JustierNeustartPause_EE EEMEM = 12;
+EEMEM uint8_t VerbindungsaufbauVerzoegerung_EE = 60; 
+	//!< \sa VerbindungsaufbauVerzoegerung, Kopie im EEPROM.
 
-uint8_t VerbindungsaufbauVerzoegerung_EE EEMEM = 60; 
-
-uint8_t NebenstellenTabelle_EE[10] EEMEM = { 31 } ; // alles mit 0 initialisiert
+EEMEM uint8_t NebenstellenTabelle_EE[10] = { 31 } ; // alles andere mit 0 initialisiert
+	//!< \sa NebenstellenTabelle, Kopie im EEPROM.
 
 
 enum { DiagnoseSpeicherLen = 50 } ;
+	//!< Größe des Debugging-Diagnosespeichers.
 
-uint8_t DiagnoseSpeicher[DiagnoseSpeicherLen] EEMEM = { 0x11, 0x22, 0x33, 0x44, 0x55 } ;
+EEMEM uint8_t DiagnoseSpeicher[DiagnoseSpeicherLen] = { 0x11, 0x22, 0x33, 0x44, 0x55 } ;
+	//!< Speicher für Diagnosedaten.
 
-// Inhalte:
-// 0x01 + Code: PruefeBusSchluss hat ungültigen Befehlscode erkannt.
-// 0x02 + Code: HandshakeGehend hat nicht funktioniert
-// 0x03 + Code: VerbindungGehend hat unplanmäßig abgebrochen
+	//!< Inhalte: \par
+	//!< 0x01 + Code: PruefeBusSchluss hat ungültigen Befehlscode erkannt. \par
+	//!< 0x02 + Code: HandshakeGehend hat nicht funktioniert \par
+	//!< 0x03 + Code: VerbindungGehend hat unplanmäßig abgebrochen \par
 
 static uint8_t DiagnoseSpeicherPos = 0;
+	//!< Schreibindex für DiagnoseSpeicher. \sa DiagnoseSpeicher
 	
+	
+//! Speichert ein Byte im DiagnoseSpeicher.
+//-----------------------------------------
+//! \param d Diagnose-Code oder Daten.
 void DiagDatenSpeichern(uint8_t d)
 	{
 	if (DiagnoseSpeicherPos < DiagnoseSpeicherLen)
@@ -143,6 +176,8 @@ void DiagDatenSpeichern(uint8_t d)
 	}
 
 	
+//! Löscht den DiagnoseSpeicher.
+//-----------------------------------------
 void DiagDatenLoeschen()
 	{
 	for (uint8_t i = 0 ; i < DiagnoseSpeicherLen ; i++)
@@ -151,6 +186,9 @@ void DiagDatenLoeschen()
 	}
 	
 
+//! Schaltet den Seriell-Port des Atmel ein und aktiviert 300 Baud Übertragungsrate.
+//---------------------------------------------------------------------------------
+//! Für das Handshake mit der Gegenstelle beim Verbindungsaufbau.
 static void Seriell300Baud()
 	{
 	// Serielles Handshake mit 300 Baud aktivieren
@@ -170,6 +208,8 @@ static void Seriell300Baud()
 	}
 	
 	
+//! Schaltet den Seriell-Port des Atmel aus.
+//---------------------------------------------------------------------------------
 static void SeriellAus()
 	{
 	UCSR0A = 0;
@@ -181,27 +221,29 @@ static void SeriellAus()
 
 // FehlerStop
 // ==========
-// Programmstop nach Fehler. In Fehlercode-Nummer zur Anzeige mit den LED
-// Reset mit langem Tastendruck
-// verwendete Fehlercodes:
+//! Programmstop nach Fehler. 
+//---------------------------
+//! Fehlercode wird durch die LED angezeigt (schnelles Blinken).
+//! Modul kann durch langen Tastendruck neu gestartet werden.
+//! \param Nummer Fehlercode-Nummer, Bit 0 = blinkende LED rot, Bit 1 = gelb...
+//! \note verwendete Fehlercodes:
 
-//	1: Bus-Empfang trotz Sperre oder TWI-Fehler
-//	2: Falscher TWI-Event (z.B. General Call)
-//	3: ungültiges Bus-Kommando bei kommender Verbindung
-//	4: ungültiges Bus-Kommando bei Konfiguration oder gehender Verbindung
-//	5: ungültiges Bus-Kommando bei gehender Verbindung (Wahlzustand)
-//	-6: noch nicht programmierter Code für Annahme eines Anrufs während der
-//		Anrufphase (durch Einschaltung eines Endgeräts) aufgerufen
-//	7: ungültiges Bus-Kommando nach Einschalt-Kommando an Endgerät bei 
-//		kommender Verbindung (erwartet wird BusQuittEin)
-//	8: keine freie Bus-Adresse gefunden
-//	9: frei
-//	10: kein Endgerät für kommenden Anruf gefunden
-//  11: frei
-//	-12: Mehrfach-Busadresse bei inkompatiblen Chips
-//	13: ungültiges Bus-Kommando bei aufgebauter Verbindung
-// 	14: Kann keine freie Adresse mehr finden...
-
+//!	\par 1: Bus-Empfang trotz Sperre oder TWI-Fehler
+//!	\par 2: Falscher TWI-Event (z.B. General Call)
+//!	\par 3: ungültiges Bus-Kommando bei kommender Verbindung
+//!	\par 4: ungültiges Bus-Kommando bei Konfiguration oder gehender Verbindung
+//!	\par 5: ungültiges Bus-Kommando bei gehender Verbindung (Wahlzustand)
+//!	\par 6: noch nicht programmierter Code für Annahme eines Anrufs während der
+//!		Anrufphase (durch Einschaltung eines Endgeräts) aufgerufen
+//!	\par 7: ungültiges Bus-Kommando nach Einschalt-Kommando an Endgerät bei 
+//!		kommender Verbindung (erwartet wird BusQuittEin)
+//!	\par 8: keine freie Bus-Adresse gefunden
+//!	\par 9: frei
+//!	\par 10: kein Endgerät für kommenden Anruf gefunden
+//! \par 11: frei
+//!	\par 12: frei
+//!	\par 13: ungültiges Bus-Kommando bei aufgebauter Verbindung
+//!	\par 14: Kann keine freie Adresse mehr finden...
 
 void FehlerStop(int Nummer)
 	{
@@ -261,6 +303,11 @@ void FehlerStop(int Nummer)
 	}	
 
 
+//! Setzt das Modul in den Grundzustand.
+//-------------------------------------
+//! Ggf. vorhandene Verbindung wird abgebaut.
+//! LED werden gelöscht.
+//! Leitungsseite wird getrennt.	
 void Grundstellen(bool SchlussQuittSenden)
 	{
 	void SeriellAus();
@@ -296,16 +343,36 @@ void Grundstellen(bool SchlussQuittSenden)
 	clr_LEDROT();
 	}
 	
-	
-// Handshake300
-// ============
-// Unterprogramm für den Austausch von 300-Baud-Zeichen t-x-p-O-K
-// vor Aufruf: Variablen Hs300SendeZeichen1, Hs300SendeZeichen2 und Hs300WarteZeichen belegen
-// Die beiden zu sendenden Zeichen werden abwechselnd alle 0,3Sekunden versucht
 
-
+//! Speichert Zusatzzeichen (Durchwahl) von der Gegenstelle.
+//-------------------------------------------------------------
+//! Beim Handshake zum Verbindungsaufbau kann von der Gegenstelle
+//! eine Kennnummer für eine bestimmte Nebenstelle mitgesendet worden
+//! sein. Diese wird hier abgelegt.
 static char Hs300ExtraZeichen;
+
+	
+//! Speichert Anzahl der Zusatzzeichen von der Gegenstelle.
+//-------------------------------------------------------------
+//! Beim Handshake zum Verbindungsaufbau kann von der Gegenstelle
+//! eine Kennnummer für eine bestimmte Nebenstelle mitgesendet worden
+//! sein. Hier wird gezählt, wie viele dieser Kennummern gesendet worden sind.
 static uint8_t Hs300AnzahlExtra;
+
+
+//! Unterprogramm für den Austausch von 300-Baud-Zeichen t-x-p-O-K
+//-----------------------------------------------------------------
+//! Diese Routine sendet abwechselnd die zwei Codes und wartet auf eine
+//! Rückantwort. Die beiden zu sendenden Zeichen werden abwechselnd alle 
+//! 0,3 Sekunden versucht.
+//! \param Zeichen1 Erster zu sendender Code.
+//! \param Zeichen2 Zweiter zu sendender Code.
+//! \param WarteZeichen Von der Gegenstelle zu erwartendes Zeichen.
+//! \param Wiederholungen Anzahl der Versuche für das Senden von Zeichen1 und Zeichen2.
+//! \return Die Gegenstelle hat das erwartete Zeichen gesendet.
+//! \note Zeichen1 oder Zeichen2 darf '\0' sein, dann wird nur das andere gesendet.
+//! Insgesamt kehrt diese Funktion spätestens nach Wiederholungen * 0,3 Sekunden
+//! zurück.
 
 static bool Handshake300(char Zeichen1, char Zeichen2, char WarteZeichen, uint8_t Wiederholungen)
 	{
@@ -368,6 +435,10 @@ static bool Handshake300(char Zeichen1, char Zeichen2, char WarteZeichen, uint8_
 // Siehe auch Diagramm VerbindungKommend.ppt
 
 
+//! Schaltet den Empfänger in die Leitung ein, wenn das angeschlossene Telefon 
+//! abgenommen worden ist.
+//----------------------------------------------------------------------------
+//! \todo Telefon mithören noch nicht implementiert.
 bool MithoerenUndAufTraegerWarten()
 	{
 	// TODO entsprechend Flags und was weiß ich nicht entscheiden...
@@ -375,6 +446,10 @@ bool MithoerenUndAufTraegerWarten()
 	}
 	
 	
+
+//! Wartet nach Erkennung einer nicht-TelexPhone-Verbindung darauf, dass
+//! ein angeschlossenes Telefon wieder aufgelegt wird.
+//----------------------------------------------------------------------------
 void WarteEndeTelefonat()
 	{
 	set_LEDROT();
@@ -398,14 +473,19 @@ void WarteEndeTelefonat()
 	}
 	
 	
+//! Sucht ein freies Endgerät im Falle eines kommenden Rufs. 
+//----------------------------------------------------------
+//! Stellt Verbindung (ohne Einschaltung) zu einem angeschlossenen Fernschreiber her.
+//! Gesucht wird mit folgenden Prioritäten:
+//! \par 1. Hauptanschluss (bei Flag KonfigBit_FesterHauptanschluss)
+//! \par oder
+//! \par 2. Letzes Gerät, von dem ein abgehendes Telefonat geführt wurde (wenn Flag KonfigBit_FesterHauptanschluss nicht gesetzt)
+//! \par sowie
+//! \par 3. bei besetztem Gerät nach 1. bzw. 2. NÄCHSTER freier Anschluss
+//! \par Der gefundener Anschluss steht nachher in AktuellEmpfaenger.
+//! \returns Freies Endgerät wurde gefinden.
+
 bool FreiesEndgeraetFuerAnruf()
-// sucht ein freies Endgerät im Falle eines kommenden Rufs. Liefert false, falls kein Anschluss frei
-// 1. Hauptanschluss (bei Flag KonfigBit_FesterHauptanschluss)
-// oder
-// 2. Letzes Gerät, von dem ein abgehendes Telefonat geführt wurde (wenn Flag KonfigBit_FesterHauptanschluss nicht gesetzt)
-// sowie
-// 3. bei besetztem Gerät nach 1. bzw. 2. NÄCHSTER freier Anschluss
-// gefundener Anschluss steht nachher in AktuellEmpfaenger
 	{
 	if (BIT_IS_SET(KonfigBits, KonfigBit_FesterHauptanschluss))
 		if (Hauptanschluss != 0)
@@ -447,11 +527,15 @@ bool FreiesEndgeraetFuerAnruf()
 	return true;
 	}
 			
-		
+
+//! Prüft bei kommenden Anrufen, ob es eine TelexPhone-Verbindung ist.
+//--------------------------------------------------------------------
+//! Kehrt erst zurück, wenn eine TelexPhone-Verbindung erkannt wurde oder
+//! ein (sonstiges) Telefonat beendet wurde. Die Funktion blockiert also während 
+//! eines Telefonanrufs.
+//! \returns Anruf ist durch das TxP-System anzunehmen.
+
 bool Anruferkennung()
-	// Liefert true, wenn ein Anruf durch das TxP angenommen werden soll
-	// Liefert false, wenn der Anruf beendet wurde oder es ein Telefonat war.
-	// Funktion blockiert also während eines Telefonanrufs
 	{
 	#define Klingelsignal() (!get_ANRUF())
 	
@@ -572,6 +656,7 @@ SchnellstartLoeschen:
 	ret
 
 */
+
 
 
 static bool PruefeBusSchluss(uint8_t Code, uint8_t FehlerCode)

@@ -24,17 +24,23 @@
 // Allgemeine (typunabh‰gige) Schnittstelle zum Fernschreiber 
 // ----------------------------------------------------------
 
-typedef enum { Ausgeschaltet, Reserviert, Wahl, EinschaltungKo, 
-               Eingeschaltet, AusschaltungKo, AusschaltungGe, FremdKonfig,
-			   Inaktiv } TFsBetriebsart;
-// ...Ko = durch fremdes Ereignis (Einschaltung durch Anruf, Ausschaltung durch Schluﬂ von Gegenstelle)
-// ...Ge = durch eigenes Ereignis (Ruftaste, Schluﬂtaste des direkt angeschlossenen Ger‰ts)
+typedef enum { Ausgeschaltet,   //!< Grundstellung = Ausgeschaltet
+			   Reserviert,      //!< von Gegenstelle aktiviert aber noch nicht eingeschaltet.
+			   Wahl, 			//!< es darf gew‰hlt werden. Interne und Externe Wahl wird hier nicht unterschieden.
+			   EinschaltungKo,  //!< von Gegenstelle eingeschaltet.
+               Eingeschaltet,   //!< ist eingeschaltet, Verbindung steht. (keine Unterscheidung ob kommend oder gehend).
+			   AusschaltungKo,  //!< Gegenstelle hat Verbindungsabbau eingeleitet.
+			   AusschaltungGe,  //!< An Gegenstelle wurde Wunsch zum Verbindungsabbau gesendet, noch keine Best‰tigung erhalten.
+			   //FremdKonfig,     // wird nicht mehr benutzt.
+			   Inaktiv 			//!< Deaktiviert (nicht erreichbar).
+			   } TFsBetriebsart; //!< Mˆglichkeiten f¸r den aktuellen Betriebszustand des Endger‰ts.
+			   
 
-static char AusschaltCode; // Grund f¸r Abschaltung
+static char AusschaltCode; //!< Grund f¸r Abschaltung
 
-static volatile TFsBetriebsart FsBetriebsart;
+static volatile TFsBetriebsart FsBetriebsart; //!< Aktuelle Phase der Verbindung.
 	
-static volatile bool PegelGehend; // wird von Schnittstellenprogramm gesetzt (vom Fernschreiber)
+static volatile bool PegelGehend; //!< wird von Schnittstellenprogramm gesetzt (vom Fernschreiber)
 
 
 // Debug-Speicher
@@ -42,25 +48,17 @@ static volatile bool PegelGehend; // wird von Schnittstellenprogramm gesetzt (vo
 
 #ifdef TWI_DEBUG
 
+//! Maximale Anzahl von Ereignissen im DebugBuf.
 #define DebugBufLen 300
 
+//! Speichert die Ereignisfolge.
 static uint8_t DebugBuf[DebugBufLen];
-
+	
+//! Aktuelle Schreibposition in DebugBuf.
 static volatile uint8_t* DebugBufP;
 
 #endif //TWI_DEBUG
 
-#ifdef SPEICHER_TEST
-
-// Puffer f¸r Echo
-// ---------------
-
-#define MaxSpeicher 500
-
-static uint8_t Speicher[MaxSpeicher];
-static uint16_t SpeicherPos;
-
-#endif 
 
 
 // Debug-Hilfen
@@ -68,6 +66,7 @@ static uint16_t SpeicherPos;
 
 #ifdef TWI_DEBUG
 
+//! Speichert ein Ereignis in DebugBuf.
 void DebSp(uint8_t x)
 	{
 	if (DebugBufP < DebugBuf + DebugBufLen - 1)
@@ -76,14 +75,6 @@ void DebSp(uint8_t x)
 		DebugBufP++;
 		}
 	}
-		
-#endif //TWI_DEBUG
-
-
-void FehlerStop(int Nummer);
-
-
-#ifdef TWI_DEBUG
 
 static void AblaufMark(uint8_t Code)
 	{
@@ -100,34 +91,61 @@ static void AblaufMark(uint8_t Code)
 #endif //TWI_DEBUG
 
 
-static volatile bool BusKommSperre = false;
-	// sperrt das Interrupt-Basierte Bearbeiten ggf. eintreffender Bus-Kommandos
-	
-static volatile uint8_t LetzteWahlZiffer;
+extern void FehlerStop(int Nummer);
+// Funktion ist durch Applikation zu definieren.
 
+
+//! sperrt das Interrupt-Basierte Bearbeiten ggf. eintreffender Bus-Kommandos.
+static volatile bool BusKommSperre = false;
+
+//! Anzahl gew‰hlte Ziffern.
 static volatile uint8_t WahlZifferAnzahl;
 
+//! TWI-Adresse f¸r interne Verbindungen.
 static volatile uint8_t InterneNummer;
 
-static volatile enum { Mark1, Mark2, Space1, Space2 } GesendeterPegelStatus = Mark2;
 
-static volatile enum { WahlGesperrt, WahlIntern, WahlPause, WahlExtern } WahlPhase;
-	// WahlGesperrt = nicht w‰hlen
-	// WahlIntern = interner Verbindungspartner noch nicht definiert
-	// WahlPause = interner Verbindungspartner definiert, Wahl nach Extern noch nicht mˆglich
-	// WahlExtern = Wahl nach Extern mˆglich
+//! Speichert, welcher Pegelzustand der Gegenstelle gemeldet wurde.
+static volatile enum { Mark1, 	//!< Es wurde BusKdoMark gesendet, aber noch nicht BusKdoMarkWdh.
+					   Mark2,	//!< Es wurde BusKdoMark und BusKdoMarkWdh gesendet.
+					   Space1,  //!< Es wurde BusKdoSpace gesendet, aber noch nicht BusKdoSpaceWdh.
+					   Space2   //!< Es wurde BusKdoSpace und BusKdoSpaceWdh gesendet.
+					   } GesendeterPegelStatus = Mark2; 
 
+//! Unterscheidung von Phasen bei der Wahl.					   
+static volatile enum { WahlGesperrt,  	//!< W‰hlen zur Zeit nicht erlaubt.
+					   WahlIntern, 		//!< interner Verbindungspartner noch nicht definiert.
+					   WahlPause, 		//!< interner Verbindungspartner definiert, Wahl nach Extern noch nicht mˆglich
+										//!< (interner Verbindungspartner hat noch nicht BusKdoWahlFreigabe gesendet).
+					   WahlExtern    	//!< Wahlziffern werden an internen Verbindungspartner weitergegeben.
+					   } WahlPhase;	
+
+					   
+//! Zeitgeber f¸r die Sendung von BusKdoMarkWdh und BusKdoSpaceWdh.					   
 static TMsTimer PegelWdhTimer;
 
-TPuffer SendePuffer, EmpfPuffer;
+//! Puffert an die Gegenstelle zu sendende a) Wahlziffern und b) Baudot-Codes.
+TPuffer SendePuffer;
+
+//! W‰hrend des Empfangs werden empfangene Zeichen auch dekodiert und in diesem Puffer
+//! abgelegt (Baudot-Codes).
+TPuffer EmpfPuffer;
 
 
+//! Ist das Endger‰t gerade ausgeschaltet?
 bool BetriebsartAusgeschaltet()
 	{
 	return FsBetriebsart == Ausgeschaltet;
 	}
 
 
+//! Umschaltung der Betriebsart.
+//------------------------------
+//! Wirkt letztendlich auf die globale Variable FsBetriebsart, macht aber auch
+//! Plausibilit‰tspr¸fungen, setzt die Variable Status (die ¸ber den TWI-Bus abgefragt
+//! werden kann) und sendet ggf. Kommandos an den aktuellen Verbindungspartner.
+//! \param neu Gew¸nschte Betriebsart. Darf auch die schon eingestellte Betriebsart sein.
+	
 void BetriebsartWechsel(TFsBetriebsart neu)
 	{
 	if (neu == FsBetriebsart)
@@ -163,7 +181,6 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 		case Wahl:
 			CLR_BIT(Status, StatBit_Frei);
 			CLR_BIT(Status, StatBit_SpezialGeraetKennung); // weil dieses Bit nur bei StatBit_Frei = 1 erlaubt ist
-			LetzteWahlZiffer = 0;
 			WahlZifferAnzahl = 0;
 			InterneNummer = 0;
 			WahlPhase = WahlIntern;
@@ -196,9 +213,9 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 			BusEmpfMark = true;
 			break;
 
-		case FremdKonfig:
-			SET_BIT(Status, StatBit_Verbunden);
-			break;
+		// case FremdKonfig:
+			// SET_BIT(Status, StatBit_Verbunden);
+			// break;
 
 		case AusschaltungKo:
 			CLR_BIT(Status, StatBit_Verbunden);
@@ -230,6 +247,7 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 #define TIMER0_START (256 - TIMER0_FREQ / TIMER0_OVFFREQ)
 
 
+//! Initialisierung der Schnittstelle.
 void KommInit()
 	{
 #ifdef TCCR0A
@@ -251,6 +269,7 @@ void KommInit()
 	}
 	
 
+//! Besteht ein Einschaltwunsch, der von einer Gegenstelle ausgelˆst wurde?	
 bool KoEinschalten()
 	{
 	return (FsBetriebsart == EinschaltungKo || FsBetriebsart == Eingeschaltet);
@@ -259,6 +278,7 @@ bool KoEinschalten()
 
 #ifndef FUER_TW39
 
+//! Unter welcher Unter-Adresse wurde dieses Endger‰t gerade angew‰hlt?
 uint8_t KoAnwahlnummer()
 	// im Regelfall 0. Kann bei Mehrfach-Endger‰t 0 bis BusEigenAdrMehrfach-1 sein
 	{
@@ -362,7 +382,6 @@ void GeWaehlen(uint8_t Ziffer)
 	if (FsBetriebsart == Wahl && WahlPhase != WahlGesperrt)
 		{
 		PufferSpeich(&SendePuffer, Ziffer); // Puffer¸berlauf wird ignoriert
-		LetzteWahlZiffer = Ziffer;
 		}
 	else
 		FehlerStop(9);
@@ -620,13 +639,13 @@ static void BusKomm()
 				Bearbeitet = true;
 				break;
 
-			case 0xF0 ... 0xFF :
-				if (FsBetriebsart == FremdKonfig)
-					{
-					PufferSpeich(&EmpfPuffer, Kdo);
-					Bearbeitet = true;
-					}
-				break;
+			// case 0xF0 ... 0xFF :
+				// if (FsBetriebsart == FremdKonfig)
+					// {
+					// PufferSpeich(&EmpfPuffer, Kdo);
+					// Bearbeitet = true;
+					// }
+				// break;
 				
 			} // case BusEmpfDaten
 
@@ -742,8 +761,8 @@ static void BusKomm()
 
 			break;
 
-		case FremdKonfig:
-			break;
+		// case FremdKonfig:
+			// break;
 		case AusschaltungKo:
 			break;
 		case AusschaltungGe:
@@ -792,8 +811,7 @@ static void BusKomm()
 		BusAuftrag = Nichts;
 		}
 
-	// TODO Pr¸efen, was das soll... Eigentlich braucht es keine Lebenszeichen, wenn die Verbindung steht...
-	if (BusVerbPartner > 0 && FsBetriebsart != FremdKonfig)
+	if (BusVerbPartner > 0) // ehem. && FsBetriebsart != FremdKonfig)
 		SendeLebenszeichen();
 	else
 		wdt_reset();

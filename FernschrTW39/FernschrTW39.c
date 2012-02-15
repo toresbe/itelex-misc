@@ -57,33 +57,33 @@
 
 
 //#define PARALLELAUSGABE
-	// Für Platine TW39doppel: Sendung und Empfang wird auf der zweiten 
-	// Schnittstelle mitprotokolliert. Dann darf der Kontroller der 
-	// zweiten Schnittstelle nicht bestückt sein.
+	//!< Für Platine TW39doppel: Sendung und Empfang wird auf der zweiten 
+	//!< Schnittstelle mitprotokolliert. Dann darf der Kontroller der 
+	//!< zweiten Schnittstelle nicht bestückt sein.
 	// 
 
 //#define FALSCHKDO_FEHLERSTOP
-	// Unpassende Kommandos auf dem I²C-Bus werden mit Fehlerstop quittiert.
+	//!< Unpassende Kommandos auf dem I²C-Bus werden mit Fehlerstop quittiert.
 
 //#define TWI_DEBUG
-	// TWI-Ereignisse werden protokolliert. 
+	//!< TWI-Ereignisse werden protokolliert. 
 
 #define BUSFEHLER_ABBRUCH
-	// bei Bus-Fehlern Abbruch der Verbindung.
+	//!< bei Bus-Fehlern Abbruch der Verbindung.
 
 #ifndef TWI_DEBUG
 #define WIEDERHOLUNGSSENDUNGEN
-	// Status Mark / Space regelmäßig senden.
+	//!< Status Mark / Space regelmäßig senden.
 #endif //TWI_DEBUG
 
 
 // #define LEDROT_BEI_UNERWARTETWDH
-	// LED rot wird eingeschaltet, wenn BusKdoSpaceWdh oder BusKdoMarkWdh empfangen wird, ohne
-	// das entsprechendes "Haupt-Kommando" empfangen wurde.
+	//!< LED rot wird eingeschaltet, wenn BusKdoSpaceWdh oder BusKdoMarkWdh empfangen wird, ohne
+	//!< das entsprechendes "Haupt-Kommando" empfangen wurde.
 
 
 //#define NOWATCHDOG
-	// Watchdog abgeschaltet
+	//!< Watchdog abgeschaltet
 
 
 #include "TwiEvents.h"
@@ -109,11 +109,11 @@ const char Identifier[] PROGMEM = "___TxP2_TW39___" __DATE__ "___" __TIME__ "___
 // Eeprom-Speicher
 // ---------------
 
-uint8_t Platzhalter[4] EEMEM; //!< Platzhalter, da Anfang des EEPROM gern von Störungen betroffen ist
-uint8_t BusEigenAdresse_EE EEMEM = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
-uint8_t MitWaehlscheibe_EE EEMEM = 1; //!< Hat das Gerät eine Wählscheibe
-uint8_t WahlauffordImpulsLaenge_EE EEMEM = 30; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
-uint8_t KommendSperreWahl_EE EEMEM = 0; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
+EEMEM uint8_t Platzhalter[4]; //!< Platzhalter, da Anfang des EEPROM gern von Störungen betroffen ist
+EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
+EEMEM uint8_t MitWaehlscheibe_EE = 1; //!< Hat das Gerät eine Wählscheibe
+EEMEM uint8_t WahlauffordImpulsLaenge_EE = 30; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
+EEMEM uint8_t KommendSperreWahl_EE = 0; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 
 
 // Variablen
@@ -136,7 +136,7 @@ TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port
 
 ///////////////////////////////////////////////////////////////////////////////
 
-//! bedient Hardware-IO entsprechend der aktuellen Zustände
+//! bedient Hardware-IO entsprechend der aktuellen Zustände.
 
 /*!
  * setzt FS_AKTIV_PORT und FS_AUSG _PORT entsprechend BefehlEinschalten und BefehlMark,
@@ -318,7 +318,9 @@ static void TW39IO()
 	
 //////////////////////////////////////////////////////////////////
 
-//! Einschaltung des Fs auslösen
+//! Einschaltung des Fs auslösen.
+//-------------------------------
+//! \returns Einschaltung wurde erfolgreich durch Endgerät quittiert.
 
 static bool TW39Einschalten()
 	{
@@ -348,7 +350,7 @@ static bool TW39Einschalten()
 
 //////////////////////////////////////////////////////////////////
 
-//! Ausschaltung des Fs auslösen
+//! Ausschaltung des Fs auslösen.
 
 static void TW39Ausschalten()
 	{
@@ -377,7 +379,6 @@ static void TW39Ausschalten()
 //! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
 
 void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ )
-// Nur ein Reset befreit
 	// Fehler-Codes: 
 	// 1: Bus-Empfang trotz Sperre
 	// 2: General Call ohne entsprechende Freigabe
