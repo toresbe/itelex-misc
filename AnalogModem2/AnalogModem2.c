@@ -457,7 +457,7 @@ void WarteEndeTelefonat()
 	clr_LEDGRUEN();
 	TMsTimer EndeTimer;
 	StartTimer(&EndeTimer);
-	sei(); // Workaround?
+	sei(); //! \todo Warum hier? Workaround?
 	while (TimerVal(&EndeTimer) < 3000)
 		{
 		if (!get_TELAKTIV()) // negiertes Signal
@@ -864,7 +864,7 @@ void VerbindungKommend()
 	void VerbindungHergestellt();
 	VerbindungHergestellt();	
 
-	}
+	 } // VerbindungKommend()
 	
 
 /*
@@ -1869,8 +1869,15 @@ void VerbindungHergestellt()
 					clr_LEDGRUEN();
 				else
 					clr_LEDGELB();
+
 				if (++TraegerFehlZaehler > 1500 / 20)
-					return; // Träger ist weg...
+					{ // Träger ist weg, also Verbindung abbauen.
+					set_LEDROT();
+					BusSenden(BusKdoSchluss);
+					WarteSchlussQuittung(2500);
+					Grundstellen(false);
+					return; 
+					}
 				}
 			StartTimer(&TraegerPruefTimer);
 			} // if TimerVal(&TraegerPruefTimer) >= 20
@@ -2249,13 +2256,11 @@ static void HauptEinstellungen()
 // Deaktivierung: Schnittstelle kann nicht mehr angesprochen werden
 // ================================================================
 
-// TODO offen
+//! \TODO Deaktivierung offen
 
 
-// Hauptprogramm
-// =============
-
-
+//! Das Hauptprogramm der Analogen Leitungsschnittstelle.
+//-------------------------------------------------------
 int main()
 	{
 	// Watchdog initialisieren

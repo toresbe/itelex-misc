@@ -97,7 +97,7 @@
 #ifndef OHNE_SPEICHER
 #include "SwTwi.h"
 #else
-#define DoSwTwi() // nichts tun
+#define DoSwTwi() while(0) // nichts tun
 #endif
 
 #include "../SvnVersion.h"
@@ -108,26 +108,27 @@
 
 
 //#define TWI_DEBUG
-	// TWI-Ereignisse werden protokolliert
+	//!< TWI-Ereignisse werden protokolliert
 
 //#define BUSFEHLER_ABBRUCH
-	// bei Bus-Fehlern Abbruch der Verbindung
+	//!< bei Bus-Fehlern Abbruch der Verbindung
 
 #define FALSCHKDO_FEHLERSTOP
-	// Unpassende Kommandos auf dem I²C-Bus werden mit Fehlerstop quittiert
+	//!< Unpassende Kommandos auf dem I²C-Bus werden mit Fehlerstop quittiert
 
 #define WIEDERHOLUNGSSENDUNGEN
-	// Status Mark / Space regelmäßig senden 
+	//!< Status Mark / Space regelmäßig senden 
 
 //#define LEDROT_BEI_UNERWARTETWDH
-	// LED rot wird eingeschaltet, wenn BusKdoSpaceWdh oder BusKdoMarkWdh empfangen wird, ohne
-	// das entsprechendes "Haupt-Kommando" empfangen wurde
+	//!< LED rot wird eingeschaltet, wenn BusKdoSpaceWdh oder BusKdoMarkWdh empfangen wird, ohne
+	//!< das entsprechendes "Haupt-Kommando" empfangen wurde
 
 //#define NOWATCHDOG
-	// Watchdog abgeschaltet
+	//!< Watchdog abgeschaltet
 
 
-const char Identifier[] PROGMEM = "___TxP2_SeriellUndSpeicher___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+//! Identifikation im Programmspeicher
+PROGMEM const char Identifier[] = "___TxP2_SeriellUndSpeicher___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 
 
 #include "timercs.h"
@@ -135,12 +136,15 @@ const char Identifier[] PROGMEM = "___TxP2_SeriellUndSpeicher___" __DATE__ "___"
 // Timer 1: Uhr
 // ------------
 
-#define TIMER1_OCFREQ 10 // pro Minute!!
+#define TIMER1_OCFREQ 10 //!< Timer1 soll 10 OC-Ereignisse pro Minute erzeugen.
 
 #define TIMER1_CS TCCR_DIV(1, 1024)
 #define TIMER1_PRESCALER 1024
 #define TIMER1_FREQ (F_CPU / TIMER1_PRESCALER)
+
 #define TIMER1_OCRA ((TIMER1_FREQ * 60 / TIMER1_OCFREQ) - 1)
+	//!< Sollwert für Output Compare Register des Timer1
+	
 	// das ist gleichzeitig der MAX-Wert
 //#define TIMER1_OCRB_FREQ 5000
 //#define TIMER1_OCRB_INC (TIMER1_FREQ / TIMER1_OCRB_FREQ + 1)
@@ -151,33 +155,37 @@ const char Identifier[] PROGMEM = "___TxP2_SeriellUndSpeicher___" __DATE__ "___"
 // sonstige Konstanten
 // -------------------
 
-#define KENNUNG_MAXLEN 20
-#define KENNWORT_MAXLEN 20
+#define KENNUNG_MAXLEN 20 //!< maximale Länge des Kennungsgebers.
+#define KENNWORT_MAXLEN 20 //!< maximale Länge des Kennwortes für die Fernabfrage.
 
 
 // interner Eeprom-Speicher
 // ------------------------
 
-uint8_t Platzhalter[4] EEMEM; // Anfang des EEPROM ist gern von Störungen betroffen
-uint8_t BusEigenAdresse_EE EEMEM = BusAdrUngueltig;
-char Kennung_EE[KENNUNG_MAXLEN] EEMEM = "\r\ntxp2-ab";
-char Kennwort_EE[KENNWORT_MAXLEN] EEMEM = "kennwort";
-uint8_t Jahr_EE EEMEM = 9; // 2009
-uint8_t Monat_EE EEMEM = 4;
-uint8_t Tag_EE EEMEM = 13;
-uint8_t Stunde_EE[31] EEMEM = { 0 } ; // Je tag eine andere Speicherstelle, damit die Abnutzung nicht so groß ist.
-uint8_t Minute_EE = 0; // wird nur bei besonderer Bedienung gespeichert.
-uint16_t BeginnErsteMeldung2_EE EEMEM = 0xEEEE;
+EEMEM uint8_t Platzhalter[4]; //!< Anfang des EEPROM ist gern von Störungen betroffen
+EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< \sa BusEigenAdresse, Kopie im EEPROM
+EEMEM char Kennung_EE[KENNUNG_MAXLEN] = "\r\ntxp2-ab"; //!< \sa Kennung, Kopie im EEPROM
+EEMEM char Kennwort_EE[KENNWORT_MAXLEN] = "kennwort"; //!< \sa Kennwort, Kopie im EEPROM
+EEMEM uint8_t Jahr_EE = 9;  //!< \sa Jahr, Kopie im EEPROM
+EEMEM uint8_t Monat_EE = 4; //!< \sa Monat, Kopie im EEPROM
+EEMEM uint8_t Tag_EE = 13;  //!< \sa Tag, Kopie im EEPROM
+EEMEM uint8_t Stunde_EE[31] = { 0 } ; //!< \sa Stunde, Kopie im EEPROM. Je Tag eine andere Speicherstelle, damit die Abnutzung nicht so groß ist.
+EEMEM uint8_t Minute_EE = 0; //!< \sa Minute, Kopie im EEPROM, wird nur bei besonderer Bedienung gespeichert.
+EEMEM uint16_t BeginnErsteMeldung2_EE = 0xEEEE; //!< \sa BeginnErsteMeldung2, Kopie im EEPROM
 
 // Uhr
 // ---
 
-uint8_t Jahr, Monat, Tag, Stunde, Minute;
+uint8_t Jahr; //!< Jahr der mitlaufenden Uhr (nur die letzten zwei Stellen).
+uint8_t Monat; //!< Monat der mitlaufenden Uhr.
+uint8_t Tag; //!< Tag der mitlaufenden Uhr.
+uint8_t Stunde; //!< Stunde der mitlaufenden Uhr.
+uint8_t Minute; //!< Minute der mitlaufenden Uhr.
 
 // Kennung und Kennwort
 
-char Kennung[KENNUNG_MAXLEN];
-char Kennwort[KENNWORT_MAXLEN];
+char Kennung[KENNUNG_MAXLEN]; //!< Eigene Kennung, da kein echter Fernschreiber angeschlossen.
+char Kennwort[KENNWORT_MAXLEN]; //!< Kennwort für Fernabfrage des Anrufspeichers.
 
 
 // Grundfunktionen
@@ -189,14 +197,15 @@ char Kennwort[KENNWORT_MAXLEN];
 // Interrupts
 // ----------
 
-volatile uint16_t Timer1OvfC;
+volatile uint16_t Timer1OvfC; //!< Zählt die Timer1-Oberflows. \sa TIMER1_OCFREQ
 
-ISR(TIMER1_COMPA_vect)
+ISR(TIMER1_COMPA_vect) //!< Timer1-Interrupt. \sa TIMER1_OCFREQ. Grundtakt für die mitlaufende Uhr.
 	{
 	Timer1OvfC++;
 	}
 
 
+//! Schaltet bei interrupt-gesteuerter Software-TWI-Bearbeitung den Interrupt ein.
 void StartSwTwi()
 	{
 /*
@@ -221,6 +230,7 @@ ISR(TIMER1_COMPB_vect)
 DoSwTwi muss jetzt explizit aufgerufen werden */
 
 
+//! Schaltet bei interrupt-gesteuerter Software-TWI-Bearbeitung den Interrupt aus.
 void StopSwTwi()
 	{
 /*
@@ -233,16 +243,18 @@ DoSwTwi muss jetzt explizit aufgerufen werden */
 // ===
 
 
-void UhrAktualisieren()
+//! Aktualisiert die mitlaufende Uhr. Basis ist der Timer1.
+static void UhrAktualisieren()
 	{
 	static uint8_t MonatsTab[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31} ;
 
 	while (Timer1OvfC >= TIMER1_OCFREQ) // pro Minute!!
 		{
+		uint8_t SregAlt = SREG;
 		cli();
 		Minute++;
 		Timer1OvfC -= TIMER1_OCFREQ;
-		sei();
+		SREG = SregAlt;
 		}
 	if (Minute >= 60)
 		{
@@ -269,8 +281,13 @@ void UhrAktualisieren()
 		}
 	}	
 		
-		
-void DatumAusgabe()
+
+	
+void LokalZeichenAusgabe(char c);
+
+
+//! Gibt das aktuelle Datum aus.	
+static void DatumAusgabe()
 	{
 	LokalZahlAusgabe(Tag, 2);
 	LokalZeichenAusgabe('.');
@@ -287,21 +304,22 @@ void DatumAusgabe()
 // Puffer für serielle Schnittstelle und anderes
 // ---------------------------------------------
 
-volatile bool SerInEsc = false; // Flag für Umsetzung ESC-X in Ctrl-X (wird nach ESC gesetzt)
+volatile bool SerInEsc = false; //!< Flag für Umsetzung ESC-X in Ctrl-X (wird nach ESC gesetzt).
 
-TPuffer SerInBuf, SerOutBuf;
+TPuffer SerInBuf; //!< Empfangspuffer für die serielle Schnittstelle. Nicht identisch mit Puffer für Baudot-Ein/-Ausgabe.
+TPuffer SerOutBuf; //!< Sendepuffer für die serielle Schnittstelle. Nicht identisch mit Puffer für Baudot-Ein/-Ausgabe.
 
 // Übersetzung bestimmter Tasten in Doppel-Codes
 
-const char SerInUebersE[] PROGMEM = "\r\näöüÄÖÜß";
-const char SerInUebers1[] PROGMEM = "\r\raouAOUs";
-const char SerInUebers2[] PROGMEM = "\n\neeeeees";
+PROGMEM const char SerInUebersE[] = "\r\näöüÄÖÜß"; //!< Übersetzungstabelle für Umlaute: zu übersetzendes Zeichen.
+PROGMEM const char SerInUebers1[] = "\r\raouAOUs"; //!< Übersetzungstabelle für Umlaute: erstes Ersatzzeichen.
+PROGMEM const char SerInUebers2[] = "\n\neeeeees"; //!< Übersetzungstabelle für Umlaute: zweites Ersatzzeichen.
 
 
-void LokalZeichenAusgabe(char c);
-
-void LokalZeichenAusgabeKlar(char c)
-	// stellt Ctrl-X als ^X dar
+//! Funktion zur Ausgabe von Zeichen einschließlich Sonderzeichen.
+//----------------------------------------------------------------
+//! stellt Ctrl-X als ^X dar.
+static void LokalZeichenAusgabeKlar(char c)
 	{
 	if (c >= ' ' || c == '\r' || c == '\n')
 		LokalZeichenAusgabe(c);
@@ -325,14 +343,20 @@ ISR(USART_UDRE_vect)
 */
 
 
+//! Meldet Serielle Schnittstelle bereitschaft zur Übernahme weiterer Daten?
+//--------------------------------------------------------------------------
+//! \retval true bei Empfangsbereitschaft der Gegenstelle.
 static bool GetCTS()
-	{ // true, wenn Gegenstelle empfangsbereit
+	{ 
 	return !BIT_IS_SET(SER_CTS_IPORT, SER_CTS_BIT);
 	}
 	
 	
+//! Ist serielle Schnittstelle überhaupt angeschlossen?
+//-----------------------------------------------------
+//! \retval true wenn CTS nicht auf Dater-Aus
 static bool SeriellBereit()
-	{ // true, wenn CTS nicht auf Dater-Aus
+	{
 	TMsTimer Timer;
 
 	StartTimer(&Timer);
@@ -345,8 +369,12 @@ static bool SeriellBereit()
 	return false;
 	}
 	
-	
-void SeriellIO()
+
+//! Schreibt Zeichen aus dem Puffer auf die serielle Schnittstelle und bringt
+//! ankommende Zeichen in den Puffer.
+//---------------------------------------------------------------------------
+//! Regelmäßig aufrufen.
+static void SeriellIO()
 	{
 	if (BIT_IS_SET(UCSR0A, RXC0))
 		{
@@ -404,6 +432,10 @@ void SeriellIO()
 	}
 
 
+//! Wartet bis zum leeren des Seriellen-Ausgabepuffers.
+//-----------------------------------------------------
+//! Diese Funktion aufrufen, wenn umfangreiche Textausgaben vollständig
+//! zur seriellen Schnittstelle zu senden sind.	
 void SerSendFlush()
 	{
 	while (!PufferLeer(&SerOutBuf))
@@ -415,7 +447,13 @@ void SerSendFlush()
 	}
 
 
-char SerEmpfZ(bool Loesch)
+//!	Holt das nächste Zeichen aus dem seriell-Empfangspuffer.
+//----------------------------------------------------------
+//! Vorher muss sicher sein, dass mindestens ein Zeichen im Empfangspuffer
+//! ist!
+//! \param Loesch Zeichen wird auch aus dem Empfangspuffer gelöscht
+//! \returns Das nächste Zeichen des Empfangspuffers.
+static char SerEmpfZ(bool Loesch)
 	{
 	char Res = PufferAusg(&SerInBuf);
 	if (!Loesch)
@@ -430,6 +468,11 @@ char SerEmpfZ(bool Loesch)
 	}
 
 	
+//! Wartet, bis ein Zeichen über die serielle Schnittstelle angekommen ist.
+//-------------------------------------------------------------------------
+//! Alle erforderlichen Routinefunktionen werden aufgerufen.
+//! Falls gefüllt, wird auch das nächste Zeichen aus dem Empfangspuffer verwendet.
+//! \returns Das nächste Zeichen.
 char LokalZeichenLesen()
 	{
 	while (PufferLeer(&SerInBuf))
@@ -454,12 +497,20 @@ char LokalZeichenLesen()
 	}
 	
 	
-bool LokalEingabeErfolgt()
+//! Ist ein Zeichen von der seriellen Schnittstelle (Empfangspuffer) noch unbearbeitet?
+//! \returns Empfangspuffer ist nicht leer.	
+static bool LokalEingabeErfolgt()
 	{
 	return !PufferLeer(&SerInBuf);
 	}
 	
 	
+//! Ein Zeichen auf der seriellen Schnittstelle ausgeben.
+//-------------------------------------------------------
+//! Wenn Ausgabepuffer voll, blockiert diese Funktion, erledigt aber die 
+//! Routinefunktionen.
+//! \param c Das auszugebende Zeichen.
+
 void LokalZeichenAusgabe(char c)
 	{
 	if (PufferVoll(&SerOutBuf))
@@ -469,7 +520,8 @@ void LokalZeichenAusgabe(char c)
 	}
 
 
-void SerIOInit()
+//! Initialisiert serielle Schnittstelle und Puffer dazu.
+static void SerIOInit()
 	{
 	// PORTS initialisieren (Ausgabepins)
 	// Serielle Schnittstelle initialisieren
@@ -488,8 +540,11 @@ void SerIOInit()
 	}
 
 
-void FehlerStop(int Nummer)
-// Nur ein Reset befreit
+//! Modul / Schnittstelle irreversibel stoppen.
+
+//! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
+
+void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ )
 	// Fehler-Codes: 
 	// 1: Bus-Empfang trotz Sperre
 	// 2: General Call ohne entsprechende Freigabe
@@ -561,10 +616,14 @@ void FehlerStop(int Nummer)
 // =======================
 
 
-void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin);
+static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin);
 
 
-void VerbindungKommend()
+//! Bearbeitet ankommende Verbindungen.
+//-------------------------------------
+//! Sendet an Verbindungspartner den Einschaltauftrag. Startet ggf. die 
+//! Aufzeichnung.
+static void VerbindungKommend()
 	{
 	bool SeriellEin;
 	
@@ -604,7 +663,7 @@ void VerbindungKommend()
 	}
 	
 
-void VerbindungGehend()
+static void VerbindungGehend()
 	{
 	LED_EIN(GELB);
 
@@ -668,7 +727,7 @@ void VerbindungGehend()
 	}
 
 
-void LEDAktualisieren()
+static void LEDAktualisieren()
 	{
 	if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
 		if (BIT_IS_SET(Status, StatBit_FsMeldEin))
@@ -688,7 +747,7 @@ void LEDAktualisieren()
 	}
 	
 	
-void GeSendeText(char* s)
+static void GeSendeText(char* s)
 	{
 	GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
 	while (*s != '\0')
@@ -699,7 +758,7 @@ void GeSendeText(char* s)
 	}
 	
 
-void GeSendeTextP(PGM_P s)
+static void GeSendeTextP(PGM_P s)
 	{
 	GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
 	while (pgm_read_byte(s) != '\0')
@@ -715,11 +774,11 @@ void GeSendeTextP(PGM_P s)
 
 #ifndef OHNE_SPEICHER
 
-void Wiedergabe(void (*FnZchnAusg)(char c),
-				void (*FnTextPAusg)(PGM_P s),
-				void (*FnAusgFlush)(),
-				bool (*FnUnterbrechung)(),
-				char (*FnZeichenEing)())
+static void Wiedergabe(void (*FnZchnAusg)(char c),
+						void (*FnTextPAusg)(PGM_P s),
+						void (*FnAusgFlush)(),
+						bool (*FnUnterbrechung)(),
+						char (*FnZeichenEing)())
 	// gibt die aufgezeichneten Meldungen wieder
 	{ 
 	bool Beenden;
@@ -914,12 +973,14 @@ void Wiedergabe(void (*FnZchnAusg)(char c),
 #endif //ndef OHNE_SPEICHER
 
 	
-bool KennungsausgabeUndKennwortAbfrage(bool SeriellEin, bool AufzeichnungEin)
+static bool KennungsausgabeUndKennwortAbfrage(bool SeriellEin, bool AufzeichnungEin)
 	{
 	char *p;
 	char c;
 	
 	GeSendeText(Kennung);
+	//! \todo Kennungsausgabe auch Aufzeichnen.
+	
 	GeSendeCode(TtyCodeBuUm);
 
 	p = Kennwort;
@@ -953,15 +1014,15 @@ bool KennungsausgabeUndKennwortAbfrage(bool SeriellEin, bool AufzeichnungEin)
 	}
 	
 
-bool ZeichenEmpfangen()
-// nur Hilfsfunktion bei Wiedergabe an Gegenstelle (Fernabfrage)
+//! Hilfsfunktion bei Wiedergabe an Gegenstelle (Fernabfrage).
+static bool ZeichenEmpfangen()
 	{
 	return !PufferLeer(&EmpfPuffer);
 	}
 	
 	
-char ZeichenLesen()
-// nur Hilfsfunktion bei Wiedergabe an Gegenstelle (Fernabfrage)
+//! Hilfsfunktion bei Wiedergabe an Gegenstelle (Fernabfrage).
+static char ZeichenLesen()
 	{
 	char res;
 	
@@ -975,7 +1036,7 @@ char ZeichenLesen()
 	}
 	
 	
-void ZeichenSenden(char c)
+static void ZeichenSenden(char c)
 // nur Hilfsfunktion bei Wiedergabe an Gegenstelle (Fernabfrage)
 	{
 	while (!GeSendeZeichen(c))
@@ -988,7 +1049,7 @@ void ZeichenSenden(char c)
 	}
 	
 
-void SendenAbschliessen()
+static void SendenAbschliessen()
 // nur Hilfsfunktion bei Wiedergabe an Gegenstelle (Fernabfrage)
 	{
 	while (!PufferLeer(&SendePuffer) && !KoAusschalten())
@@ -999,7 +1060,7 @@ void SendenAbschliessen()
 	}
 	
 		
-void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
+static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 	{
 	while (true)
 		{
@@ -1053,7 +1114,18 @@ void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 			char c;
 			c = SerEmpfZ(true);
 			
-			if (c == CTRL('s'))
+			if (c == CTRL('i'))
+				// Eigene Kennung ausgeben
+				{
+				GeSendeText(Kennung);
+#ifndef OHNE_SPEICHER
+				if (AufzeichnungEin)
+					; //! \todo Ausgegebene Kennung auch im Protokoll speichern.
+					AufzeichnungZeichen(c);
+#endif //ndef OHNE_SPEICHER
+				}
+				
+			else if (c == CTRL('s'))
 				// Abbruch durch Bediener
 				{
 #ifndef OHNE_SPEICHER
@@ -1077,7 +1149,7 @@ void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 	}
 
 
-void Deaktivieren()
+static void Deaktivieren()
 // wird nach kurzem Tastendruck aufgerufen
 	{
 	LED_EIN(BLAU);
@@ -1097,7 +1169,7 @@ void Deaktivieren()
 	} // Deaktivieren
 
 
-void Konfiguration()
+static void Konfiguration()
 // wird nach langem Tastendruck aufgerufen
 	{
 	LED_EIN(ROT);
@@ -1190,6 +1262,8 @@ void LokalZahlAusgabe16(uint16_t i, int8_t minzif)
 //*/	
 
 
+//! Das Hauptprogramm der Fernschreiber-Simulation mit RS232.
+//-----------------------------------------------------------
 int main()
 	{
 	bool HauptmenueAusgeben = true;

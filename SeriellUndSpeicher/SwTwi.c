@@ -429,11 +429,12 @@ void SwTwiAktion(volatile T_SwTwiTransferdaten *p)
 #endif //else !def EXTEEPROM_SIMULATION
 
 
-void StartSwTwi();
+extern void StartSwTwi();
 
-void StopSwTwi();
+extern void StopSwTwi();
 
-void DoSwTwi();
+extern void DoSwTwi();
+
 
 
 // EEPROM-Zugriff über SwTWI
@@ -544,11 +545,12 @@ static void EeTransferPruefen()
 		{ // Lese-Transfer ... abgeschlossen?
 		if ((EepromTwi.Adresse & 1) == 0) // Bit 0 in Adresse = 0 -> Write, = 1 -> Read
 			{ // es ist erst der Adressen-Initialisierungsvorgang abgeschlossen, Lesevorgang starten...
+			uint8_t SregAlt = SREG;
 			cli();
 			EepromTwi.Adresse = XEEPROM_TWI_ADR + 1; // Lesen
 			EepromTwi.Puffer = &EZP.TransfBuf[2];
 			EepromTwi.AnzDaten = XEEPROM_PUFFER_MAX;
-			sei();
+			SREG = SregAlt;
 #ifdef SWTWI_SHOWMSG
 			LokalZeichenAusgabe('S');
 			LokalZeichenAusgabe('=');
@@ -569,6 +571,7 @@ static void EeTransferPruefen()
 		if (HilfEZP.SchreibAnz > 0)
 			{ // gleich den Hilfspuffer ausgeben
 			uint8_t i;
+			uint8_t SregAlt = SREG;
 			cli();
 			EZP.StartAdr = HilfEZP.StartAdr;
 			for (i = 2 ; i < 2 + HilfEZP.SchreibAnz ; i++)
@@ -576,7 +579,7 @@ static void EeTransferPruefen()
 			EZP.SchreibAnz = HilfEZP.SchreibAnz; 
 			HilfEZP.SchreibAnz = 0;
 			EZP.Gesperrt = false; // wird gleich wieder auf true gesetzt...
-			sei();
+			SREG = SregAlt;
 			}
 		else // HilfEZP gar nicht benutzt...
 			{ 
@@ -623,6 +626,7 @@ static void EeStartTransfer()
 		return;
 		}
 
+	uint8_t SregAlt = SREG;
 	cli();
 	EZP.Gesperrt = true;
 	EZP.TransfBuf[0] = EZP.StartAdr >> 8;
@@ -639,7 +643,9 @@ static void EeStartTransfer()
 		EepromTwi.Puffer = &EZP.TransfBuf[0];
 		EepromTwi.AnzDaten = 2 + EZP.SchreibAnz;
 		}
-	sei();
+
+	SREG = SregAlt;
+
 	#ifdef SWTWI_SHOWMSG
 		LokalZeichenAusgabe('=');
 		LokalHexAusgabe(EepromTwi.Adresse);
@@ -648,7 +654,7 @@ static void EeStartTransfer()
 		LokalZeichenAusgabe(' ');
 		SerSendFlush();
 	#endif //SWTWI_SHOWMSG
-	StartSwTwi();
+	// StartSwTwi();
 	}
 			
 

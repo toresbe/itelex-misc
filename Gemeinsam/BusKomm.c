@@ -448,20 +448,22 @@ bool BusEigenAdressePruefenUndSetzen(uint8_t neu)
 		&& !BIT_IS_SET(neu, 0)
 		&& GetStatus(neu) < 0)
 		{ // TODO BusEigenAdrMehrfach prüfen!
+		uint8_t SregAlt = SREG;
 		cli();
 		TWAR = neu;
 		SET_BIT(TWCR, TWEA);
-		sei();
 		BusEigenAdresse = neu;
+		SREG = SregAlt;
 		return true;
 		}
 	else
 		{
+		uint8_t SregAlt = SREG;
 		cli();
 		TWAR = 0;
 		CLR_BIT(TWCR, TWEA);
-		sei();
 		BusEigenAdresse = BusAdrUngueltig;
+		SREG = SregAlt;
 		return false;
 		}
 	}

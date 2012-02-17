@@ -934,10 +934,8 @@ static void Deaktivieren(bool WegenTimeout)
 	} // Deaktivieren
 
 
-///////////////////////////////////////////////////////////////////////////////
-
-//! das Hauptprogramm
-
+//! Das Hauptprogramm der TW39-Fernschreiber-Schnittstelle.
+//---------------------------------------------------------
 int main()
 	{
 #ifndef NOWATCHDOG

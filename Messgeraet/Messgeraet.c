@@ -1005,6 +1005,8 @@ static void Konfiguration()
 	}
 
 
+//! Das Hauptprogramm des Messgerät-Moduls.
+//---------------------------------------------------------
 int main()
 	{
 	// WD ein

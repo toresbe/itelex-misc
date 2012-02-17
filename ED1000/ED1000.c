@@ -758,10 +758,8 @@ static void Deaktivieren(bool WegenTimeout)
 	} // Deaktivieren
 
 
-// Hauptprogramm
-// -------------
-
-
+//! Das Hauptprogramm der ED1000-Fernschreiber-Schnittstelle.
+//----------------------------------------------------------
 int main()
 	{
 #ifndef NOWATCHDOG

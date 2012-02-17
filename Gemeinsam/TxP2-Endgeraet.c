@@ -78,10 +78,11 @@ void DebSp(uint8_t x)
 
 static void AblaufMark(uint8_t Code)
 	{
+	uint8_t SregAlt = SREG;
 	cli();
 	DebSp(0xFF);
 	DebSp(Code);
-	sei();
+	SREG = SregAlt;
 	}
 	
 #else //TWI_DEBUG
@@ -151,6 +152,7 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 	if (neu == FsBetriebsart)
 		return;
 
+	uint8_t SregAlt = SREG;
 	cli();
 
 	WahlPhase = WahlGesperrt; // wird vielleicht bei neu == Wahl nochmal anders gesetzt
@@ -231,7 +233,7 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 
 	FsBetriebsart = neu;
 
-	sei();
+	SREG = SregAlt;
 
 	}
 	
@@ -288,6 +290,16 @@ uint8_t KoAnwahlnummer()
 #endif //def FUER_TW39
 
 	
+//! Bestätigung der Einschaltung des eigenen Gerätes
+//--------------------------------------------------
+//! Funktion ist in zwei Situationen aufzurufen: 
+//! \par 1. Als Bestätigung der eigenen Einschaltung bei einem kommenden Anruf 
+//! (Aktuelle Betriebsart ist EinschaltungKo). 
+//! \par 2. Als Wunsch des Verbindungsaufbaus vom eigenen Gerät.
+//! \retval GeEinschAnrufquitt Verbindung ist fertig aufgebaut (Situation 1)
+//! \retval GeEinschWahl Es darf nun gewählt werden (Situation 2)
+//! \retval GeEinschFehler Es ist ein Fehler aufgetreten.
+
 TGeEinschResultat GeEinschalten()
 	{
 	if (FsBetriebsart == EinschaltungKo)
@@ -309,11 +321,14 @@ TGeEinschResultat GeEinschalten()
 
 	BusKommSperre = true;
 
+	uint8_t SregAlt = SREG;
 	cli();
+
 	CLR_BIT(Status, StatBit_Frei);
 	CLR_BIT(Status, StatBit_SpezialGeraetKennung); // weil dieses Bit nur bei StatBit_Frei = 1 erlaubt ist
 	CLR_BIT(Status, StatBit_AngerufenBelegt);
-	sei();
+
+	SREG = SregAlt;
 	
 	BetriebsartWechsel(Wahl);
 	BusKommSperre = false;
@@ -321,6 +336,9 @@ TGeEinschResultat GeEinschalten()
 	}
 
 
+//! Prüft, ob die bisher gewählten Ziffern einen internen Partner ergeben.
+//------------------------------------------------------------------------
+//! Als Resultat erfolgt ggf. ein Zustandswechsel.
 static void InternWahlPruefen()
 	{
 	BusWarteFertig();
@@ -367,16 +385,19 @@ static void InternWahlPruefen()
 	AblaufMark(0x22);
 	BusSenden(BusKdoEin);
 	BusWarteFertig();
-	// TODO BusErgebnis prüfen...
+	//! \TODO BusErgebnis prüfen...
 
 	// Rest (Auswertung von BusKdoWahlFreigabe / BusQuittEin) geschieht in der Funtion BusKomm
 	
-	// TODO Abbruch wenn keine Reaktion erfolgt...
+	//! \TODO Abbruch wenn keine Reaktion erfolgt...
 
 	StartTimer(&PegelWdhTimer);
 	} // if zulässige Nummer
 
 
+//! Funktion ist aufzurufen, wenn im Wahlzustand eine Ziffer gewählt wurde.
+//-------------------------------------------------------------------------
+//! \param Ziffer die gewählte Ziffer (0 bis 9).
 void GeWaehlen(uint8_t Ziffer)
 	{
 	if (FsBetriebsart == Wahl && WahlPhase != WahlGesperrt)
@@ -388,18 +409,29 @@ void GeWaehlen(uint8_t Ziffer)
 	}
 	
 
+//! Liefert die zuletzt gewählte Interne Nummer.
+//----------------------------------------------
+//! \returns Die zuletzt gewahlte Interne Nummer (nicht * 2).
 uint8_t LetzteInterneWahl()
 	{
 	return InterneNummer;
 	}
 	
 	
+//! Liefert den aktuellen "Empfangspegel"
+//---------------------------------------
+//! Von dem aktuellen Verbindungspartner an das eigene Gerät.
+//! \retval true bei Mark.	
 bool KoEmpfMark() // true bei Mark
 	{
 	return BusEmpfMark;
 	}
 	
 	
+//! Setzt den aktuellen "Sendepegel"
+//---------------------------------------
+//! Vom eigenen Gerät an den aktuellen Verbindungspartner.
+//! \param Mark true bei Mark.	
 void GeSendeMark(bool Mark)
 	{
 	PegelGehend = Mark;
@@ -408,7 +440,14 @@ void GeSendeMark(bool Mark)
 
 #ifndef FUER_TW39
 	
-bool KoEmpfCode(uint8_t *Code) // wenn Zeichen empfangen wurde, wird dieses in Code gespeichert und true zurückgegeben
+//! Liefert zuletzt empfangenes Baudot-Zeichen.
+//---------------------------------------------
+//! Parallel zum Setzen von KoEmpfMark() wird der serielle Takt empfangen
+//! und interpretiert und gepuffert (FIFO).
+//! \param[out] Code empfangener Baudot-Code (nur gültig, wenn Funktionsergebnis true.
+//! \returns Empfangspuffer war nicht leer. 
+
+bool KoEmpfCode(uint8_t *Code) 
 	{
 	if (PufferLeer(&EmpfPuffer))
 		return false;
@@ -422,6 +461,12 @@ bool KoEmpfCode(uint8_t *Code) // wenn Zeichen empfangen wurde, wird dieses in C
 #endif //ndef FUER_TW39
 
 
+//! Bewirkt das Senden eines Baudot-Codes an den Verbindungspartner.
+//------------------------------------------------------------------
+//! Wird zunächst gepuffert (FIFO) und dann serialisiert und gesendet.
+//! \param Code zu sendender Baudot-Code.
+//! \returns Sendepuffer konnte das Zeichen noch aufnehmen. 
+
 bool GeSendeCode(uint8_t Code) // true, wenn Sendepuffer nicht voll
 	{
 	if (Code == TtyCodeBuUm)
@@ -434,6 +479,12 @@ bool GeSendeCode(uint8_t Code) // true, wenn Sendepuffer nicht voll
 
 
 #ifndef FUER_TW39
+
+//! Liefert zuletzt empfangenes ASCII-Zeichen.
+//---------------------------------------------
+//! Übersetzt gepufferte Baudot-Codes (siehe KoEmpfCode) in ASCII.
+//! \param[out] Zeichen empfangenes ASCII-Zeichen (nur gültig, wenn Funktionsergebnis true).
+//! \returns Empfangspuffer war nicht leer. 
 
 bool KoEmpfZeichen(char *Zeichen) // ASCII-Code
 	{
@@ -466,6 +517,13 @@ bool KoEmpfZeichen(char *Zeichen) // ASCII-Code
 		}
 	}
 
+
+//! Bewirkt das Senden eines ASCII-Zeichens an den Verbindungspartner.
+//--------------------------------------------------------------------
+//! Wird zunächst in Baudot übersetzt und dann mit GeSendeCode() abgeschickt.
+//! \param c zu sendendes ASCII-Zeichen.
+//! \returns Sendepuffer konnte das Zeichen noch aufnehmen. 
+//! \remark Wenn das Zeichen nicht übersetzbar ist, wird auch true geliefert.
 
 bool GeSendeZeichen(char c)
 	{
@@ -514,12 +572,16 @@ bool GeSendeZeichen(char c)
 	}
 
 
+//! Der Sendepuffer ist nicht voll.
+//---------------------------------
 bool GeSendePufferVoll()
 	{
 	return PufferVoll(&SendePuffer);
 	}
 
 
+//! Der Sendepuffer ist nicht leer.
+//---------------------------------
 bool GeSendePufferLeer()
 	{
 	return PufferLeer(&SendePuffer);
@@ -528,6 +590,14 @@ bool GeSendePufferLeer()
 #endif //def FUER_TW39
 
 
+//! Bewirkt den Verbindungsabbau.
+//---------------------------------
+//! Funktion ist in zwei Situationen aufzurufen:
+//! \par 1. Als Bestätigung der Ausschaltung, wenn von der Gegenstelle diese
+//! angefordert wurde (dann war KoAusschalten() true).
+//! \par 2. Als Ausschaltwunsch des eigenen Geräts.
+//! \par In beiden Situationen kehrt die Funktion erst nach beidseitig 
+//! durchgeführter Ausschaltung zurück.
 
 void GeAusschalten()
 	{
@@ -550,11 +620,23 @@ void GeAusschalten()
 	}
 
 
+//! Abfrage, ob ein Verbindungsabbau gewünscht wird.
+//--------------------------------------------------
+//! \retval true wenn die Gegenstelle einen Verbindungsabbau angefordert hat.
+
 bool KoAusschalten()
 	{
 	return (FsBetriebsart == Ausgeschaltet || FsBetriebsart == AusschaltungKo);
 	}
 
+
+//! Temporäres Trennen vom System.
+//--------------------------------
+//! Funktion ist aufzurufen, um das eigene Gerät vorübergehend zu deaktivieren.
+//! Wenn es deaktiviert ist, kann es für ankommende Rufe nicht erreicht werden.
+//! Bevor eine Abgehende Verbindung aufgebaut werden soll, ist vorher wieder 
+//! eine Aktivierung vorzunehmen.
+//! \param Aktiv true, wenn das Gerät erreichbar sein soll.
 
 void Aktivieren(bool Aktiv)
 	{
@@ -567,6 +649,13 @@ void Aktivieren(bool Aktiv)
 	}
 		
 
+//! Durchführung der Kommunikation auf dem TWI-Bus.
+//-------------------------------------------------
+//! Diese Funktion wird durch einen Timer regelmäßig aufgerufen und erledigt die
+//! Kommunikation entsprechend der mit den Funktionen Ge... gewünschten Zustandswechsel
+//! und setzt die internen Variablen so, dass die Funktionen Ko... die aktuellen
+//! Zustände abbildet.
+		
 static void BusKomm()
 // darf nur bei aktivem Interrupt-Enable aufgerufen werden!
 	{
@@ -658,7 +747,7 @@ static void BusKomm()
 		} // if GetEmpfByte(&Kdo)
 
 	// selbsttätige Aktionen... (ggf. eingeleitet vom Endgerät oder durch Telegramme)
-	// ------------------------
+	// -----------------------------------------------------------------------------
 	switch (FsBetriebsart)
 		{
 		case Ausgeschaltet:
@@ -763,10 +852,13 @@ static void BusKomm()
 
 		// case FremdKonfig:
 			// break;
+			
 		case AusschaltungKo:
 			break;
+			
 		case AusschaltungGe:
 			break;
+			
 		} // switch Betriebsart
 
 	if (BusAuftrag == Fertig)
@@ -820,6 +912,12 @@ static void BusKomm()
 	}
 	
 
+//! Interrupt-Routine des Timer0.
+//-------------------------------
+//! Einziger Zweck ist der Aufruf von BusKomm.
+//! Falls BusKomm durch einen anderen Aufruf gerade läuft ist BusKommSperre gesetzt
+//! und verhindert das "rekursive" Aufrufen.
+
 ISR(TIMER0_OVF_vect)
 	{
 	if (BusKommSperre) 
@@ -834,7 +932,7 @@ ISR(TIMER0_OVF_vect)
 
 	sei(); // Interrupts wieder erlauben
 	BusKomm(); // Diese Funktion braucht die Interrupts
-
+	
 	// neuen Zyklus beginnen
 	
 	TCNT0 = TIMER0_START;
