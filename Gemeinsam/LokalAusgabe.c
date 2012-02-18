@@ -73,7 +73,7 @@ void LokalZahlAusgabe(uint8_t i, int8_t minzif)
 	while (i >= 10)
 		z++, i -= 10;
 
-	if 	(z > 10 || minzif > 1)
+	if 	(z > 0 || minzif > 1)
 		LokalZahlAusgabe(z, minzif - 1);
 
 	LokalZifferAusgabe(i);
