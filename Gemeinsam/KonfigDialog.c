@@ -244,7 +244,7 @@ bool KonfigurationAllgemein()
 
 		if (BusEigenAdressePruefenUndSetzen(WahlZuAdresse(Durchwahl, 2)))
 			{
-			LokalTextAusgabeP(OkStrP);
+			LokalTextAusgabeP(PSTR(" ok. "));
 
 			if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
 				eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
