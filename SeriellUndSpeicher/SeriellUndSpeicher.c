@@ -1472,10 +1472,10 @@ int main()
 					break;
 
 #ifndef OHNE_SPEICHER
-				case CTRL('e'):
-					XEepromDebug();
-					HauptmenueAusgeben = true;
-					break;
+//				case CTRL('e'):
+//					XEepromDebug();
+//					HauptmenueAusgeben = true;
+//					break;
 			
 				case CTRL('q'):
 					Aktivieren(false);
