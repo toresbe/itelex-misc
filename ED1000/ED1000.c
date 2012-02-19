@@ -687,7 +687,7 @@ static void Konfiguration()
 	if (KommendSperreWahl != eeprom_read_byte(&KommendSperreWahl_EE))
 		eeprom_write_byte(&KommendSperreWahl_EE, KommendSperreWahl);
 
-	LokalTextAusgabeP(PSTR(" ok. "));
+	LokalTextAusgabeP(OkStrP);
 	
 	// weitere Eingaben
 

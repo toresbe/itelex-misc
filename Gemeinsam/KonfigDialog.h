@@ -8,7 +8,7 @@
 
 #include "bool.h"
 
-extern PROGMEM char* OkStrP;
+extern PROGMEM char OkStrP[];
 
 extern uint8_t LokalZahlEingabe(uint8_t* z, uint8_t maxzif);
 

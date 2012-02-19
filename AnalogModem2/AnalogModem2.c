@@ -1986,7 +1986,7 @@ static bool AmtswahlAbfrage()
 
 		if (GetStatus(NeuEigenAdresse) < 0)
 			{
-			return TextAusgabeFern(PSTR(" ok. "));
+			return TextAusgabeFern(OkStrP);
 			}
 
 		// Adresse schon belegt...

@@ -830,7 +830,7 @@ static void Konfiguration()
 	if (MitWaehlscheibe != (eeprom_read_byte(&MitWaehlscheibe_EE) != 0))
 		eeprom_write_byte(&MitWaehlscheibe_EE, MitWaehlscheibe ? 1 : 0);
 
-	LokalTextAusgabeP(PSTR(" ok. "));
+	LokalTextAusgabeP(OkStrP);
 
 	if (MitWaehlscheibe)
 		{
@@ -848,7 +848,7 @@ static void Konfiguration()
 		if (WahlauffordImpulsLaenge != eeprom_read_byte(&WahlauffordImpulsLaenge_EE))
 			eeprom_write_byte(&WahlauffordImpulsLaenge_EE, WahlauffordImpulsLaenge);
 
-		LokalTextAusgabeP(PSTR(" ok. "));
+		LokalTextAusgabeP(OkStrP);
 		}
 
 	LokalTextAusgabeP(PSTR("\r\n kommend-sperre mit wahl: (akt. "));
@@ -864,7 +864,7 @@ static void Konfiguration()
 	if (KommendSperreWahl != eeprom_read_byte(&KommendSperreWahl_EE))
 		eeprom_write_byte(&KommendSperreWahl_EE, KommendSperreWahl);
 
-	LokalTextAusgabeP(PSTR(" ok. "));
+	LokalTextAusgabeP(OkStrP);
 	
 	// weitere Eingaben
 
