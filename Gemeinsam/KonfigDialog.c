@@ -10,6 +10,7 @@
 #include "LokalAusgabe.h"
 
 
+//! Bestätigungsmeldung. weil's häufig benutzt wird.
 PROGMEM char OkStrP[] = " ok. ";
 
 
