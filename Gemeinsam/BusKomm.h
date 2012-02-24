@@ -20,7 +20,7 @@ enum { StatBit_Frei				= 7	}; //!< keine Verbindung besteht (weder innen noch au
 enum { StatBit_BusKdoEmpfangen	= 6	}; //!< Empfangenes Kommando noch nicht abschließend bearbeitet
 // folgende Bits gelten nur bei Frei = JA:
 enum { StatBit_LeitungKennung	= 5 }; //!< Leitungsschnittstelle (nur gültig bei StatBit_Frei = 1)
-enum { StatBit_SpezialGeraetKennung	= 4 }; //!< Leitungsschnittstelle (nur gültig bei StatBit_Frei = 1)
+enum { StatBit_SpezialGeraetKennung	= 4 }; //!< Spezialgerät, nicht für Dialog mit Benutzer geeignet (nur gültig bei StatBit_Frei = 1)
 // folgende Bits gelten nur bei Frei = NEIN:
 enum { StatBit_Verbunden		= 5	}; //!< Verbindung ist komplett hergestellt 
 enum { StatBit_AngerufenBelegt	= 4	}; //!< Fernschreiber wurde von anderem Partner (intern oder extern) aktiviert
