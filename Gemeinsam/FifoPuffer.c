@@ -44,7 +44,8 @@ extern bool PufferLeer(TPuffer *p)
 //! \returns Puffer ist vollständig gefüllt.
 extern bool PufferVoll(TPuffer *p) 
 	{
-	return PufferNP(p->SpeichP) == p->AusgP;
+	return PufferNP(p->SpeichP) == p->AusgP 
+			|| PufferNP(PufferNP(p->SpeichP)) == p->AusgP;
 	}
 	
 	
