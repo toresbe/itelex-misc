@@ -56,17 +56,16 @@ extern bool PufferVoll(TPuffer *p)
 //! \returns Zeichen hatte noch im Puffer platz.
 bool PufferSpeich(TPuffer *p, uint8_t code)
 	{
-	if (!PufferVoll(p))
-		{
-		uint8_t SregTemp = SREG; // sichert Interrupt-Enable
-		cli();
-		p->Puffer[p->SpeichP] = code;
-		p->SpeichP = PufferNP(p->SpeichP);
-		SREG = SregTemp;
-		return true;
-		}
-	else
-		return false;
+	if (PufferNP(p->SpeichP) == p->AusgP) 
+	// hier wird nicht PufferVoll benutzt, da dieses bei zwei Rest-Zeichen Platz
+	// 'nein' sagen würde...
+		return false; // passt nicht mehr.
+	uint8_t SregTemp = SREG; // sichert Interrupt-Enable
+	cli();
+	p->Puffer[p->SpeichP] = code;
+	p->SpeichP = PufferNP(p->SpeichP);
+	SREG = SregTemp;
+	return true;
 	}
 	
 
