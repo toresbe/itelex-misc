@@ -475,11 +475,13 @@ void WarteEndeTelefonat()
 	
 //! Sucht ein freies Endgerät im Falle eines kommenden Rufs. 
 //----------------------------------------------------------
-//! Stellt Verbindung (ohne Einschaltung) zu einem angeschlossenen Fernschreiber her.
+//! Ermittelt verfügbaren angeschlossenen Fernschreiber her. Dieser wird aber 
+//! nicht Reserviert und nicht angeschaltet.
 //! Gesucht wird mit folgenden Prioritäten:
 //! \par 1. Hauptanschluss (bei Flag KonfigBit_FesterHauptanschluss)
 //! \par oder
-//! \par 2. Letzes Gerät, von dem ein abgehendes Telefonat geführt wurde (wenn Flag KonfigBit_FesterHauptanschluss nicht gesetzt)
+//! \par 2. Letzes Gerät, von dem ein abgehendes Telefonat geführt wurde 
+//! (wenn Flag KonfigBit_FesterHauptanschluss nicht gesetzt)
 //! \par sowie
 //! \par 3. bei besetztem Gerät nach 1. bzw. 2. NÄCHSTER freier Anschluss
 //! \par Der gefundener Anschluss steht nachher in AktuellEmpfaenger.
@@ -515,7 +517,7 @@ bool FreiesEndgeraetFuerAnruf()
 				&& !BIT_IS_SET(Stat, StatBit_SpezialGeraetKennung))
 				break; // gefunden!
 			AktuellEmpfaenger += 2;
-			if (AktuellEmpfaenger > BusAdrMax)
+			if (AktuellEmpfaenger > BusAdrEndgeraetMax)
 				AktuellEmpfaenger = BusAdrMin;
 			if (AktuellEmpfaenger == Start) // alle einmal probiert
 				return false;
@@ -658,10 +660,16 @@ SchnellstartLoeschen:
 */
 
 
+//! Prüft und reagiert ggf. auf Schlusskommando oder Schlussquittung vom TWI-Bus.
+//-------------------------------------------------------------------------------
+//! \param Code Falls Bus-Puffer schon abgefragt wurde, steht hier der Kommandocode drin.
+//! Falls nicht, 0 übergeben.
+//! \param FehlerCode Falls ein Bus-Kommando empfangen wurde, welches nicht 
+//! Schluss signalisiert, wird ein FehlerStop ausgelöst mit dem angegebenen Fehlercode.
+//! \retval true falls Schlusskommando empfangen wurde.
+//! \retval false falls nix empfangen wurde.
 
 static bool PruefeBusSchluss(uint8_t Code, uint8_t FehlerCode)
-	// Wenn Code != 0 wurde Empfangs-Code schon vorher aus puffer geholt 
-	// liefert true, wenn abgebrochen werden soll.
 	{
 	if (Code == 0)
 		if (!GetEmpfByte(&Code))
@@ -683,6 +691,14 @@ static bool PruefeBusSchluss(uint8_t Code, uint8_t FehlerCode)
 	}
 	
 
+//! Prüft und reagiert ggf. auf Timeout.
+//-------------------------------------------------------------------------------
+//! Wenn Timeout eintritt wird die bestehende Verbindung abgebaut.
+//! \param Timer Der Timeout-Timer.
+//! \param MaxTimer Zielwert des Timeout.
+//! \retval true falls Timeout eingetreten ist und Verbindung abgebaut wurde.
+//! \retval false falls Timeout noch nicht eingetreten ist.
+	
 static bool PruefeTimerAbbruch(TMsTimer *Timer, uint16_t MaxTimer)
 	{
 	if (TimerVal(Timer) > MaxTimer)
@@ -697,6 +713,11 @@ static bool PruefeTimerAbbruch(TMsTimer *Timer, uint16_t MaxTimer)
 	}
 	
 	
+//! Führt das komplette Handshake mit 300 Baud bei kommenden Verbindungen durch.
+//------------------------------------------------------------------------------
+//! \param[out] Nebenstelle von Rufer gewünschte Nebenstelle, 0 bei Hauptstelle.
+//! \retval true bei erfolgreichem Handshake.
+
 static bool HandshakeKommend(uint8_t *Nebenstelle)
 	{
 	// 't' senden und auf Zeichen 'x' warten
@@ -720,10 +741,14 @@ static bool HandshakeKommend(uint8_t *Nebenstelle)
 	}
 	
 
+//! Wird aufgerufen, um einen kommenden Anruf eines TelexPhone anzunehmen und weiterzustellen.
+//-------------------------------------------------------------------------------
+//! Kehrt erst zurück, wenn Anruf beendet ist.
+
 void VerbindungKommend()
 	{
 	if (!FreiesEndgeraetFuerAnruf())
-		{
+		{ // es gibt keinen Anschluss.
 		// FehlerStop(15); //HACK
 		WarteEndeTelefonat();
 		return;
@@ -802,9 +827,19 @@ void VerbindungKommend()
 		{ // direkt angewählte Nebenstelle versuchen...
 		uint8_t GewaehlteNebenstelle = NebenstellenTabelle[Nst] << 1;
 		int16_t Stat = GetStatus(GewaehlteNebenstelle);
-		if (Stat >= 0 && BIT_IS_SET(Stat, StatBit_Frei) && !BIT_IS_SET(Stat, StatBit_LeitungKennung))
-			// hier darf es auch ein Spezialgerät sein
-			BusVerbPartner = GewaehlteNebenstelle; // beide sind schon << 1 für I²C-Adressen
+		if (Stat >= 0 && !BIT_IS_SET(Stat, StatBit_LeitungKennung))
+			// Gerät vorhanden und keine Leitung, hier darf es auch ein Spezialgerät sein
+			if (BIT_IS_SET(Stat, StatBit_Frei))
+				// Gerät ist auch frei
+				BusVerbPartner = GewaehlteNebenstelle; // beide sind schon << 1 für I²C-Adressen
+			else
+				{ // Durchwahl-Gerät vorhanden, aber besetzt 
+				Grundstellen(false);
+				return;
+				}
+		else
+			// angewähltes Gerät unzulässig, mit Hauptstelle weitermachen
+			BusVerbPartner = AktuellEmpfaenger; // beide sind schon << 1 für I²C-Adressen
 		}
 	else 
 		BusVerbPartner = AktuellEmpfaenger; // beide sind schon << 1 für I²C-Adressen
@@ -986,6 +1021,9 @@ void VerbindungKommendSimulieren()
 //*/
 
 
+//! Steuert das Modem-IC zum Senden von DTMF-Tönen (Ziffern).
+//-----------------------------------------------------------
+//! \param Ziffer die zu sendende Ziffer.
 void ZifferWaehlen(uint8_t Ziffer)
 	{
 	TMsTimer Timer;
@@ -999,6 +1037,9 @@ void ZifferWaehlen(uint8_t Ziffer)
 	}
 	
 
+//! Steuert das Modem-IC zum Senden von DTMF-Tönen (Ziffernfolge).
+//-----------------------------------------------------------
+//! \param Nummer String mit der Ziffernfolge.
 void NummerWaehlen(char *Nummer)
 	{
 	while (*Nummer >= '0' && *Nummer <= '9')
@@ -1073,6 +1114,11 @@ static void DetectionTest(bool Orig, char *Nummer)
 
 //*/
 	
+
+//! Führt das komplette Handshake mit 300 Baud bei gehenden Verbindungen durch.
+//------------------------------------------------------------------------------
+//! \param Nebenstelle Vom Rufer gewünschte Nebenstelle, 0 bei Hauptstelle.
+//! \retval true bei erfolgreichem Handshake.
 
 static bool HandshakeGehend(uint8_t Nebenstelle)
 	{
@@ -1329,6 +1375,12 @@ void TestAnruf(char* Nummer)
 // Gehende Verbindung
 // ==================
 
+//! Wird aufgerufen, um eine gehende Verbindung zu einem anderen TelexPhone herzustellen.
+//-------------------------------------------------------------------------------
+//! Einstiegspunkt ist eine empfangene Reservierung (über TWI) von einem Endgerät.
+//! Endgerät wird auf Wahlzustand umgeschaltet. Wahlziffern werden angenommen und 
+//! auf die Leitung geschickt, Freizeichen wird ausgewertet, Handshake ausgeführt
+//! und fertige Verbindung überwacht. Kehrt erst zurück, wenn Anruf beendet ist.
 static void VerbindungGehend()
 	{
 	// Empfangenen Befehl auswerten
@@ -1703,8 +1755,13 @@ static void VerbindungGehend()
 	} // VerbindungGehend()
 
 
+//! Gemeinsame Funktion für den Datenaustausch nach erfolgreich hergestellter Verbindung.
+//--------------------------------------------------------------------------------------	
+//! Endgerät ist ein und Verbindung ist kommend ODER gehend fertig aufgebaut...
+//! Träger wird überwacht und bei Verlust Endgerät ausgeschaltet. Bei Ausschaltung vom
+//! Endgerät wird Träger ausgeschaltet und Modem "legt auf".
 void VerbindungHergestellt()
-	{ // Endgerät ist ein und Verbindung ist kommend ODER gehend fertig aufgebaut...
+	{ 
 	TMsTimer TraegerPruefTimer; // alle 0,02 Sekunden wird Träger geprüft. Bei 50 x nein Verbindungsabbau...
 	TMsTimer PegelWdhTimer;
 	TMsTimer LongDistancePruefTimer;
@@ -1892,9 +1949,13 @@ void VerbindungHergestellt()
 			}
 			
 		} // while true
-	} // VerbindungHergestellt
+	} // VerbindungHergestellt()
 	
 
+//! Funktion nach kurzem Tastendruck
+//----------------------------------
+//! Standard-Version: nur deaktivierung. 
+//! \par Erweiterte Version: Testfunktionen
 static void TasteFunktion()
 	{
 	bool Lange;
@@ -1902,12 +1963,13 @@ static void TasteFunktion()
 	CLR_BIT_Status(StatBit_Frei); // im Hauptprogramm macht Grundstellen wieder "Frei"
 	CLR_BIT_Status(StatBit_LeitungKennung);
 	
+/* ab hier erweiterte Version.
 	set_LEDROT();
 	Lange = WarteTaste();
 	clr_LEDROT();
 	if (Lange)
 		{
-		/* TestAnruf("05314287741"); */
+		// TestAnruf("05314287741"); 
 		return;
 		}
 
@@ -1916,7 +1978,7 @@ static void TasteFunktion()
 	clr_LEDGELB();
 	if (Lange)
 		{
-		/* TestAnruf("05312502174"); */
+		// TestAnruf("05312502174"); 
 		return;
 		}
 
@@ -1925,25 +1987,29 @@ static void TasteFunktion()
 	clr_LEDGRUEN();
 	if (Lange)
 		{
-		/* VerbindungKommendSimulieren(); //*/
+		// VerbindungKommendSimulieren(); 
 		return;
 		}
+Ende erweiterte Version. */
 
 	set_LEDBLAU();
 	Lange = WarteTaste();
 	clr_LEDBLAU();
+
 	if (Lange)
-		{
-		/* DetectionTest(true, "05314287741"); //*/
+		{ // auch das hier ist für die erweiterte Version, stört aber in der normalen nicht.
+		// DetectionTest(true, "05314287741"); 
 		return;
 		}
+
 	}
 
 
 // Konfiguration über angeschlossenes Endgerät...
 // -------------------------------------------
 
-
+//! Funktion, die während der FernDialog-Ausführung interne Aufgaben erledigt.
+//----------------------------------------------------------------------------
 void FernDialogCallback()
 	{
 	bset_LEDGELB(!BIT_IS_SET(Status, StatBit_FsBefEin));
@@ -1951,9 +2017,13 @@ void FernDialogCallback()
 	}
 
 
+//! Hilfvariable für den Test einer neuen Adresse.
 static uint8_t NeuEigenAdresse;	
 	
 
+//! Abfrage der eigenen Adresse (= Amtswahl)
+//-----------------------------------------
+//! \retval true Wenn kein Eingabe-Abbruch erfolgte.	
 static bool AmtswahlAbfrage()
 	{
 	uint8_t AktAmtswahl, AktAmtswahlZiffern;
@@ -1986,7 +2056,7 @@ static bool AmtswahlAbfrage()
 
 		if (GetStatus(NeuEigenAdresse) < 0)
 			{
-			return TextAusgabeFern(OkStrP);
+			return TextAusgabeFern(PSTR(" ok. "));
 			}
 
 		// Adresse schon belegt...
@@ -1995,9 +2065,12 @@ static bool AmtswahlAbfrage()
 
 		}
 		
-	}
+	} // AmtswahlAbfrage()
 
 
+//! Abfrage der Nebenstellen-Nummer für ankommende Durchwahlen
+//-----------------------------------------
+//! \retval true Wenn kein Eingabe-Abbruch erfolgte.	
 static bool DurchwahlenAbfrage()
 	{
 	if (!TextAusgabeFern(PSTR("\r\n nebenstellen fuer durchwahlziffer...")))
@@ -2031,9 +2104,12 @@ static bool DurchwahlenAbfrage()
 			}
 		}
 	return true;
-	}
+	} // DurchwahlenAbfrage()
 	
 	
+//! Abfrage der Wahlziffern für den Justiervorgang.
+//-----------------------------------------
+//! \retval true Wenn kein Eingabe-Abbruch erfolgte.	
 static bool JustierWahlziffernAbfragen()
 	{
 	uint8_t i;
@@ -2077,11 +2153,13 @@ static bool JustierWahlziffernAbfragen()
 			}
 		}
 	return true;
-	}
+	} // JustierWahlziffernAbfragen()
 	
 	
+//! Führt vollständigen Einstell-Dialog durch.
+//--------------------------------------------
+//! im Hauptprogramm kommt danach Grundstellen().
 static void Einstellen()
-// im Hauptprogramm kommt danach Grundstellen()
 	{
 	if (!FernDialogVerbinden(Hauptanschluss))
 		{
@@ -2140,9 +2218,11 @@ static void Einstellen()
 
 	wdt_reset();
 
-	}
+	} // Einstellen()
 
 	
+//! Wird nach langem Tastendruck aufgerufen um die Hardware-Leitungsabgleich durchzuführen.
+//----------------------------------------------------------------------------------------	
 static void Justieren()
 	{
 	TMsTimer Timer;
@@ -2214,13 +2294,15 @@ static void Justieren()
 		
 		// Tastendruck = NichtGedr am Anfang der Schleife
 		} // while (true)
-	}
+	} // Justieren()
 	
 	
+//! Konfiguration oder Justierung durchführen.
+//--------------------------------------------
+//! wechselt je nach Tastendruck kurz oder lang in andere Funktionen:
+//! kurz = Konfiguration, Lang = Justierung, Anruf = Justierung.
+//! Im Hauptprogramm kommt folgt Grundstellen(false).
 static void HauptEinstellungen()
-// wechselt je nach Tastendruck kurz oder lang in andere Funktionen:
-// kurz = Konfiguration, Lang = Justierung, Anruf = Justierung
-// im Hauptprogramm kommt Grundstellen(false)
 	{
 	set_LEDROT();
 
@@ -2250,15 +2332,9 @@ static void HauptEinstellungen()
 			}
 		
 		}
-	}
+	} // HauptEinstellungen()
 
 	
-// Deaktivierung: Schnittstelle kann nicht mehr angesprochen werden
-// ================================================================
-
-//! \TODO Deaktivierung offen
-
-
 //! Das Hauptprogramm der Analogen Leitungsschnittstelle.
 //-------------------------------------------------------
 int main()

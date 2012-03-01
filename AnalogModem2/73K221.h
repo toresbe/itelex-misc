@@ -39,12 +39,12 @@ extern bool StateChange();
 
 extern uint8_t GetState(bool Force);
 
-#define STATEBIT_LONGLOOP 0
-#define STATEBIT_CALLPROGRESS 1 // Wählton
-#define STATEBIT_ANSWERTONE 2 // Antwortton
-#define STATEBIT_CARRIER 3 // Träger
-#define STATEBIT_UNSCRMARKS 4 // nur für 2400
-#define STATEBIT_RXD 5 // Empfagsbit
+#define STATEBIT_LONGLOOP 0 	//!< für GetState(): 
+#define STATEBIT_CALLPROGRESS 1 //!< für GetState(): Wählton wird empfangen.
+#define STATEBIT_ANSWERTONE 2 //!< für GetState(): Antwortton wird empfangen.
+#define STATEBIT_CARRIER 3 //!< für GetState(): Träger wird empfangen.
+#define STATEBIT_UNSCRMARKS 4 //!< für GetState(): nur für 2400 Baud Betrieb relevant.
+#define STATEBIT_RXD 5 //!< für GetState(): Mark wird empfangen.
 
 #endif //ndef __73K221_H__
 

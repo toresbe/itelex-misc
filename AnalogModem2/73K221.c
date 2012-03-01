@@ -6,6 +6,7 @@
 
 #include "73K221.h"
 
+//! Initdialisiert das Hardware-Interface zum Modem-IC.
 void ModemInit()
 	{
 	init_EXCLK();
@@ -24,6 +25,7 @@ void ModemInit()
 	}
 
 
+//! Wartet einen halben Taktzyklus.
 static void HalfClock()
 	{
 	for (volatile uint16_t x = 0 ; x < 100 ; x++)
@@ -31,6 +33,10 @@ static void HalfClock()
 	}
 
 
+//! Setzt ein Register des Modem-IC auf einen bestimmten Wert.
+//! \param RegNr Register-Nummer.
+//! \param Wert Zu speichernder Wert.
+	
 void ModemSetReg(uint8_t RegNr, uint8_t Wert)
 	{
 	bset_AD0(BIT_IS_SET(RegNr, 0));
@@ -53,6 +59,10 @@ void ModemSetReg(uint8_t RegNr, uint8_t Wert)
 	}
 
 
+//! Fragt ein Register des Modem-IC ab.
+//! \param RegNr Register-Nummer.
+//! \returns Inhalt des Registers.
+	
 uint8_t ModemGetReg(uint8_t RegNr)
 	{
 	uint8_t Res = 0;
@@ -77,12 +87,15 @@ uint8_t ModemGetReg(uint8_t RegNr)
 	}
 	
 	
+//! Führt ein Reset des Modem-IC durch.	
 void ModemReset()
 	{
 	ModemSetReg(1, 1<<2);
 	}
 
 
+//! Schaltet einen DTMF-Ton ein.
+//! \param Ziffer DTMF-Ziffer.
 void StartDTMF(uint8_t Ziffer)
 	{ 
 	if (Ziffer == 0)
@@ -92,6 +105,7 @@ void StartDTMF(uint8_t Ziffer)
 	}
 
 
+//! Schaltet DTMF-Töne wieder aus.
 void StopDTMF()
 	{
 	ModemSetReg(0, 0);
@@ -99,6 +113,8 @@ void StopDTMF()
 	}
 
 
+//! Schaltet das Modem-IC in die V21-Betriebsart.
+//! \param Originate Ist das Modem der Anrufer?	
 void StartV21(bool Originate)
 	{
 	ModemSetReg(3, 0);
@@ -107,6 +123,7 @@ void StartV21(bool Originate)
 	}
 
 
+//! Schaltet den V21-Mode des Modem-IC wieder aus.	
 void StopV21()
 	{
 	ModemSetReg(0, 0);
@@ -114,6 +131,7 @@ void StopV21()
 	}
 
 
+//! Schaltet das Modem-IC in den Kennton-Detektions-Modus.
 void StartDetection(bool Originate)
 	{
 	ModemSetReg(3, 0);
@@ -122,6 +140,7 @@ void StartDetection(bool Originate)
 	}
 	
 	
+//! Schaltet den Kennton-Detektions-Modus des Modem-IC aus.
 void StopDetection()
 	{
 	ModemSetReg(0, 0);
@@ -129,6 +148,7 @@ void StopDetection()
 	}
 
 	
+//! Schaltet den Antworton des Modem-IC ein.
 void StartAnswerTone()
 	{
 	ModemSetReg(1, 0x20);
@@ -137,6 +157,7 @@ void StartAnswerTone()
 	}
 	
 
+//! Schaltet den Guard-Ton des Modem-IC ein.
 void StartGuardTone(bool High)
 	{
 	ModemSetReg(0, 0x30);
@@ -145,30 +166,42 @@ void StartGuardTone(bool High)
 	}
 
 
+//! Schaltet Antworton und Guard-Ton des Modem-IC aus.	
 void StopSpecialTone()
 	{
 	ModemSetReg(3, 0);
 	}
 	
 
+//! Schaltet im V21-Betrieb auf Mark oder Space.
+//! \param Mark Mark = true, Space = false. Grundstellung ist Mark.
 void Transmit(bool Mark)
 	{
 	bset_TXD(Mark);
 	}
 
 
+//! Frage das Modem-IC nach dem aktuell empfangenen Pegel.
+//! \retval true bei Empfang von Mark (Grundstellung).
 bool ReceiveMark()
 	{
 	return get_RXD();
 	}
 
 
+//! Prüft auf Status-Änderungen des Modem-IC.
+//! \retval true wenn sich ein wesentlicher Status im Modem-IC geändert hat.
 bool StateChange()
 	{
 	return !get_INT();
 	}
 	
 	
+//! Liefert das Status-Byte des Modem-IC.
+//! \param Force wenn false, wird das Register des Modem-IC nur dann tatsächlich 
+//! ausgelesen, wenn es sich entsprechend StateChange() auch geändert hat. Sonst
+//! wird der bekannte letzte Wert geliefert.
+//! \returns Status-Byte des Modem-IC.
 uint8_t GetState(bool Force)
 	{
 	static uint8_t Last = 0;

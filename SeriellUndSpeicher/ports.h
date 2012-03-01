@@ -8,7 +8,11 @@
 // Platinen-Version
 // ================
 
-#define PLATINE_VERSION 13 // 1.3x
+#ifndef PLATINE_VERSION
+#error Platinen-Version in Konfiguration festlegen!
+#endif
+
+//#define PLATINE_VERSION 13 // 1.3x
 
 
 // Schnittstellen
