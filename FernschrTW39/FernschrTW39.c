@@ -401,7 +401,7 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
-			if (BIT_IS_SET(TAST_IPORT, TAST_BIT))
+			if (get_TASTE())
 				{ // Taste nicht gedrückt
 				if (TasteZ > 0)
 					{
@@ -955,7 +955,7 @@ int main()
 	DDRC = 0;
 	DDRD = 0;
 
-	SET_BIT(TAST_PORT, TAST_BIT); // Pull-Up
+	init_TASTE();
 
 	LED_EIN(ROT);
 	SET_BIT(LED_ROT_DDR, LED_ROT_BIT);
@@ -1017,10 +1017,10 @@ int main()
 		;
 	
 	// Bei Tastendruck Watchdog AUS
-	if (!BIT_IS_SET(TAST_IPORT, TAST_BIT))
+	if (!get_TASTE())
 		{ // Gedrückt = LOW	
 		wdt_disable();
-		while (!BIT_IS_SET(TAST_IPORT, TAST_BIT))
+		while (!get_TASTE())
 			; // Warten, bis Taste wieder losgelassen
 		LED_EIN(GELB);
 		StartTimer(&Timer);

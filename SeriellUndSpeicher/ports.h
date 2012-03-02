@@ -4,6 +4,11 @@
 
 #define __PORTS_H__
 
+#include "Defports.h"
+
+
+//! \todo Umstellung auf Defports.h
+
 
 // Platinen-Version
 // ================
@@ -22,9 +27,9 @@
 
 #warning "Nur für alte Platinen-Version 1.0 bis 1.2"
 
-#define TAST_PORT PORTC
-#define TAST_IPORT PINC
-#define TAST_BIT 3
+
+DEFPORTINPULL(TASTE,	C, 3)	//			26
+
 
 #define LED_ROT_PORT PORTC
 #define LED_ROT_DDR DDRC
@@ -75,9 +80,8 @@
 #else // PLATINE_VERSION >= 13
 
 
-#define TAST_PORT PORTD
-#define TAST_IPORT PIND
-#define TAST_BIT 2
+DEFPORTINPULL(TASTE,	D, 2)
+
 
 #define LED_ROT_PORT PORTC
 #define LED_ROT_DDR DDRC

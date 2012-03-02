@@ -1,28 +1,39 @@
 #include "Taste.h"
 
 #include <avr/io.h>
+#include <avr/wdt.h>
+
 #include "bits.h"
 
 #include "MsTimer.h"
 
-#include "ports.h"
+#include "Ports.h"
 
-enum { TasteAus, TasteEin, TasteSperr } TasteZustandIntern;
 
-TMsTimer TasteTimer;
+//! Speichert den letzten Zustand der Taste.
+static enum { TasteAus, TasteEin, TasteSperr } TasteZustandIntern;
 
+//! Registriert die Dauer des Tastendrucks.
+static TMsTimer TasteTimer;
+
+//! Speichert den letzten Tastendruck. Muss vom Anwender wieder auf NichtGedr gesetzt werden.
 volatile TTastendruck Tastendruck;
 
-// Bedientaste
-// -----------
 
+//! Zyklisch aufrufen, um die Bedienung der Taste registrieren zu lassen.
+//-------------------------------------------------------------------------
+//! Das Ergebnis wird in der globalen Variable \sa Tastendruck gespeichert.
 void TastePruefen()
 	{
 	switch (TasteZustandIntern)
 		{
 		case TasteAus:
-			if (!BIT_IS_SET(TAST_IPORT, TAST_BIT))
-				{ // Gedrückt = LOW
+#ifdef TASTE_NACH_PLUS
+			if (get_TASTE()) // Gedrückt = HIGH!
+#else
+			if (!get_TASTE()) // Gedrückt = LOW!
+#endif
+				{
 				if (TimerVal(&TasteTimer) > 50)
 					{ // ausreichend lang gedrückt
 					TasteZustandIntern = TasteEin;
@@ -36,8 +47,12 @@ void TastePruefen()
 			break;
 
 		case TasteEin: 
-			if (!BIT_IS_SET(TAST_IPORT, TAST_BIT))
-				{ // Gedrückt = LOW
+#ifdef TASTE_NACH_PLUS
+			if (get_TASTE()) // Gedrückt = HIGH!
+#else
+			if (!get_TASTE()) // Gedrückt = LOW!
+#endif
+				{
 				if (TimerVal(&TasteTimer) > 800) // 0,8 Sek. = lang
 					{ // lang gedrückt
 					TasteZustandIntern = TasteSperr;
@@ -52,8 +67,12 @@ void TastePruefen()
 			break;
 
 		case TasteSperr:
-			if (!BIT_IS_SET(TAST_IPORT, TAST_BIT))
-				{ // Gedrückt = LOW
+#ifdef TASTE_NACH_PLUS
+			if (get_TASTE()) // Gedrückt = HIGH!
+#else
+			if (!get_TASTE()) // Gedrückt = LOW!
+#endif
+				{
 				// immer noch gedrückt...
 				}
 			else
@@ -66,6 +85,22 @@ void TastePruefen()
 	}
 
 
-
+//! Wartet, bis die Taste einmal gedrückt wurde.
+//-------------------------------------------------------------------------
+//! \retval false Taste wurde kurz gedrückt.
+//! \retval false Taste wurde lang gedrückt.
+bool WarteTaste()
+	{ 
+	Tastendruck = NichtGedr;
+	while (Tastendruck == NichtGedr)
+		{
+		// Hier Projektabhängige Standard-Polling Prozeduren einfügen
+		wdt_reset();
+		TastePruefen();
+		}
+	bool Res = (Tastendruck == Lang);
+	Tastendruck = NichtGedr;
+	return Res;
+	}
 
 
