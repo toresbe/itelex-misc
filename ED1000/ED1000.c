@@ -59,7 +59,7 @@
 	// Watchdog abgeschaltet
 
 
-#define V21
+//#define V21
 	// macht andere Frequenzen
 	
 
@@ -715,6 +715,19 @@ static void VerbindungSteht()
 	
 		if (SerUmSendBitNr <= SerUmSendStart) // Start oder Warten...
 			GeSendeMark(MeldungMark); // Nur Fs-Pegel direkt auf Bus, wenn nicht seriell gesendet wird...
+			
+		// HACK Test Sendung Werda!
+		if (Tastendruck != NichtGedr)
+			{
+			if (PufferLeer(&SendePuffer))
+				{
+				PufferSpeich(&SendePuffer, TtyCodeZiUm);
+				PufferSpeich(&SendePuffer, TtyCodeZiUm);
+				PufferSpeich(&SendePuffer, TtyCodeZiWerDa);
+				set_LEDROT();
+				}
+			Tastendruck = NichtGedr;
+			}
 		}
 
 	}
