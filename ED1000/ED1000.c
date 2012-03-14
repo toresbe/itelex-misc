@@ -91,8 +91,8 @@ const PROGMEM char Identifier[] = "___TxP2_ED1000___" __DATE__ "___" __TIME__ "_
 	#define SEND_MARK_FAKTOR 10
 	#define SEND_SPACE_FAKTOR 12
 #else
-	#define SEND_MARK_FAKTOR 5
-	#define SEND_SPACE_FAKTOR 7
+	#define SEND_MARK_FAKTOR 7
+	#define SEND_SPACE_FAKTOR 5
 #endif
 
 // Eeprom-Speicher
@@ -202,10 +202,10 @@ static void ED1000Init()
 static void ED1000IO()
 	{
 	if (BefehlEinschalten && BefehlMark)
-		SinAusgInc = 7;
+		SinAusgInc = SEND_MARK_FAKTOR;
 	else
 		{
-		SinAusgInc = 5;
+		SinAusgInc = SEND_SPACE_FAKTOR;
 		SpaceSperre = true;
 		}
 		
@@ -219,15 +219,57 @@ static void ED1000IO()
 
 		// Filterung: Parameter wurden mit dem Programm WinFilter errechnet.
 
-		// Einstellungen: Samplerate = 12800, IIR Bandpass Butterworth  f1 = 2150, f2 = 2650, Order = 1
-		//eigentlich... ys0 = (67 * (x0 - x2) + 87 * ys1 - 99 * ys2) / 128;
-		int16_t h = (67 * (x0 - x2) + 87 * ys1 - 99 * ys2) * 2;
-		ys0 = h >> 8;
+#ifdef V21
+		// MARK: 
+		// Einstellungen: Samplerate = 12539, IIR Bandpass Butterworth  f1 = 1680, f2 = 1750, Order = 1, 8 Bit
+		// Ergebnis aus generiertem C-Code: 
+		//		__int8 ACoef[NCoef+1] = {  73,   0, -73 };
+		//		__int8 BCoef[NCoef+1] = {  64, -82,  61 };
+		// --> ym0 = (73 * (x0 - x2) + 82 * ym1 - 102 * ym2) / 64;
+		//           A0;A2            -B1         -B2          B0
+		// Zur Vermeidung von Überlauf bei 8-Bit-Berechnungen alle A-Koeffizienten / 3 und alle B-Koeffizienten * 4
+		// --> ys0 = (24 * (x0 - x2) + 328 * ym1 - 244 * ym2) / 256;
+		//           A0;A2/3          -B1*4       -B2*4       B0*4     
+		//                      328 = 256 + 72
+		int16_t h =  (24 * (x0 - x2) +  72 * ym1 - 244 * ym2);
+		ym0 = (h >> 8) + ym1; // <- hier kommen die fehlenden 256 * ym1 aus der Berechnung von h nachträglich dazu.
+		
+		// SPACE: 
+		// Einstellungen: Samplerate = 12539, IIR Bandpass Butterworth  f1 = 1900, f2 = 1950, Order = 1, 8 Bit
+		// Ergebnis aus generiertem C-Code: 
+		//		__int8 ACoef[NCoef+1] = {  95,   0, -95 };
+		//		__int8 BCoef[NCoef+1] = {  64, -72,  62	};
+		// --> ys0 = (95 * (x0 - x2) + 72 * ys1 - 62 * ys2) / 64;
+		//           A0/A2            -B1        -B2          B0
+		// Zur Vermeidung von Überlauf bei 8-Bit-Berechnungen alle A-Koeffizienten / 3 und alle B-Koeffizienten * 4
+		// --> ys0 = (32 * (x0 - x2) + 288 * ys1 - 248 * ys2) / 256;
+		//           A0;A2/3          -B1*4       -B2*4         B0*4
+		//                      288 = 256 + 32
+		         h = (32 * (x0 - x2)  + 32 * ys1 - 248 * ys2);
+		ys0 = (h >> 8) + ys1; // <- hier kommen die fehlenden 256 * ys1 aus der Berechnung von h nachträglich dazu.
+		
+#else		
+		// SPACE: (Berechnung heißt Mark???)
+		// Einstellungen: Samplerate = 12800, IIR Bandpass Butterworth  f1 = 2150, f2 = 2650, Order = 1, 8 Bit
+		// Ergebnis aus generiertem C-Code: 
+		//		__int8 ACoef[NCoef+1] = {  67,   0, -67 };
+		//		__int8 BCoef[NCoef+1] = { 128, -87,  99	};
+		// --> ys0 = (67 * (x0 - x2) + 87 * ys1 - 99 * ys2) / 128;
+		//           A0/A2            -B1        -B2           B0
+		int16_t h = (67 * (x0 - x2) + 87 * ys1 - 99 * ys2);
+		ys0 = h >> 7;
 
-		// Einstellungen: Samplerate = 12800, IIR Bandpass Butterworth  f1 = 3150, f2 = 3600, Order = 1
-		//eigentlich... ym0 = (80 * (x0 - x2) - 19 * ym1 - 102 * ym2) / 128;
-		h = (80 * (x0 - x2) - 19 * ym1 - 102 * ym2) * 2;
-		ym0 = h >> 8;
+		// MARK: Berechnung heißt Space???
+		// Einstellungen: Samplerate = 12800, IIR Bandpass Butterworth  f1 = 3150, f2 = 3600, Order = 1, 8 Bit
+		// Ergebnis aus generiertem C-Code: 
+		//		__int8 ACoef[NCoef+1] = {  80,   0, -80 };
+		//		__int8 BCoef[NCoef+1] = { 128,  19, 102 };
+		// --> ym0 = (80 * (x0 - x2) - 19 * ym1 - 102 * ym2) / 128;
+		//           A0/A2            -B1        -B2           B0
+		h = (80 * (x0 - x2) - 19 * ym1 - 102 * ym2);
+		ym0 = h >> 7;
+		
+#endif //ndef V21
 
 		x2 = x1; x1 = x0;
 		ym2 = ym1; ym1 = ym0;
@@ -805,10 +847,10 @@ int main()
 
 	set_LEDROT();
 
-	InitTimer();
 	InitADC();
 	MsTimerInit();
 	ED1000Init();
+	InitTimer();
 	
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
 	BusEigenAdrMehrfach = 1;
@@ -821,10 +863,24 @@ int main()
 
 	KommInit();
 
+// Test der Berechnungsalgorithmen
+	EmpfBuf[EmpfBufSchreibI++] = 88;
+	EmpfBuf[EmpfBufSchreibI++] = 120;
+	EmpfBuf[EmpfBufSchreibI++] = 74;
+	EmpfBuf[EmpfBufSchreibI++] = -20;
+	EmpfBuf[EmpfBufSchreibI++] = -100;
+	EmpfBuf[EmpfBufSchreibI++] = -116;
+	EmpfBuf[EmpfBufSchreibI++] = -57;
+	EmpfBuf[EmpfBufSchreibI++] = 39;
+	EmpfBuf[EmpfBufSchreibI++] = 110;
+	EmpfBuf[EmpfBufSchreibI++] = 110;
 	ED1000IO();
+// Ende Test der Berechnungsalgorithmen */
 	
 	TMsTimer Timer;
 	StartTimer(&Timer);
+
+	ED1000IO();
 	
 	sei();
 	
@@ -842,7 +898,7 @@ int main()
 #endif
 
 	TwiInit();
-	
+
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 500)
 		;
@@ -877,16 +933,25 @@ int main()
 
 	if (SelbsttestAusfuehen)
 		{
+		StartTimer(&Timer);
 		while (1)
 			{
 #ifdef TASTE_NACH_PLUS
-			BefehlMark = !get_TASTE();
+			if (get_TASTE())
 				// Gedrückt = HIGH
 #else
-			BefehlMark = get_TASTE();
+			if (!get_TASTE())
 				// Gedrückt = LOW
 #endif
-
+				{ // gedrückt
+				BefehlMark = false;
+				}
+			else
+				{ // nicht gedrückt
+				BefehlMark = true;
+				StartTimer(&Timer);
+				}
+				
 			ED1000IO();
 
 			bset_LEDROT(BefehlEinschalten);
@@ -894,7 +959,7 @@ int main()
 			bset_LEDGRUEN(BefehlMark);
 			bset_LEDBLAU(MeldungMark);
 
-			BefehlEinschalten = MeldungEingeschaltet;
+			BefehlEinschalten = MeldungEingeschaltet || (TimerVal(&Timer) > 1000);
 
 			}
 		} // if SelbsttestAusfuehren

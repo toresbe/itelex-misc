@@ -7,7 +7,7 @@ Filter type: Band Pass
 Filter model: Butterworth
 Filter order: 1
 Sampling Frequency: 12 KHz
-Fc1 and Fc2 Frequencies: 1.680000 KHz and 1.750000 KHz
+Fc1 and Fc2 Frequencies: 2.150000 KHz and 2.650000 KHz
 Coefficents Quantization: 8-bit
 
 Z domain Zeros
@@ -15,23 +15,23 @@ z = -1.000000 + j 0.000000
 z = 1.000000 + j 0.000000
 
 Z domain Poles
-z = 0.640625 + j -0.736698
-z = 0.640625 + j 0.736698
+z = 0.339844 + j -0.811137
+z = 0.339844 + j 0.811137
 ***************************************************************/
 #define NCoef 2
-#define DCgain 16
+#define DCgain 2
 
 __int8 iir(__int8 NewSample) {
     __int8 ACoef[NCoef+1] = {
-           73,
+           67,
             0,
-          -73
+          -67
     };
 
     __int8 BCoef[NCoef+1] = {
-           64,
-          -82,
-           61
+          128,
+          -87,
+           99
     };
 
     static __int16 y[NCoef+1]; //output samples
