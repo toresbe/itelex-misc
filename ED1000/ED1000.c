@@ -59,8 +59,15 @@
 	// Watchdog abgeschaltet
 
 
+#define V21
+	// macht andere Frequenzen
+	
 
-const char Identifier[] PROGMEM = "___TxP2_ED1000___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#ifdef V21	
+const PROGMEM char Identifier[] = "___TxP2_V21___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#else
+const PROGMEM char Identifier[] = "___TxP2_ED1000___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#endif 
 
 
 // Einstellungen für Timer 1: Sinus-Ausgabe und ADC-Start und Empfangsfilterung
@@ -68,10 +75,25 @@ const char Identifier[] PROGMEM = "___TxP2_ED1000___" __DATE__ "___" __TIME__ "_
 
 #define TIMER1_PRESCALER 8
 #define TIMER1_CS TCCR_DIV(1, 8)
-#define TIMER1_OCFREQ 12800
 #define TIMER1_FREQ (F_CPU / TIMER1_PRESCALER)
-#define TIMER1_OCR (TIMER1_FREQ / TIMER1_OCFREQ) - 1
 
+#ifdef V21
+	#define TIMER1_OCR (147 - 1)
+	#define TIMER1_OCFREQ (TIMER1_FREQ / (TIMER1_OCR + 1))
+#else
+	#define TIMER1_OCFREQ 12800
+	#define TIMER1_OCR (TIMER1_FREQ / TIMER1_OCFREQ - 1)
+#endif
+
+// Sendefrequenzen
+// ----------------
+#ifdef V21
+	#define SEND_MARK_FAKTOR 10
+	#define SEND_SPACE_FAKTOR 12
+#else
+	#define SEND_MARK_FAKTOR 5
+	#define SEND_SPACE_FAKTOR 7
+#endif
 
 // Eeprom-Speicher
 // ---------------

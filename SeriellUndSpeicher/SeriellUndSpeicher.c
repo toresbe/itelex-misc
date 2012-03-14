@@ -311,9 +311,9 @@ TPuffer SerOutBuf; //!< Sendepuffer für die serielle Schnittstelle. Nicht identi
 
 // Übersetzung bestimmter Tasten in Doppel-Codes
 
-PROGMEM const char SerInUebersE[] = "\r\näöüÄÖÜß"; //!< Übersetzungstabelle für Umlaute: zu übersetzendes Zeichen.
-PROGMEM const char SerInUebers1[] = "\r\raouAOUs"; //!< Übersetzungstabelle für Umlaute: erstes Ersatzzeichen.
-PROGMEM const char SerInUebers2[] = "\n\neeeeees"; //!< Übersetzungstabelle für Umlaute: zweites Ersatzzeichen.
+PROGMEM const char SerInUebersE[] = "\r\näöüÄÖÜß<>[]{}"; //!< Übersetzungstabelle für Umlaute: zu übersetzendes Zeichen.
+PROGMEM const char SerInUebers1[] = "\r\raouAOUs(.(:(,"; //!< Übersetzungstabelle für Umlaute: erstes Ersatzzeichen.
+PROGMEM const char SerInUebers2[] = "\n\neeeeees.):),)"; //!< Übersetzungstabelle für Umlaute: zweites Ersatzzeichen.
 
 
 //! Funktion zur Ausgabe von Zeichen einschließlich Sonderzeichen.
