@@ -178,14 +178,21 @@ int8_t x0, x1, x2, ym0, ym1, ym2, ys0, ys1, ys2;
 
 uint8_t PegelGlaettZaehl;
 
+#define PEGEL_GLAETT 50
+
 uint16_t EinAusschaltZaehl;
+
+uint8_t UebersteuerWarnZaehl;
+
+#define UEBERSTEUER_GRENZE 90
+
+#define UEBERSTEUER_ZAEHLMAX 40
 
 
 #define EINSCHALT_VERZ (TIMER1_OCFREQ / 10) // 1/10 sek. Mark = ein
 
 #define AUSSCHALT_VERZ (TIMER1_OCFREQ / 2) // 1/2 sek. Space = aus
 
-#define PEGEL_GLAETT 50
 
 
 static void ED1000Init()
@@ -279,6 +286,13 @@ static void ED1000IO()
 		
 #endif //ndef V21
 
+		if (ys0 > UEBERSTEUER_GRENZE || ys0 < -UEBERSTEUER_GRENZE 
+			|| ym0 > UEBERSTEUER_GRENZE || ym0 < -UEBERSTEUER_GRENZE)
+			UebersteuerWarnZaehl = UEBERSTEUER_ZAEHLMAX;
+		else if UebersteuerWarnZaehl > 0
+			UebersteuerWarnZaehl--;
+		bset_LEDROT(UebersteuerWarnZaehl != 0);
+			
 		x2 = x1; x1 = x0;
 		ym2 = ym1; ym1 = ym0;
 		ys2 = ys1; ys1 = ys0;
@@ -772,8 +786,8 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		if (TimerVal(&KennungAbfrageTimer) > 1000 && !MeldungMark)
 			AutoKennungAbfrage = false;
 			
-		// HACK Test:
-		bset_LEDROT(AutoKennungAbfrage);
+		// Test:
+		// bset_LEDROT(AutoKennungAbfrage);
 		}
 
 	}
