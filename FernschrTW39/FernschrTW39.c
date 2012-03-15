@@ -88,6 +88,7 @@
 
 #include "TwiEvents.h"
 #include "Bits.h"
+#include "timercs.h"
 
 #include "TxP2-Defs.h"
 #include "MsTimer.h"
@@ -139,8 +140,8 @@ TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port
 //! bedient Hardware-IO entsprechend der aktuellen Zustände.
 
 /*!
- * setzt FS_AKTIV_PORT und FS_AUSG _PORT entsprechend BefehlEinschalten und BefehlMark,
- * setzt MeldungEingeschaltet und MeldungMark entsprechend FS_EING_IPORT,
+ * setzt FS_AKTIV und FS_AUSG entsprechend BefehlEinschalten und BefehlMark,
+ * setzt MeldungEingeschaltet und MeldungMark entsprechend FS_EING,
  * steuert die Status-LEDs
  */ 
 
@@ -148,46 +149,24 @@ static void TW39IO()
 	{
 	// Pegel & Polung ausgeben
 	// -----------------------
-	if (BefehlEinschalten)
-		{
-		SET_BIT(FS_AKTIV_PORT, FS_AKTIV_BIT);
-		#ifdef PARALLELAUSGABE
-		SET_BIT(FS2_AKTIV_PORT, FS2_AKTIV_BIT);
-		#endif //def PARALLELAUSGABE
-		}
-	else
-		{
-		CLR_BIT(FS_AKTIV_PORT, FS_AKTIV_BIT);
-		#ifdef PARALLELAUSGABE
-		CLR_BIT(FS2_AKTIV_PORT, FS2_AKTIV_BIT);
-		#endif //def PARALLELAUSGABE
-		}
+	bset_FS_AKTIV(BefehlEinschalten);
+	#ifdef PARALLELAUSGABE
+		bset_FS2_AKTIV(BefehlEinschalten);
+	#endif //def PARALLELAUSGABE
 
-	if (BefehlMark)
-		{
-		if (BefehlEinschalten)
-			LED_AUS(BLAU);
-		SET_BIT(FS_AUSG_PORT, FS_AUSG_BIT);
-		#ifdef PARALLELAUSGABE
-		SET_BIT(FS2_AUSG_PORT, FS2_AUSG_BIT);
-		#endif //def PARALLELAUSGABE
-		}
-	else
-		{
-		if (BefehlEinschalten)
-			LED_EIN(BLAU);
-		CLR_BIT(FS_AUSG_PORT, FS_AUSG_BIT);
-		#ifdef PARALLELAUSGABE
-		CLR_BIT(FS2_AUSG_PORT, FS2_AUSG_BIT);
-		#endif //def PARALLELAUSGABE
-		}
+	if (BefehlEinschalten)
+		bset_LEDBLAU(!BefehlMark);
+	bset_FS_AUSG(BefehlMark);
+	#ifdef PARALLELAUSGABE
+		bset_FS2_AUSG(BefehlMark);
+	#endif //def PARALLELAUSGABE
 
 #define NEU
 
 #ifdef NEU
 	// Schleifenstrom auswerten: Einschaltung oder nicht
 	// -------------------------------------------------
-	if (BIT_IS_SET(FS_EING_IPORT, FS_EING_BIT))
+	if (get_FS_EING())
 		{ // Schleifenstrom ist aus (negierter Eingang)
 		if (MeldungEingeschaltet)
 			{
@@ -217,7 +196,7 @@ static void TW39IO()
 		}
 	else
 		{ // sinnvolle Auswertung des Schleifenstroms möglich
-		if (BIT_IS_SET(FS_EING_IPORT, FS_EING_BIT))
+		if (get_FS_EING())
 			{ // Strom ist aus --> Space
 			if (MeldungMark)
 				{ // der Applikation wird noch Mark gemeldet
@@ -227,7 +206,7 @@ static void TW39IO()
 			else // !MeldungMark
 				StartTimer(&EntprellungTimer); // Regelzustand bei Space: Space wird auch gemeldet
 			} // Strom ist aus
-		else // !BIT_IS_SET(FS_EING_IPORT, FS_EING_BIT)
+		else // !get_FS_EING()
 			{ // Schleifenstrom fließt
 			if (!MeldungMark)
 				{ // der Applikation wird noch Space gemeldet
@@ -236,7 +215,7 @@ static void TW39IO()
 				}
 			else // MeldungMark
 				StartTimer(&EntprellungTimer); // Regelzustand bei Mark: Mark wird auch gemeldet
-			} // else !BIT_IS_SET(FS_EING_IPORT, FS_EING_BIT) == Schleifenstrom fließt
+			} // else !get_FS_EING() == Schleifenstrom fließt
 		} // else BefehlMark && MeldungEingeschaltet
 	
 #else
@@ -244,7 +223,7 @@ static void TW39IO()
 	// ------------------------
 	if (BefehlMark || !MeldungEingeschaltet)
 		{
-		if (BIT_IS_SET(FS_EING_IPORT, FS_EING_BIT))
+		if (get_FS_EING())
 			{ // Strom ist aus --> Space
 			if (!MeldungEingeschaltet || TimerVal(&AusschaltungTimer) > 500)
 				{ // mehr als 0,5 s Stromunterbrechung --> Ausschalten
@@ -264,7 +243,7 @@ static void TW39IO()
 				StartTimer(&EntprellungTimer);
 				}
 			} // Strom ist aus
-		else // !BIT_IS_SET(FS_EING_IPORT, FS_EING_BIT)
+		else // !get_FS_EING
 			{ // Schleifenstrom fließt
 			if (!MeldungMark)
 				{ // der Applikation wird noch Space gemeldet
@@ -291,7 +270,7 @@ static void TW39IO()
 					StartTimer(&EntprellungTimer);
 					}
 				}
-			} // else !BIT_IS_SET(FS_EING_IPORT, FS_EING_BIT) === Schleifenstrom fließt
+			} // else !get_FS_EING
 		} // else FsSendMark --> Schleife ist Schnittstellen-Ausgabeseitig ein
 	else // !BefehlMark && MeldungEingeschaltet
 		{
@@ -302,16 +281,9 @@ static void TW39IO()
 #endif
 
 	if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
-		if (MeldungMark)
-			LED_AUS(GELB);
-		else
-			LED_EIN(GELB);
+		bset_LEDGELB(!MeldungMark);
 	else // !BIT_IS_SET(Status, StatBit_AngerufenBelegt))
-		if (MeldungMark)
-			LED_AUS(GRUEN);
-		else
-			LED_EIN(GRUEN);
-			
+		bset_LEDGRUEN(!MeldungMark);
 
 	} // TW39IO
 	
@@ -425,17 +397,17 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 			}
 		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
 		    {
-		    if (BIT_IS_SET(Nummer, 0)) LED_EIN(ROT);
-		    if (BIT_IS_SET(Nummer, 1)) LED_EIN(GELB);
-		    if (BIT_IS_SET(Nummer, 2)) LED_EIN(GRUEN);
-		    if (BIT_IS_SET(Nummer, 3)) LED_EIN(BLAU);
+		    bset_LEDROT(BIT_IS_SET(Nummer, 0));
+			bset_LEDGELB(BIT_IS_SET(Nummer, 1));
+		    bset_LEDGRUEN(BIT_IS_SET(Nummer, 2));
+		    bset_LEDBLAU(BIT_IS_SET(Nummer, 3));
 			}
 		else
 			{
-			LED_AUS(ROT);
-			LED_AUS(GELB);
-			LED_AUS(GRUEN);
-			LED_AUS(BLAU);
+			clr_LEDROT();
+			clr_LEDGELB();
+			clr_LEDGRUEN();
+			clr_LEDBLAU();
 			}
 		}
 	}	
@@ -514,7 +486,7 @@ void LokalZeichenAusgabe(char c)
 	}
 			
 		
-static void VerbindungSteht();
+static void VerbindungSteht(bool AutoKennungAbfrage);
 
 static void Deaktivieren(bool WegenTimeout);
 
@@ -523,18 +495,18 @@ static void VerbindungKommend()
 	{
 	TW39IO();
 
-	LED_EIN(GRUEN);
-	LED_EIN(ROT);
+	set_LEDGRUEN();
+	set_LEDROT();
 	
 	if (!TW39Einschalten())
 		{ // Timeout...
-		LED_AUS(GRUEN);
+		clr_LEDGRUEN();
 		GeAusschalten(); // TODO wird von SeriellUndSpezial nicht quittiert!
 		Deaktivieren(true);
 		return;
 		}
 
-	LED_AUS(ROT);
+	clr_LEDROT();
 	
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
@@ -542,21 +514,21 @@ static void VerbindungKommend()
 		TW39Ausschalten();
 		}
 	else
-		VerbindungSteht();
+		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
 		
 	}
 	
 
 static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	{
-	LED_EIN(ROT);
+	set_LEDROT();
 	GeAusschalten();
 	Aktivieren(false);
 	if (Abschaltimpuls)
 		TW39Ausschalten();
 	while (MeldungEingeschaltet)
 		TW39IO();
-	LED_AUS(ROT);
+	clr_LEDROT();
 	Aktivieren(true);
 	}
 	
@@ -675,32 +647,6 @@ static bool WahlMitTastatur()
 			
 		if (KoEinschalten())
 			{
-			GeSendeMark(true); // Erst mal einschalten...
-
-			TMsTimer PauseTimer;
-			StartTimer(&PauseTimer);
-			uint8_t AnzWdh = 0;
-
-			TW39IO();
-			
-			while (KoEmpfMark() && AnzWdh <= 3)
-				{
-				TW39IO();
-				
-				if (TimerVal(&PauseTimer) > 2500)
-					{
-					AnzWdh++;
-					GeSendeCode(TtyCodeZiUm);
-					GeSendeCode(TtyCodeZiUm);
-					GeSendeCode(TtyCodeZiUm);
-					GeSendeCode(TtyCodeZiWerDa);
-					StartTimer(&PauseTimer);
-					}
-					
-				if (SerUmSendBitNr != SerUmSendWarte)
-					StartTimer(&PauseTimer); // nur bei nicht laufender Sendung warten...
-				}
-			
 			return true;
 			}
 
@@ -716,12 +662,10 @@ static bool WahlMitTastatur()
   
 static void KommendSperren();
 
-static void VerbindungSteht();
-
 
 static void VerbindungGehend()
 	{
-	LED_EIN(GELB);
+	set_LEDGELB();
 
 	if (BusEigenAdresse == BusAdrUngueltig)
 		{
@@ -754,7 +698,7 @@ static void VerbindungGehend()
 			
 			if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
 				{
-				LED_AUS(GELB);
+				clr_LEDGELB();
 				KommendSperren();
 				}
 				
@@ -778,16 +722,25 @@ static void VerbindungGehend()
 			return;
 		}
 
-	VerbindungSteht();
+	VerbindungSteht(!MitWaehlscheibe); // wenn keine Wählscheibe, dann automatische Kennungsgeber-Abfrage
 
 	}
 
 
-static void VerbindungSteht()
+static void VerbindungSteht(bool AutoKennungAbfrage)
 	{
+	TMsTimer KennungAbfrageTimer;
+	bool ErsteKennungAbfrage;
+	
+	StartTimer(&KennungAbfrageTimer);
+	ErsteKennungAbfrage = true;
+
+	GeSendeMark(true); 
+
 	while (true)
 		{
 		TW39IO();
+		TastePruefen();
 
 		if (!MeldungEingeschaltet || KoAusschalten())
 			{
@@ -800,6 +753,34 @@ static void VerbindungSteht()
 	
 		if (SerUmSendBitNr <= SerUmSendStart) // Start oder Warten...
 			GeSendeMark(MeldungMark); // Nur Fs-Pegel direkt auf Bus, wenn nicht seriell gesendet wird...
+			
+		// Der Empfangspuffer wird im Regelbetrieb nicht benutzt, da die Bitwechsel direkt an das Endgeraet
+		// gesendet werden. Die empfangenen Zeichen werden daher nur ausgewertet, ob die Gegenstelle schon
+		// 'sinnvolle' Zeichen gesendet hat. Falls ja, braucht der Kennungsgeber nicht mehr abgefragt zu werden.
+		while (!PufferLeer(&EmpfPuffer))
+			{
+			if (PufferAusg(&EmpfPuffer) != TtyCodeBuUm)
+				AutoKennungAbfrage = false;
+			}
+
+		// Kennungsgeber alle 5 Sekunden abfragen, bis Gegenantwort kam...
+		if (AutoKennungAbfrage 
+			&& TimerVal(&KennungAbfrageTimer) >= (ErsteKennungAbfrage ? 500 : 5000))
+			{
+			PufferSpeich(&SendePuffer, TtyCodeZiUm);
+			PufferSpeich(&SendePuffer, TtyCodeZiUm);
+			PufferSpeich(&SendePuffer, TtyCodeZiWerDa);
+			StartTimer(&KennungAbfrageTimer);
+			ErsteKennungAbfrage = false;
+			}
+			
+		// falls selber geschrieben wird, auch automatische Kennungsgeber-Abfrage
+		// löschen
+		if (TimerVal(&KennungAbfrageTimer) > 1000 && !MeldungMark)
+			AutoKennungAbfrage = false;
+			
+		// HACK Test:
+		bset_LEDROT(AutoKennungAbfrage);
 		}
 
 	}
@@ -810,7 +791,7 @@ static void Konfiguration()
 	SeriellUmsetzInit();
 	BuZiMode = '\0';
 	Aktivieren(false);
-	LED_EIN(ROT);
+	set_LEDROT();
 	
 	if (!TW39Einschalten())
 		return;
@@ -876,7 +857,7 @@ static void KonfigurationEnde()
 	{
 	TW39Ausschalten();
 	Aktivieren(true);
-	LED_AUS(ROT);
+	clr_LEDROT();
 	}
 	
 	
@@ -903,12 +884,12 @@ static void KommendSperren()
 		if (TimerVal(&BlinkTimer) > 1000)
 			StartTimer(&BlinkTimer);
 		else if (TimerVal(&BlinkTimer) > 500)
-			LED_EIN(BLAU);
+			set_LEDBLAU();
 		else
-			LED_AUS(BLAU);
+			clr_LEDBLAU();
 		}
 		
-	LED_AUS(BLAU);
+	clr_LEDBLAU();
 	Aktivieren(true);
 		
 	}
@@ -917,7 +898,7 @@ static void KommendSperren()
 static void Deaktivieren(bool WegenTimeout)
 // wird nach kurzem Tastendruck aufgerufen
 	{
-	LED_EIN(BLAU);
+	set_LEDBLAU();
 	Aktivieren(false);
 
 	while (Tastendruck == NichtGedr)
@@ -925,8 +906,8 @@ static void Deaktivieren(bool WegenTimeout)
 	Tastendruck = NichtGedr;
 
 	Aktivieren(true);
-	LED_AUS(BLAU);
-	LED_AUS(ROT);
+	clr_LEDBLAU();
+	clr_LEDROT();
 
 	if (!WegenTimeout)
 		KommendSperren();
@@ -948,44 +929,22 @@ int main()
 	PIND = 0xFF;
 
 	// Ports initialisieren
-	PORTB = 0;
-	PORTC = 0;
-	PORTD = 0;
-	DDRB = 0;
-	DDRC = 0;
-	DDRD = 0;
-
+	init_LEDROT();
+	init_LEDGELB();
+	init_LEDGRUEN();
+	init_LEDBLAU();
 	init_TASTE();
 
-	LED_EIN(ROT);
-	SET_BIT(LED_ROT_DDR, LED_ROT_BIT);
-
-	LED_AUS(GELB);
-	SET_BIT(LED_GELB_DDR, LED_GELB_BIT);
-
-	LED_AUS(GRUEN);
-	SET_BIT(LED_GRUEN_DDR, LED_GRUEN_BIT);
-
-	LED_AUS(BLAU);
-	SET_BIT(LED_BLAU_DDR, LED_BLAU_BIT);
 
 	// PORTS initialisieren (Ausgabepins)
-	SET_BIT(FS_AUSG_PORT, FS_AUSG_BIT);
-	SET_BIT(FS_AUSG_DDR, FS_AUSG_BIT);
-
-	CLR_BIT(FS_AKTIV_PORT, FS_AKTIV_BIT);
-	SET_BIT(FS_AKTIV_DDR, FS_AKTIV_BIT);
-
-	SET_BIT(FS_EING_PORT, FS_EING_BIT); // Pull-Up
+	init_FS_AUSG();
+	init_FS_AKTIV();
+	init_FS_EING(); 
 
 #ifdef PARALLELAUSGABE
-	SET_BIT(FS2_AUSG_PORT, FS2_AUSG_BIT);
-	SET_BIT(FS2_AUSG_DDR, FS2_AUSG_BIT);
-
-	CLR_BIT(FS2_AKTIV_PORT, FS2_AKTIV_BIT);
-	SET_BIT(FS2_AKTIV_DDR, FS2_AKTIV_BIT);
-
-	SET_BIT(FS2_EING_PORT, FS2_EING_BIT); // Pull-Up
+	init_FS2_AUSG();
+	init_FS2_AKTIV();
+	init_FS2_EING(); 
 #endif //def PARALLELAUSGABE
 
 	// Timer initialisieren
@@ -1022,26 +981,26 @@ int main()
 		wdt_disable();
 		while (!get_TASTE())
 			; // Warten, bis Taste wieder losgelassen
-		LED_EIN(GELB);
+		set_LEDGELB();
 		StartTimer(&Timer);
 		}
 
-	LED_AUS(ROT);
-	LED_EIN(GELB);
+	clr_LEDROT();
+	set_LEDGELB();
 
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 500)
 		;
 
-	LED_AUS(GELB);
-	LED_EIN(GRUEN);
+	clr_LEDGELB();
+	set_LEDGRUEN();
 
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 750)
 		;
 
-	LED_AUS(GRUEN);
-	LED_EIN(BLAU);
+	clr_LEDGRUEN();
+	set_LEDBLAU();
 
 	// TWI nochmal resetten
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (1<<TWSTO) | (0<<TWEN) | (0<<TWIE);
@@ -1084,24 +1043,18 @@ int main()
 	while (1)
 		{
 		// aktueller Zustand: Ausgeschaltet
-
-		if (TimerVal(&Timer) >= 1400)
-			{
-			LED_AUS(ROT);
-			LED_AUS(GELB);
-			LED_AUS(GRUEN);
-			LED_AUS(BLAU);
+		if (TimerVal(&Timer) <= 1200)
+			clr_LEDROT();
+		else if (TimerVal(&Timer) <= 1400)
+			bset_LEDROT(BusEigenAdresse == BusAdrUngueltig);
+		else
 			StartTimer(&Timer);
-			}
-		else if (TimerVal(&Timer) >= 1200)
-			{
-			if (BusEigenAdresse == BusAdrUngueltig)	
-				LED_EIN(ROT);
-			if (!BIT_IS_SET(Status, StatBit_Frei) || BIT_IS_SET(Status, StatBit_BusKdoEmpfangen))
-				LED_EIN(GELB);
-			if (!BetriebsartAusgeschaltet())
-				LED_EIN(GRUEN);
-			}
+
+		clr_LEDGELB();
+		clr_LEDGRUEN();
+		clr_LEDBLAU();
+
+
 
 		TastePruefen();
 		TW39IO();

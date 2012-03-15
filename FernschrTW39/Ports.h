@@ -4,113 +4,55 @@
 
 #include "Defports.h"
 
-
-// Platinen-Version
-// ================
-
-#define PLATINE_VERSION 13 // 1.3x
-
+#ifndef PLATINE_VERSION
+#error Platinen-Version in Konfiguration festlegen!
+#endif
 
 // Schnittstellen
 // --------------
 
-#if (PLATINE_VERSION < 13)
+#if PLATINE_VERSION >= 13 // 1.3x
+// aktuelle Version
 
-#warning "Nur fuer alte Platinen-Version 1.0 bis 1.2"
+DEFPORTINPULL	(TASTE,		D, 0)	
 
-DEFPORTINPULL(TASTE,	D, 6)	
+DEFPORTOUT		(LEDROT, 	D, 1)
+DEFPORTOUT		(LEDGELB, 	D, 2)
+DEFPORTOUT		(LEDGRUEN, 	D, 3)
+DEFPORTOUT		(LEDBLAU, 	D, 4)
 
-#define LED_ROT_PORT PORTD
-#define LED_ROT_DDR DDRD
-#define LED_ROT_BIT 7
-
-#define LED_GELB_PORT PORTB
-#define LED_GELB_DDR DDRB
-#define LED_GELB_BIT 0
-
-#define LED_GRUEN_PORT PORTB
-#define LED_GRUEN_DDR DDRB
-#define LED_GRUEN_BIT 1
-
-#define LED_BLAU_PORT PORTB
-#define LED_BLAU_DDR DDRB
-#define LED_BLAU_BIT 2
-
-// Schleifenschluﬂ-Ausgabe
-#define FS_AUSG_PORT PORTD
-#define FS_AUSG_DDR DDRD
-#define FS_AUSG_BIT 0
-
-// Einschaltung (Ausgabe, Polarit‰t der Schleife)
-#define FS_AKTIV_PORT PORTD
-#define FS_AKTIV_DDR DDRD
-#define FS_AKTIV_BIT 1
-
-// Strom-Einlesung
-#define FS_EING_PORT PORTC
-#define FS_EING_IPORT PINC
-#define FS_EING_BIT 3
-
-#else // PLATINE_VERSION >= 13
-
-DEFPORTINPULL(TASTE,	D, 0)	
-
-#define LED_ROT_PORT PORTD
-#define LED_ROT_DDR DDRD
-#define LED_ROT_BIT 1
-
-#define LED_GELB_PORT PORTD
-#define LED_GELB_DDR DDRD
-#define LED_GELB_BIT 2
-
-#define LED_GRUEN_PORT PORTD
-#define LED_GRUEN_DDR DDRD
-#define LED_GRUEN_BIT 3
-
-#define LED_BLAU_PORT PORTD
-#define LED_BLAU_DDR DDRD
-#define LED_BLAU_BIT 4
-
-// Schleifenschluﬂ-Ausgabe
-#define FS_AUSG_PORT PORTB
-#define FS_AUSG_DDR DDRB
-#define FS_AUSG_BIT 0
-
-// Einschaltung (Ausgabe, Polarit‰t der Schleife)
-#define FS_AKTIV_PORT PORTD
-#define FS_AKTIV_DDR DDRD
-#define FS_AKTIV_BIT 7
-
-// Strom-Einlesung
-#define FS_EING_PORT PORTD
-#define FS_EING_IPORT PIND
-#define FS_EING_BIT 6
+DEFPORTOUT		(FS_AUSG,	B, 0) // Schleifenschluﬂ-Ausgabe
+DEFPORTOUT		(FS_AKTIV,	D, 7) // Einschaltung (Ausgabe, Polarit‰t der Schleife)
+DEFPORTINPULL	(FS_EING, 	D, 6) // Strom-Einlesung
 
 #ifdef PARALLELAUSGABE
 
-// Schleifenschluﬂ-Ausgabe
-#define FS2_AUSG_PORT PORTB
-#define FS2_AUSG_DDR DDRB
-#define FS2_AUSG_BIT 2
-
-// Einschaltung (Ausgabe, Polarit‰t der Schleife)
-#define FS2_AKTIV_PORT PORTB
-#define FS2_AKTIV_DDR DDRB
-#define FS2_AKTIV_BIT 1
-
-// Strom-Einlesung
-#define FS2_EING_PORT PORTD
-#define FS2_EING_IPORT PIND
-#define FS2_EING_BIT 5
+DEFPORTOUT		(FS2_AUSG,	B, 2) // Schleifenschluﬂ-Ausgabe
+DEFPORTOUT		(FS2_AKTIV, B, 1) // Einschaltung (Ausgabe, Polarit‰t der Schleife)
+DEFPORTINPULL	(FS2_EING,	D, 5) // Strom-Einlesung
 
 #endif //def PARALLELAUSGABE
 
+#elif PLATINE_VERSION >= 10
 
-#define LED_EIN(LED) SET_BIT(LED_ ## LED ## _PORT, LED_ ## LED ## _BIT)
+#warning Nur fuer alte Platinen-Version 1.0 bis 1.2
 
-#define LED_AUS(LED) CLR_BIT(LED_ ## LED ## _PORT, LED_ ## LED ## _BIT)
+DEFPORTINPULL	(TASTE,		D, 6)	
 
+DEFPORTOUT		(LEDROT, 	D, 7)
+DEFPORTOUT		(LEDGELB, 	B, 0)
+DEFPORTOUT		(LEDGRUEN, 	B, 1)
+DEFPORTOUT		(LEDBLAU, 	B, 2)
 
-#endif
+DEFPORTOUT		(FS_AUSG,	D, 0) // Schleifenschluﬂ-Ausgabe
+DEFPORTOUT		(FS_AKTIV,	D, 1) // Einschaltung (Ausgabe, Polarit‰t der Schleife)
+DEFPORTINPULL	(FS_EING, 	C, 3) // Strom-Einlesung
+
+#else
+
+#error Platinenversion PLATINE_VERSION nicht bekannt...
+
+#endif // PLATINE_VERSION 
+
 
 #endif //ndef __PORTS_H__

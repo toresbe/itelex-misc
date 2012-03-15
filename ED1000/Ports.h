@@ -8,6 +8,9 @@
 #error Platinen-Version in Konfiguration festlegen!
 #endif
 
+// Schnittstellen
+// --------------
+
 #if PLATINE_VERSION >= 12 // 1.2x
 // aktuelle Version
 

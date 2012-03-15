@@ -98,9 +98,9 @@ const PROGMEM char Identifier[] = "___TxP2_ED1000___" __DATE__ "___" __TIME__ "_
 // Eeprom-Speicher
 // ---------------
 
-uint8_t Platzhalter[4] EEMEM; // Anfang des EEPROM ist gern von Störungen betroffen
-uint8_t BusEigenAdresse_EE EEMEM = BusAdrUngueltig;
-uint8_t KommendSperreWahl_EE EEMEM = 0;
+EEMEM uint8_t Platzhalter[4]; //!< Platzhalter, da Anfang des EEPROM gern von Störungen betroffen ist
+EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
+EEMEM uint8_t KommendSperreWahl_EE = 0; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 
 
 // Variablen
@@ -197,7 +197,15 @@ static void ED1000Init()
 	BefehlMark = true;
 	MeldungMark = true;
 	}
-	
+///////////////////////////////////////////////////////////////////////////////
+
+//! bedient Hardware-IO entsprechend der aktuellen Zustände.
+
+/*!
+ * setzt die Ausgabefrequenz entsprechend BefehlEinschalten und BefehlMark,
+ * setzt MeldungEingeschaltet und MeldungMark entsprechend der empfangenen Frequenz,
+ * steuert die Status-LEDs
+ */ 
 
 static void ED1000IO()
 	{
@@ -249,7 +257,7 @@ static void ED1000IO()
 		ys0 = (h >> 8) + ys1; // <- hier kommen die fehlenden 256 * ys1 aus der Berechnung von h nachträglich dazu.
 		
 #else		
-		// SPACE: (Berechnung heißt Mark???)
+		// SPACE: 
 		// Einstellungen: Samplerate = 12800, IIR Bandpass Butterworth  f1 = 2150, f2 = 2650, Order = 1, 8 Bit
 		// Ergebnis aus generiertem C-Code: 
 		//		__int8 ACoef[NCoef+1] = {  67,   0, -67 };
@@ -259,7 +267,7 @@ static void ED1000IO()
 		int16_t h = (67 * (x0 - x2) + 87 * ys1 - 99 * ys2);
 		ys0 = h >> 7;
 
-		// MARK: Berechnung heißt Space???
+		// MARK: 
 		// Einstellungen: Samplerate = 12800, IIR Bandpass Butterworth  f1 = 3150, f2 = 3600, Order = 1, 8 Bit
 		// Ergebnis aus generiertem C-Code: 
 		//		__int8 ACoef[NCoef+1] = {  80,   0, -80 };
@@ -349,6 +357,12 @@ uint8_t KommendSperreWahl;
 char BuZiMode;
 
 
+//////////////////////////////////////////////////////////////////
+
+//! Einschaltung des Fs auslösen.
+//-------------------------------
+//! \returns Einschaltung wurde erfolgreich durch Endgerät quittiert.
+
 static bool ED1000Einschalten()
 	{
 	TMsTimer StabilTimer;
@@ -375,6 +389,10 @@ static bool ED1000Einschalten()
 	}
 		
 
+//////////////////////////////////////////////////////////////////
+
+//! Ausschaltung des Fs auslösen.
+
 static void ED1000Ausschalten()
 	{
 	TMsTimer Timer;
@@ -395,8 +413,13 @@ static void ED1000Ausschalten()
 	}
 		
 
-void FehlerStop(int Nummer)
-// Nur ein Reset befreit
+/////////////////////////////////////////////////////////////////////////////////////////7
+
+//! Modul / Schnittstelle irreversibel stoppen.
+
+//! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
+
+void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ )
 	// Fehler-Codes: 
 	// 1: Bus-Empfang trotz Sperre
 	// 2: General Call ohne entsprechende Freigabe
@@ -463,6 +486,13 @@ void FehlerStop(int Nummer)
 	}	
 
 
+/////////////////////////////////////////////////////////////
+
+//! Liest ein Zeichen vom angeschlossenen Fs ein
+
+//! Serialisiert die ankommenden Impulse und wandelt BAUDOT in ASCII
+//! \return Zeichen im ASCII-Code
+
 char LokalZeichenLesen()
 	{
 	char c;
@@ -483,6 +513,13 @@ char LokalZeichenLesen()
 		}
 	}
 
+
+/////////////////////////////////////////////////////////////
+
+//! Gibt ein Zeichen am angeschlossenen Fs aus
+
+//! wandelt ASCII in Baudort und serialisiert den Code
+//! \param code Zeichen im ASCII-Code
 
 static void LokalCodeAusgabe(uint8_t code)
 	{
@@ -510,7 +547,7 @@ void LokalZeichenAusgabe(char c)
 	}
 			
 		
-static void VerbindungSteht();
+static void VerbindungSteht(bool AutoKennungAbfrage);
 
 static void Deaktivieren(bool WegenTimeout);
 
@@ -538,7 +575,7 @@ static void VerbindungKommend()
 		ED1000Ausschalten();
 		}
 	else
-		VerbindungSteht();
+		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
 		
 	}
 	
@@ -612,19 +649,6 @@ static bool WahlMitTastatur()
 			
 		if (KoEinschalten())
 			{
-			TMsTimer KurzePause;
-
-			GeSendeMark(true); // Erst mal einschalten...
-
-			StartTimer(&KurzePause);
-			while (TimerVal(&KurzePause) < 300)
-				ED1000IO();
-				
-			GeSendeCode(TtyCodeZiUm);
-			GeSendeCode(TtyCodeZiUm);
-			GeSendeCode(TtyCodeZiUm);
-			GeSendeCode(TtyCodeZiWerDa);
-			
 			return true;
 			}
 
@@ -639,8 +663,6 @@ static bool WahlMitTastatur()
 	
   
 static void KommendSperren();
-
-static void VerbindungSteht();
 
 
 static void VerbindungGehend()
@@ -693,16 +715,25 @@ static void VerbindungGehend()
 			return;
 		}
 
-	VerbindungSteht();
+	VerbindungSteht(true); // mit automatischer Kennungsgeber-Abfrage
 
 	}
 
 
-static void VerbindungSteht()
+static void VerbindungSteht(bool AutoKennungAbfrage)
 	{
+	TMsTimer KennungAbfrageTimer;
+	bool ErsteKennungAbfrage;
+	
+	StartTimer(&KennungAbfrageTimer);
+	ErsteKennungAbfrage = true;
+
+	GeSendeMark(true); 
+
 	while (true)
 		{
 		ED1000IO();
+		TastePruefen();
 
 		if (!MeldungEingeschaltet || KoAusschalten())
 			{
@@ -716,19 +747,33 @@ static void VerbindungSteht()
 		if (SerUmSendBitNr <= SerUmSendStart) // Start oder Warten...
 			GeSendeMark(MeldungMark); // Nur Fs-Pegel direkt auf Bus, wenn nicht seriell gesendet wird...
 			
-		// HACK Test Sendung Werda!
-		TastePruefen();
-		if (Tastendruck != NichtGedr)
+		// Der Empfangspuffer wird im Regelbetrieb nicht benutzt, da die Bitwechsel direkt an das Endgeraet
+		// gesendet werden. Die empfangenen Zeichen werden daher nur ausgewertet, ob die Gegenstelle schon
+		// 'sinnvolle' Zeichen gesendet hat. Falls ja, braucht der Kennungsgeber nicht mehr abgefragt zu werden.
+		while (!PufferLeer(&EmpfPuffer))
 			{
-			if (PufferLeer(&SendePuffer))
-				{
-				PufferSpeich(&SendePuffer, TtyCodeZiUm);
-				PufferSpeich(&SendePuffer, TtyCodeZiUm);
-				PufferSpeich(&SendePuffer, TtyCodeZiWerDa);
-				set_LEDROT();
-				}
-			Tastendruck = NichtGedr;
+			if (PufferAusg(&EmpfPuffer) != TtyCodeBuUm)
+				AutoKennungAbfrage = false;
 			}
+
+		// Kennungsgeber alle 5 Sekunden abfragen, bis Gegenantwort kam...
+		if (AutoKennungAbfrage 
+			&& TimerVal(&KennungAbfrageTimer) >= (ErsteKennungAbfrage ? 500 : 5000))
+			{
+			PufferSpeich(&SendePuffer, TtyCodeZiUm);
+			PufferSpeich(&SendePuffer, TtyCodeZiUm);
+			PufferSpeich(&SendePuffer, TtyCodeZiWerDa);
+			StartTimer(&KennungAbfrageTimer);
+			ErsteKennungAbfrage = false;
+			}
+			
+		// falls selber geschrieben wird, auch automatische Kennungsgeber-Abfrage
+		// löschen
+		if (TimerVal(&KennungAbfrageTimer) > 1000 && !MeldungMark)
+			AutoKennungAbfrage = false;
+			
+		// HACK Test:
+		bset_LEDROT(AutoKennungAbfrage);
 		}
 
 	}
@@ -844,6 +889,10 @@ int main()
 	wdt_enable(WDTO_2S);
 #endif //NOWATCHDOG
 
+	// nur für den Simulator:
+	PINB = 0xFF;
+	PINC = 0xFF;
+	PIND = 0xFF;
 	// Ports Initialisieren
 	init_LEDROT();
 	init_LEDGELB();
@@ -985,9 +1034,9 @@ int main()
 		{
 		// aktueller Zustand: Ausgeschaltet
 
-		if (TimerVal(&Timer) <= 800)
+		if (TimerVal(&Timer) <= 1200)
 			clr_LEDROT();
-		else if (TimerVal(&Timer) <= 1000)
+		else if (TimerVal(&Timer) <= 1400)
 			bset_LEDROT(BusEigenAdresse == BusAdrUngueltig);
 		else
 			StartTimer(&Timer);
@@ -1022,8 +1071,8 @@ int main()
 			VerbindungKommend();
 			}
 		
-		}
-	}
+		} // while (1)
+	} // main()
 
 
 
