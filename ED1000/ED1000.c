@@ -717,6 +717,7 @@ static void VerbindungSteht()
 			GeSendeMark(MeldungMark); // Nur Fs-Pegel direkt auf Bus, wenn nicht seriell gesendet wird...
 			
 		// HACK Test Sendung Werda!
+		TastePruefen();
 		if (Tastendruck != NichtGedr)
 			{
 			if (PufferLeer(&SendePuffer))
