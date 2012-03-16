@@ -289,7 +289,7 @@ static void ED1000IO()
 		if (ys0 > UEBERSTEUER_GRENZE || ys0 < -UEBERSTEUER_GRENZE 
 			|| ym0 > UEBERSTEUER_GRENZE || ym0 < -UEBERSTEUER_GRENZE)
 			UebersteuerWarnZaehl = UEBERSTEUER_ZAEHLMAX;
-		else if UebersteuerWarnZaehl > 0
+		else if (UebersteuerWarnZaehl > 0)
 			UebersteuerWarnZaehl--;
 		bset_LEDROT(UebersteuerWarnZaehl != 0);
 			
