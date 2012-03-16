@@ -22,7 +22,7 @@ volatile TTastendruck Tastendruck;
 
 //! Zyklisch aufrufen, um die Bedienung der Taste registrieren zu lassen.
 //-------------------------------------------------------------------------
-//! Das Ergebnis wird in der globalen Variable \sa Tastendruck gespeichert.
+//! Das Ergebnis wird in der globalen Variable #Tastendruck gespeichert.
 void TastePruefen()
 	{
 	switch (TasteZustandIntern)

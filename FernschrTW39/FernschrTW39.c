@@ -3,47 +3,6 @@
 //	für ATmega8 auf Platine FernschrTW39
 //================================================================
 //		
-//================================================================
-// verwendete Pins
-//================================================================
-//				
-//   01: C6  	Reset
-//   02: D0 	bis V1.2 Ausgabe FS Daten: High = Strom ein = Mark
-//				ab V1.3 Taster nach Masse
-//   03: D1 	bis V1.2 Ausgabe FS Steuerung: High = Maschine ein
-//				ab V1.3 LED rot: High = ein
-//   04: D2  	ab V1.3 LED gelb: High = ein
-//   05: D3  	ab V1.3 LED grün: High = ein
-//   06: D4  	ab V1.3 LED blau: High = ein
-//   07: VCC		
-//   08: GND		
-//   09: B6 	Quarz
-//   10: B7 	Quarz
-//   11: D5  	ab V1.31 Maschine 2 Eingang FS Eingang: Low = Strom ein
-//   12: D6   	bis V1.2 Taster nach Masse
-//				ab V1.3 Eingang FS Eingang: Low = Strom ein
-//   13: D7   	bis V1.2 LED rot: High = ein
-//				ab V1.3 Ausgabe FS Steuerung: High = Maschine ein
-//   14: B0  	bis V1.2 LED gelb: High = ein
-//				ab V1.3 Ausgabe FS Daten: High = Strom ein = Mark
-//   15: B1  	bis V1.2 LED grün: High = ein
-// 				ab V1.31 Maschine 2 Ausgabe FS Steuerung: High = Maschine ein
-//   16: B2  	bis V1.2 LED blau: High = ein
-//				ab V1.31 Maschine 2 Ausgabe FS Daten: High = Strom ein = Mark
-//   17: B3 MOSI
-//   18: B4 MISO
-//   19: B5 SCK 
-//   20: AVCC
-//   21: AREF
-//   22: GND
-//   23: C0  					
-//   24: C1  
-//   25: C2  	
-//   26: C3  	bis V1.2 Eingang FS Eingang: Low = Strom ein
-//   27: C4 SDA	
-//   28: C5 SCL	
-
-
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
@@ -52,9 +11,26 @@
 #include <inttypes.h>
 
 
+#include "TwiEvents.h"
+#include "Bits.h"
+#include "timercs.h"
+
+#include "TxP2-Defs.h"
+#include "MsTimer.h"
+#include "BusKomm.h"
+#include "TxP2-Endgeraet.h"
+#include "Taste.h"
+#include "Ports.h"
+#include "SeriellUmsetz.h"
+#include "BaudotCode.h"
+#include "KonfigDialog.h"
+#include "LokalAusgabe.h"
+
+#include "../SvnVersion.h"
+
+
 // Schalter für Code-Varianten
 // ===========================
-
 
 //#define PARALLELAUSGABE
 	//!< Für Platine TW39doppel: Sendung und Empfang wird auf der zweiten 
@@ -86,23 +62,6 @@
 	//!< Watchdog abgeschaltet
 
 
-#include "TwiEvents.h"
-#include "Bits.h"
-#include "timercs.h"
-
-#include "TxP2-Defs.h"
-#include "MsTimer.h"
-#include "BusKomm.h"
-#include "TxP2-Endgeraet.h"
-#include "Taste.h"
-#include "Ports.h"
-#include "SeriellUmsetz.h"
-#include "BaudotCode.h"
-#include "KonfigDialog.h"
-#include "LokalAusgabe.h"
-
-#include "../SvnVersion.h"
-
 //! Marker im Code als Identifikation
 PROGMEM const char Identifier[] = "___TxP2_TW39___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 
@@ -122,14 +81,12 @@ EEMEM uint8_t KommendSperreWahl_EE = 0; //!< Welche Wahlnummer sperrt den Anschl
 
 bool MitWaehlscheibe; //!< Gerät het eine Wählscheibe
 uint8_t WahlauffordImpulsLaenge; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
-uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
+
 
 bool BefehlEinschalten; //!< Fs soll laufen
-bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
 bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
+bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
 bool MeldungMark; //!< Fs Schleifenstrom ist Ein
-
-char BuZiMode; //!< Fs ist gerade im Ziffern-Bereich
 
 TMsTimer AusschaltungTimer; //!< Zählt die Millisekunden von Schleifenunterbrechung bis Ausschaltung
 TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port bis tatsächlichem Pegelwechsel
@@ -288,6 +245,11 @@ static void TW39IO()
 	} // TW39IO
 	
 	
+uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
+
+char BuZiMode; //!< Marker für Buchstaben-Ziffern-Umschaltung.
+
+
 //////////////////////////////////////////////////////////////////
 
 //! Einschaltung des Fs auslösen.
@@ -347,7 +309,7 @@ static void TW39Ausschalten()
 /////////////////////////////////////////////////////////////////////////////////////////7
 
 //! Modul / Schnittstelle irreversibel stoppen.
-
+//---------------------------------------------
 //! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
 
 void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ )
@@ -415,8 +377,8 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 
 /////////////////////////////////////////////////////////////
 
-//! Liest ein Zeichen vom angeschlossenen Fs ein
-
+//! Liest ein Zeichen vom angeschlossenen Fs ein.
+//-----------------------------------------------
 //! Serialisiert die ankommenden Impulse und wandelt BAUDOT in ASCII
 //! \return Zeichen im ASCII-Code
 
@@ -443,10 +405,10 @@ char LokalZeichenLesen()
 
 /////////////////////////////////////////////////////////////
 
-//! Gibt ein Zeichen am angeschlossenen Fs aus
-
-//! wandelt ASCII in Baudort und serialisiert den Code
-//! \param code Zeichen im ASCII-Code
+//! Gibt ein Zeichen am angeschlossenen Fs aus.
+//----------------------------------------------
+//! serialisiert den Code und gibt ihn auf dem Endgerät aus.
+//! \param code Zeichen im Baudot-Code
 
 static void LokalCodeAusgabe(uint8_t code)
 	{
@@ -459,6 +421,13 @@ static void LokalCodeAusgabe(uint8_t code)
 		}
 	}
 
+
+/////////////////////////////////////////////////////////////
+
+//! Gibt ein Zeichen am angeschlossenen Fs aus.
+//----------------------------------------------
+//! wandelt ASCII in Baudort und serialisiert den Code
+//! \param c Zeichen im ASCII-Code
 
 void LokalZeichenAusgabe(char c)
 	{
@@ -491,6 +460,14 @@ static void VerbindungSteht(bool AutoKennungAbfrage);
 static void Deaktivieren(bool WegenTimeout);
 
 
+/////////////////////////////////////////////////////////////
+
+//! Wickelt eine kommende Verbindung ab.
+//----------------------------------------------
+//! Schaltet das Endgerät ein, wartet auf Einschalt-Quittung 
+//! und bestätigt den erfolgreichen Aufbau. Ruft seinerseits VerbindungSteht()
+//! auf und kehrt erst nach Verbindungsabbau zurück.
+
 static void VerbindungKommend()
 	{
 	TW39IO();
@@ -519,6 +496,12 @@ static void VerbindungKommend()
 	}
 	
 
+/////////////////////////////////////////////////////////////
+
+//! Wird aufgerufen, wenn bei gehender Verbindung zu lange nicht gewählt wird.
+//----------------------------------------------
+//! \param Abschaltimpuls soll ein Schlusszeichen an das Endgerät gesendet werden?
+
 static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	{
 	set_LEDROT();
@@ -533,6 +516,12 @@ static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	}
 	
 	
+/////////////////////////////////////////////////////////////
+
+//! Wickelt die gehende Wahl ab bei vorhandener Wählscheibe.
+//----------------------------------------------
+//! \retval true bei erfolgreichem Verbindungsaufbau.
+
 static bool WahlMitWaehlscheibe()
 	{
 	uint8_t Wahlziffer;
@@ -592,6 +581,13 @@ static bool WahlMitWaehlscheibe()
 	}
 	
 	
+/////////////////////////////////////////////////////////////
+
+//! Wickelt die gehende Wahl ab bei nicht vorhandener Wählscheibe.
+//----------------------------------------------------------------
+//! Tastaturwahl. 
+//! \retval true bei erfolgreichem Verbindungsaufbau.
+
 static bool WahlMitTastatur()
 	{
 	char c;
@@ -663,6 +659,12 @@ static bool WahlMitTastatur()
 static void KommendSperren();
 
 
+/////////////////////////////////////////////////////////////
+
+//! Wickelt ausgehende Verbdindungen vollständig ab.
+//--------------------------------------------------
+//! Ruft VerbindungSteht() auf. Kehrt erst nach Verbindungsabbau wieder zurück.
+
 static void VerbindungGehend()
 	{
 	set_LEDGELB();
@@ -727,6 +729,15 @@ static void VerbindungGehend()
 	}
 
 
+/////////////////////////////////////////////////////////////
+
+//! Behandelt alle Ereignisse, wenn die Verbindung erfolgreich aufgebaut wurde.
+//-----------------------------------------------------------------------------
+//! Arbeitet sowohl bei gehender, als auch bei kommender Verbindung.
+//! \param AutoKennungAbfrage true, wenn automatisch die Kennung der Gegenstelle 
+//! abgerufen werden soll. Abfrage wird solange wiederholt, bis eine lesbare Antwort 
+//! eintrifft.
+
 static void VerbindungSteht(bool AutoKennungAbfrage)
 	{
 	TMsTimer KennungAbfrageTimer;
@@ -779,12 +790,18 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		if (TimerVal(&KennungAbfrageTimer) > 1000 && !MeldungMark)
 			AutoKennungAbfrage = false;
 			
-		// HACK Test:
-		bset_LEDROT(AutoKennungAbfrage);
+		// Test:
+		// bset_LEDROT(AutoKennungAbfrage);
 		}
 
 	}
 
+
+/////////////////////////////////////////////////////////////
+
+//! Behandelt die Selbstkonfiguration des Moduls.
+//-----------------------------------------------
+//! Arbeitet mit dem angeschlossenen Endgerät zusammen.
 
 static void Konfiguration()
 	{
@@ -832,6 +849,7 @@ static void Konfiguration()
 		LokalTextAusgabeP(OkStrP);
 		}
 
+	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
 	LokalTextAusgabeP(PSTR("\r\n kommend-sperre mit wahl: (akt. "));
 	if (KommendSperreWahl != 0)
 		LokalZahlAusgabe(KommendSperreWahl, 2);
@@ -853,6 +871,12 @@ static void Konfiguration()
 	}
 
 
+/////////////////////////////////////////////////////////////
+
+//! Beendet die Selbstkonfiguration des Moduls.
+//-----------------------------------------------
+//! Arbeitet mit dem angeschlossenen Endgerät zusammen.
+
 static void KonfigurationEnde()
 	{
 	TW39Ausschalten();
@@ -860,6 +884,13 @@ static void KonfigurationEnde()
 	clr_LEDROT();
 	}
 	
+	
+/////////////////////////////////////////////////////////////
+
+//! Schaltet das Modul in einen Modus, der keine kommenden Verbindungen zulässt.
+//------------------------------------------------------------------------------
+//! Kann durch Wahl einer entsprechenden Ziffernfolge aufgerufen werden oder
+//! durch Tastendruck an der Platine.
 	
 static void KommendSperren()
 	{
@@ -895,6 +926,13 @@ static void KommendSperren()
 	}
 	
 	
+/////////////////////////////////////////////////////////////
+
+//! Schaltet das Modul in einen Modus, der keine kommenden und keine gehenden 
+//! Verbindungen zulässt.
+//------------------------------------------------------------------------------
+//! Kann nur durch Tastendruck an der Platine aktiviert werden.
+	
 static void Deaktivieren(bool WegenTimeout)
 // wird nach kurzem Tastendruck aufgerufen
 	{
@@ -915,8 +953,11 @@ static void Deaktivieren(bool WegenTimeout)
 	} // Deaktivieren
 
 
+/////////////////////////////////////////////////////////////
+
 //! Das Hauptprogramm der TW39-Fernschreiber-Schnittstelle.
 //---------------------------------------------------------
+
 int main()
 	{
 #ifndef NOWATCHDOG
@@ -933,19 +974,19 @@ int main()
 	init_LEDGELB();
 	init_LEDGRUEN();
 	init_LEDBLAU();
-	init_TASTE();
-
-
-	// PORTS initialisieren (Ausgabepins)
 	init_FS_AUSG();
 	init_FS_AKTIV();
 	init_FS_EING(); 
-
 #ifdef PARALLELAUSGABE
 	init_FS2_AUSG();
 	init_FS2_AKTIV();
 	init_FS2_EING(); 
 #endif //def PARALLELAUSGABE
+	init_TASTE();
+	//init_TASTE2();
+
+	set_LEDROT();
+	
 
 	// Timer initialisieren
 	MsTimerInit();
@@ -959,6 +1000,7 @@ int main()
 	BefehlEinschalten = false;
 	BefehlMark = true;
 	MeldungEingeschaltet = false;
+	MeldungMark = true;
 
 	KommInit();
 
@@ -967,8 +1009,6 @@ int main()
 	TMsTimer Timer;
 	StartTimer(&Timer);
 
-	TwiInit();
-	
 	sei();
 	
 	// 0,25 Sek. warten
@@ -987,6 +1027,8 @@ int main()
 
 	clr_LEDROT();
 	set_LEDGELB();
+
+	TwiInit();
 
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 500)
@@ -1039,6 +1081,9 @@ int main()
 		}
 
 // Selbsttest Ende */
+
+	BefehlEinschalten = false;
+	BefehlMark = true;
 
 	while (1)
 		{

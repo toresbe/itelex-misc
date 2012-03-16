@@ -124,28 +124,28 @@ uint8_t AktuellEmpfaenger;
 // Erläuterung der Variablen-Inhalte siehe oben...
 
 EEMEM uint8_t BusEigenAdresse_EE = 110 << 1; 
-	//!< \sa BusEigenAdresse, Kopie im EEPROM.
+	//!< #BusEigenAdresse, Kopie im EEPROM.
 	
 EEMEM uint8_t KonfigBits_EE = (1<<KonfigBit_FesterHauptanschluss) | (1<<KonfigBit_SucheAlternativBeiBesetzt);
-	//!< \sa KonfigBits, Kopie im EEPROM.
+	//!< #KonfigBits, Kopie im EEPROM.
 
 EEMEM uint8_t AnnahmeKlingelzeichen_EE = 1;
-	//!< \sa AnnahmeKlingelzeichen, Kopie im EEPROM.
+	//!< #AnnahmeKlingelzeichen, Kopie im EEPROM.
 
 EEMEM uint8_t JustierWahlziffern_EE[AnzJustierWahlziffern] = { 5, 10 };
-	//!< \sa JustierWahlziffern, Kopie im EEPROM.
+	//!< #JustierWahlziffern, Kopie im EEPROM.
 
 EEMEM uint8_t JustierWahlVerzoegerung_EE = 8;
-	//!< \sa JustierWahlVerzoegerung, Kopie im EEPROM.
+	//!< #JustierWahlVerzoegerung, Kopie im EEPROM.
 
 EEMEM uint8_t JustierNeustartPause_EE = 12;
-	//!< \sa JustierNeustartPause, Kopie im EEPROM.
+	//!< #JustierNeustartPause, Kopie im EEPROM.
 
 EEMEM uint8_t VerbindungsaufbauVerzoegerung_EE = 60; 
-	//!< \sa VerbindungsaufbauVerzoegerung, Kopie im EEPROM.
+	//!< #VerbindungsaufbauVerzoegerung, Kopie im EEPROM.
 
 EEMEM uint8_t NebenstellenTabelle_EE[10] = { 31 } ; // alles andere mit 0 initialisiert
-	//!< \sa NebenstellenTabelle, Kopie im EEPROM.
+	//!< #NebenstellenTabelle, Kopie im EEPROM.
 
 
 enum { DiagnoseSpeicherLen = 50 } ;
@@ -160,7 +160,7 @@ EEMEM uint8_t DiagnoseSpeicher[DiagnoseSpeicherLen] = { 0x11, 0x22, 0x33, 0x44, 
 	//!< 0x03 + Code: VerbindungGehend hat unplanmäßig abgebrochen \par
 
 static uint8_t DiagnoseSpeicherPos = 0;
-	//!< Schreibindex für DiagnoseSpeicher. \sa DiagnoseSpeicher
+	//!< Schreibindex für #DiagnoseSpeicher. 
 	
 	
 //! Speichert ein Byte im DiagnoseSpeicher.

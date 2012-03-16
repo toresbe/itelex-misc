@@ -163,15 +163,15 @@ PROGMEM const char Identifier[] = "___TxP2_SeriellUndSpeicher___" __DATE__ "___"
 // ------------------------
 
 EEMEM uint8_t Platzhalter[4]; //!< Anfang des EEPROM ist gern von Störungen betroffen
-EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< \sa BusEigenAdresse, Kopie im EEPROM
-EEMEM char Kennung_EE[KENNUNG_MAXLEN] = "\r\ntxp2-ab"; //!< \sa Kennung, Kopie im EEPROM
-EEMEM char Kennwort_EE[KENNWORT_MAXLEN] = "kennwort"; //!< \sa Kennwort, Kopie im EEPROM
-EEMEM uint8_t Jahr_EE = 9;  //!< \sa Jahr, Kopie im EEPROM
-EEMEM uint8_t Monat_EE = 4; //!< \sa Monat, Kopie im EEPROM
-EEMEM uint8_t Tag_EE = 13;  //!< \sa Tag, Kopie im EEPROM
-EEMEM uint8_t Stunde_EE[31] = { 0 } ; //!< \sa Stunde, Kopie im EEPROM. Je Tag eine andere Speicherstelle, damit die Abnutzung nicht so groß ist.
-EEMEM uint8_t Minute_EE = 0; //!< \sa Minute, Kopie im EEPROM, wird nur bei besonderer Bedienung gespeichert.
-EEMEM uint16_t BeginnErsteMeldung2_EE = 0xEEEE; //!< \sa BeginnErsteMeldung2, Kopie im EEPROM
+EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< #BusEigenAdresse, Kopie im EEPROM
+EEMEM char Kennung_EE[KENNUNG_MAXLEN] = "\r\ntxp2-ab"; //!< #Kennung, Kopie im EEPROM
+EEMEM char Kennwort_EE[KENNWORT_MAXLEN] = "kennwort"; //!< #Kennwort, Kopie im EEPROM
+EEMEM uint8_t Jahr_EE = 9;  //!< #Jahr, Kopie im EEPROM
+EEMEM uint8_t Monat_EE = 4; //!< #Monat, Kopie im EEPROM
+EEMEM uint8_t Tag_EE = 13;  //!< #Tag, Kopie im EEPROM
+EEMEM uint8_t Stunde_EE[31] = { 0 } ; //!< #Stunde, Kopie im EEPROM. Je Tag eine andere Speicherstelle, damit die Abnutzung nicht so groß ist.
+EEMEM uint8_t Minute_EE = 0; //!< #Minute, Kopie im EEPROM, wird nur bei besonderer Bedienung gespeichert.
+EEMEM uint16_t BeginnErsteMeldung2_EE = 0xEEEE; //!< #BeginnErsteMeldung2, Kopie im EEPROM
 
 // Uhr
 // ---
@@ -197,9 +197,9 @@ char Kennwort[KENNWORT_MAXLEN]; //!< Kennwort für Fernabfrage des Anrufspeichers
 // Interrupts
 // ----------
 
-volatile uint16_t Timer1OvfC; //!< Zählt die Timer1-Oberflows. \sa TIMER1_OCFREQ
+volatile uint16_t Timer1OvfC; //!< Zählt die Timer1-Oberflows. Wird mit Takt #TIMER1_OCFREQ inkrementiert.
 
-ISR(TIMER1_COMPA_vect) //!< Timer1-Interrupt. \sa TIMER1_OCFREQ. Grundtakt für die mitlaufende Uhr.
+ISR(TIMER1_COMPA_vect) //!< Timer1-Interrupt. (#TIMER1_OCFREQ). Grundtakt für die mitlaufende Uhr.
 	{
 	Timer1OvfC++;
 	}

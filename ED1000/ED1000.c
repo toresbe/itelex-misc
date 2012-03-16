@@ -34,34 +34,31 @@
 // Schalter für Code-Varianten
 // ===========================
 
-
 //#define FALSCHKDO_FEHLERSTOP
-	// Unpassende Kommandos auf dem I²C-Bus werden mit Fehlerstop quittiert
+	//!< Unpassende Kommandos auf dem I²C-Bus werden mit Fehlerstop quittiert.
 
 //#define TWI_DEBUG
-	// TWI-Ereignisse werden protokolliert. 
+	//!< TWI-Ereignisse werden protokolliert. 
 
 #define BUSFEHLER_ABBRUCH
-	// bei Bus-Fehlern Abbruch der Verbindung
+	//!< bei Bus-Fehlern Abbruch der Verbindung.
 
 #ifndef TWI_DEBUG
 #define WIEDERHOLUNGSSENDUNGEN
-	// Status Mark / Space regelmäßig senden 
+	//!< Status Mark / Space regelmäßig senden.
 #endif //TWI_DEBUG
 
-
 // #define LEDROT_BEI_UNERWARTETWDH
-	// LED rot wird eingeschaltet, wenn BusKdoSpaceWdh oder BusKdoMarkWdh empfangen wird, ohne
-	// das entsprechendes "Haupt-Kommando" empfangen wurde
-
+	//!< LED rot wird eingeschaltet, wenn BusKdoSpaceWdh oder BusKdoMarkWdh empfangen wird, ohne
+	//!< das entsprechendes "Haupt-Kommando" empfangen wurde.
 
 //#define NOWATCHDOG
-	// Watchdog abgeschaltet
-
+	//!< Watchdog abgeschaltet
 
 //#define V21
 	// macht andere Frequenzen
 	
+//! Marker im Code als Identifikation
 
 #ifdef V21	
 const PROGMEM char Identifier[] = "___TxP2_V21___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
@@ -106,19 +103,25 @@ EEMEM uint8_t KommendSperreWahl_EE = 0; //!< Welche Wahlnummer sperrt den Anschl
 // Variablen
 // ---------
 
-static volatile uint8_t SinAusgI;
+static volatile uint8_t SinAusgI; //!< Zeiger auf die Sinus-Ausgabetabelle. Wird im Timerinterrupt inkrementiert.
 
-static volatile uint8_t SinAusgInc;
+static volatile uint8_t SinAusgInc; 
+	//!< Inkrement des Zeiger auf die Sinus-Ausgabetabelle je Timerinterrupt-Aufruf.
+	//!< Bestimmt die Ausgabefrequenz: f = #TIMER1_OCFREQ * #SinAusgInc / Sinus63Len (=128)
 
 #define EMPFBUFSIZE (1<<5)
+	//!< Größe des Puffers für ADC-Messwerte. Muss Potenz von 2 sein.
 
 static volatile int8_t EmpfBuf[EMPFBUFSIZE];
+	//!< Puffer für ADC-Messwerte. 
 
 static volatile uint8_t EmpfBufSchreibI;
+	//!< Index für das Eintragen von Werten in #EmpfBuf.
 
 static uint8_t EmpfBufLeseI;
+	//!< Index für das Auslesen von Werten aus #EmpfBuf.
 
-
+//! Initialisiert Zeitgeber.
 void InitTimer()
 	{
 	SinAusgI = 0;
@@ -133,6 +136,7 @@ void InitTimer()
 	}
 
 
+//! Initialisiert ADC-Wandler.
 void InitADC()
 	{
 	ADMUX = (0<<REFS1) | (1<<REFS0) | (1<<ADLAR) | (0b0000<<MUX0);
@@ -150,6 +154,12 @@ void InitADC()
 	}
 
 	
+//! Interrupt-Routine für TIMER1. 
+//-------------------------------
+//! Wird mit der Frequenz #TIMER1_OCFREQ aufgerufen.
+//! Schreibt ADC-Werte in den Puffer und startet den ADC neu.
+//! Errechnet neuen Index in Sinus-Ausgabetabelle und gibt ermittelten Tabelleneintrag 
+//! auf der Schnittstelle aus (R2R-Netzwerk).
 ISR(TIMER1_COMPA_vect)
 	{
 	// letztes AD-Ergebnis retten
@@ -157,7 +167,7 @@ ISR(TIMER1_COMPA_vect)
 	EmpfBufSchreibI &= (EMPFBUFSIZE-1);
 
 	SinAusgI += SinAusgInc;
-	SinAusgI &= 127;
+	SinAusgI &= (Sinus63Len-1);
 
 	PORTB = pgm_read_byte(&Sinus63[SinAusgI]);
 
@@ -166,35 +176,49 @@ ISR(TIMER1_COMPA_vect)
 	}
 
 
-bool BefehlEinschalten;
-bool BefehlMark;
+bool BefehlEinschalten; //!< Fs soll laufen
+bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
+bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
+bool MeldungMark; //!< Fs Schleifenstrom ist Ein
 
-bool EmpfangMark; // ist false, wenn Endgerät ausgeschaltet oder Endgerät Space sendet
-bool MeldungEingeschaltet; // false bei ausgeschaltetem Endgerät
-bool MeldungMark; // false bei Space vom Endgerät
-bool SpaceSperre;
+bool EmpfangMark; //!< ist false, wenn Endgerät ausgeschaltet oder Endgerät Space sendet
+bool SpaceSperre; //!< Wird gesetzt, wenn die empfangene Space-Frequenz trotzdem als Mark gewertet werden soll.
 
-int8_t x0, x1, x2, ym0, ym1, ym2, ys0, ys1, ys2;
+int8_t x0, x1, x2, ym0, ym1, ym2, ys0, ys1, ys2; 
+	//!< Alles Zwischenwerte für den digitalen Filter
 
 uint8_t PegelGlaettZaehl;
+	//!< Zähler zur Filterung von kurzen Mark-Space-Wechseln.
 
 #define PEGEL_GLAETT 50
+	//!< Grenzwert für #PegelGlaettZaehl.
+	//!< Verursachte Verzögerung: PEGEL_GLAETT / TIMER1_OCFREQ, also 4 ms.
 
 uint16_t EinAusschaltZaehl;
+	//!< Zähler für die Ermittlung von Ein- und Ausschaltungen. Dies sind
+	//!< langandauernde Wechsel der Empfangsfrequenz.
 
-uint8_t UebersteuerWarnZaehl;
+#define EINSCHALT_VERZ (TIMER1_OCFREQ / 10) 
+	//!< Grenzwert für Einschaltung bei EinAusschaltZaehl. 1/10 sek. Mark-Frequenz = ein.
+	
+#define AUSSCHALT_VERZ (TIMER1_OCFREQ / 2) 
+	//!< Grenzwert für Ausschaltung bei EinAusschaltZaehl. 1/2 sek. Space = aus.
 
 #define UEBERSTEUER_GRENZE 90
+	//!< Grenzwert der Aussteuerung (maximal möglich 127) für das Ansprechen der
+	//!< roten LED bei Überlauf der digitalen Filterberechnung.
+
+uint8_t UebersteuerWarnZaehl;
+	//!< Zähler für die Verlängerung des Leuchtens der roten LED bei drohendem 
+	//!< Überlauf der digitalen Filterberechnung.
 
 #define UEBERSTEUER_ZAEHLMAX 40
+	//!< Grenzwert für UebersteuerWarnZaehl. Ein Überschreiten der Amplitude (#UEBERSTEUER_GRENZE)
+	//!< lässt rote LED 40 Zyklen leuchten (4 ms).
 
-
-#define EINSCHALT_VERZ (TIMER1_OCFREQ / 10) // 1/10 sek. Mark = ein
-
-#define AUSSCHALT_VERZ (TIMER1_OCFREQ / 2) // 1/2 sek. Space = aus
-
-
-
+//! Initialisiert die Schnittstelle zum Endgerät.
+//-----------------------------------------------
+//! Initialisierung des digitalen Filters. Initialisierung der Sinus-Ausgabe.	
 static void ED1000Init()
 	{
 	x0 = x1 = x2 = ym0 = ym1 = ym2 = ys0 = ys1 = ys2 = 0;
@@ -204,16 +228,15 @@ static void ED1000Init()
 	BefehlMark = true;
 	MeldungMark = true;
 	}
+	
+	
 ///////////////////////////////////////////////////////////////////////////////
 
 //! bedient Hardware-IO entsprechend der aktuellen Zustände.
-
-/*!
- * setzt die Ausgabefrequenz entsprechend BefehlEinschalten und BefehlMark,
- * setzt MeldungEingeschaltet und MeldungMark entsprechend der empfangenen Frequenz,
- * steuert die Status-LEDs
- */ 
-
+//----------------------------------------------------------
+//! setzt die Ausgabefrequenz entsprechend BefehlEinschalten und BefehlMark,
+//! setzt MeldungEingeschaltet und MeldungMark entsprechend der empfangenen Frequenz,
+//! steuert die Status-LEDs
 static void ED1000IO()
 	{
 	if (BefehlEinschalten && BefehlMark)
@@ -366,9 +389,9 @@ static void ED1000IO()
 	}
 
 	
-uint8_t KommendSperreWahl;
+uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 
-char BuZiMode;
+char BuZiMode; //!< Marker für Buchstaben-Ziffern-Umschaltung.
 
 
 //////////////////////////////////////////////////////////////////
@@ -430,7 +453,7 @@ static void ED1000Ausschalten()
 /////////////////////////////////////////////////////////////////////////////////////////7
 
 //! Modul / Schnittstelle irreversibel stoppen.
-
+//---------------------------------------------
 //! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
 
 void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ )
@@ -502,8 +525,8 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 
 /////////////////////////////////////////////////////////////
 
-//! Liest ein Zeichen vom angeschlossenen Fs ein
-
+//! Liest ein Zeichen vom angeschlossenen Fs ein.
+//-----------------------------------------------
 //! Serialisiert die ankommenden Impulse und wandelt BAUDOT in ASCII
 //! \return Zeichen im ASCII-Code
 
@@ -530,10 +553,10 @@ char LokalZeichenLesen()
 
 /////////////////////////////////////////////////////////////
 
-//! Gibt ein Zeichen am angeschlossenen Fs aus
-
-//! wandelt ASCII in Baudort und serialisiert den Code
-//! \param code Zeichen im ASCII-Code
+//! Gibt ein Zeichen am angeschlossenen Fs aus.
+//----------------------------------------------
+//! serialisiert den Code und gibt ihn auf dem Endgerät aus.
+//! \param code Zeichen im Baudot-Code
 
 static void LokalCodeAusgabe(uint8_t code)
 	{
@@ -546,6 +569,13 @@ static void LokalCodeAusgabe(uint8_t code)
 		}
 	}
 
+
+/////////////////////////////////////////////////////////////
+
+//! Gibt ein Zeichen am angeschlossenen Fs aus.
+//----------------------------------------------
+//! wandelt ASCII in Baudort und serialisiert den Code
+//! \param c Zeichen im ASCII-Code
 
 void LokalZeichenAusgabe(char c)
 	{
@@ -565,6 +595,14 @@ static void VerbindungSteht(bool AutoKennungAbfrage);
 
 static void Deaktivieren(bool WegenTimeout);
 
+
+/////////////////////////////////////////////////////////////
+
+//! Wickelt eine kommende Verbindung ab.
+//----------------------------------------------
+//! Schaltet das Endgerät ein, wartet auf Einschalt-Quittung 
+//! und bestätigt den erfolgreichen Aufbau. Ruft seinerseits VerbindungSteht()
+//! auf und kehrt erst nach Verbindungsabbau zurück.
 
 static void VerbindungKommend()
 	{
@@ -594,6 +632,12 @@ static void VerbindungKommend()
 	}
 	
 
+/////////////////////////////////////////////////////////////
+
+//! Wird aufgerufen, wenn bei gehender Verbindung zu lange nicht gewählt wird.
+//----------------------------------------------
+//! \param Abschaltimpuls soll ein Schlusszeichen an das Endgerät gesendet werden?
+
 static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	{
 	set_LEDROT();
@@ -608,6 +652,13 @@ static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	}
 	
 	
+/////////////////////////////////////////////////////////////
+
+//! Wickelt die gehende Wahl ab. 
+//----------------------------------------------
+//! Tastaturwahl. 
+//! \retval true bei erfolgreichem Verbindungsaufbau.
+
 static bool WahlMitTastatur()
 	{
 	char c;
@@ -679,6 +730,12 @@ static bool WahlMitTastatur()
 static void KommendSperren();
 
 
+/////////////////////////////////////////////////////////////
+
+//! Wickelt ausgehende Verbdindungen vollständig ab.
+//--------------------------------------------------
+//! Ruft VerbindungSteht() auf. Kehrt erst nach Verbindungsabbau wieder zurück.
+
 static void VerbindungGehend()
 	{
 	set_LEDGELB();
@@ -689,7 +746,6 @@ static void VerbindungGehend()
 		return;
 		}
 	
-
 	switch (GeEinschalten())
 		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
 		case GeEinschFehler:
@@ -733,6 +789,15 @@ static void VerbindungGehend()
 
 	}
 
+
+/////////////////////////////////////////////////////////////
+
+//! Behandelt alle Ereignisse, wenn die Verbindung erfolgreich aufgebaut wurde.
+//-----------------------------------------------------------------------------
+//! Arbeitet sowohl bei gehender, als auch bei kommender Verbindung.
+//! \param AutoKennungAbfrage true, wenn automatisch die Kennung der Gegenstelle 
+//! abgerufen werden soll. Abfrage wird solange wiederholt, bis eine lesbare Antwort 
+//! eintrifft.
 
 static void VerbindungSteht(bool AutoKennungAbfrage)
 	{
@@ -793,6 +858,12 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 	}
 
 
+/////////////////////////////////////////////////////////////
+
+//! Behandelt die Selbstkonfiguration des Moduls.
+//-----------------------------------------------
+//! Arbeitet mit dem angeschlossenen Endgerät zusammen.
+
 static void Konfiguration()
 	{
 	SeriellUmsetzInit();
@@ -810,7 +881,6 @@ static void Konfiguration()
 		return;
 
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
-
 	LokalTextAusgabeP(PSTR("\r\n kommend-sperre mit wahl: (akt. "));
 	if (KommendSperreWahl != 0)
 		LokalZahlAusgabe(KommendSperreWahl, 2);
@@ -829,9 +899,14 @@ static void Konfiguration()
 	// weitere Eingaben
 
 	LokalTextAusgabeP(PSTR("\r\n +++ \r\n"));
-
 	}
 
+
+/////////////////////////////////////////////////////////////
+
+//! Beendet die Selbstkonfiguration des Moduls.
+//-----------------------------------------------
+//! Arbeitet mit dem angeschlossenen Endgerät zusammen.
 
 static void KonfigurationEnde()
 	{
@@ -840,6 +915,13 @@ static void KonfigurationEnde()
 	clr_LEDROT();
 	}
 	
+	
+/////////////////////////////////////////////////////////////
+
+//! Schaltet das Modul in einen Modus, der keine kommenden Verbindungen zulässt.
+//------------------------------------------------------------------------------
+//! Kann durch Wahl einer entsprechenden Ziffernfolge aufgerufen werden oder
+//! durch Tastendruck an der Platine.
 	
 static void KommendSperren()
 	{
@@ -875,8 +957,14 @@ static void KommendSperren()
 	}
 	
 	
+/////////////////////////////////////////////////////////////
+
+//! Schaltet das Modul in einen Modus, der keine kommenden und keine gehenden 
+//! Verbindungen zulässt.
+//------------------------------------------------------------------------------
+//! Kann nur durch Tastendruck an der Platine aktiviert werden.
+	
 static void Deaktivieren(bool WegenTimeout)
-// wird nach kurzem Tastendruck aufgerufen
 	{
 	set_LEDBLAU();
 	Aktivieren(false);
@@ -895,8 +983,11 @@ static void Deaktivieren(bool WegenTimeout)
 	} // Deaktivieren
 
 
+/////////////////////////////////////////////////////////////
+
 //! Das Hauptprogramm der ED1000-Fernschreiber-Schnittstelle.
 //----------------------------------------------------------
+
 int main()
 	{
 #ifndef NOWATCHDOG
@@ -907,7 +998,8 @@ int main()
 	PINB = 0xFF;
 	PINC = 0xFF;
 	PIND = 0xFF;
-	// Ports Initialisieren
+
+	// Ports initialisieren
 	init_LEDROT();
 	init_LEDGELB();
 	init_LEDGRUEN();
@@ -957,22 +1049,21 @@ int main()
 	TMsTimer Timer;
 	StartTimer(&Timer);
 
-	ED1000IO();
-	
 	sei();
 	
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 250)
 		;
 		
-	clr_LEDROT();
-	set_LEDGELB();
-
+	// Bei Tastendruck Selbsttest
 #ifdef TASTE_NACH_PLUS
 	bool SelbsttestAusfuehen = get_TASTE();
 #else
 	bool SelbsttestAusfuehen = !get_TASTE();
 #endif
+
+	clr_LEDROT();
+	set_LEDGELB();
 
 	TwiInit();
 
@@ -1003,13 +1094,13 @@ int main()
 
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
 	
-	BefehlEinschalten = false;
-	MeldungEingeschaltet = false;
-	BefehlMark = false;
-	MeldungMark = false;
-
 	if (SelbsttestAusfuehen)
 		{
+		BefehlEinschalten = false;
+		MeldungEingeschaltet = false;
+		BefehlMark = false;
+		MeldungMark = false;
+
 		StartTimer(&Timer);
 		while (1)
 			{
@@ -1087,6 +1178,5 @@ int main()
 		
 		} // while (1)
 	} // main()
-
 
 
