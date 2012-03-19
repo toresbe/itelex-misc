@@ -50,6 +50,9 @@ extern volatile bool BusEmpfMarkwechsel; //!< \brief Flag für Empfangspegel-Wech
 	
 extern volatile uint16_t TwiIsrCount;
 	//!< Zählt die Anzahl der Aufrufe der TWI-Interrupt-Routine. Nur für Debugging-Zwecke.
+
+extern volatile uint8_t TwiWatchdogCount;
+	//!< Wird bei jedem Aufruf der TWI-Interrupt-Routine auf 0 gesetzt. Zur Prüfung der regelmäßigen Kommunikation.
 	
 	
 extern void CLR_BIT_Status(uint8_t BitNr);

@@ -37,6 +37,7 @@ volatile uint8_t BusKollisionZaehler;
 volatile bool BusEmpfMark;
 volatile bool BusEmpfMarkwechsel;
 volatile uint16_t TwiIsrCount;
+volatile uint8_t TwiWatchdogCount;
 
 // lokal:
 static volatile uint8_t BusEmpfPuffer[EMPF_PUFFER_GROESSE]; 
@@ -153,6 +154,7 @@ ISR(TWI_vect)
 #endif //TWI_DEBUG
 	
 	TwiIsrCount++;
+	TwiWatchdogCount = 0;
 	
 	switch (TWSR & TwiEv_Mask)
 		{
@@ -497,6 +499,7 @@ void TwiInit()
 	BusEmpfPufferLesePos = 0;
 	BusEmpfPufferSchreibPos = 0;
 	TwiIsrCount = 0;
+	TwiWatchdogCount = 0;
  	BusSendeDaten = 0;
 	}
 
