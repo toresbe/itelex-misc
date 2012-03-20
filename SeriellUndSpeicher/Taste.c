@@ -88,7 +88,7 @@ void TastePruefen()
 //! Wartet, bis die Taste einmal gedrückt wurde.
 //-------------------------------------------------------------------------
 //! \retval false Taste wurde kurz gedrückt.
-//! \retval false Taste wurde lang gedrückt.
+//! \retval true Taste wurde lang gedrückt.
 bool WarteTaste()
 	{ 
 	Tastendruck = NichtGedr;

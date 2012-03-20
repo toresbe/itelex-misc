@@ -385,11 +385,11 @@ static void InternWahlPruefen()
 	AblaufMark(0x22);
 	BusSenden(BusKdoEin);
 	BusWarteFertig();
-	//! \TODO BusErgebnis prüfen...
+	//! \todo BusErgebnis prüfen...
 
 	// Rest (Auswertung von BusKdoWahlFreigabe / BusQuittEin) geschieht in der Funtion BusKomm
 	
-	//! \TODO Abbruch wenn keine Reaktion erfolgt...
+	//! \todo Abbruch wenn keine Reaktion erfolgt...
 
 	StartTimer(&PegelWdhTimer);
 	} // if zulässige Nummer
@@ -469,12 +469,16 @@ bool KoEmpfCode(uint8_t *Code)
 
 bool GeSendeCode(uint8_t Code) // true, wenn Sendepuffer nicht voll
 	{
-	if (Code == TtyCodeBuUm)
-		SendePuffer.BuZiMode = BuMode;
-	else if (Code == TtyCodeZiUm)
-		SendePuffer.BuZiMode = ZiMode;
-
-	return PufferSpeich(&SendePuffer, Code);
+	if (PufferSpeich(&SendePuffer, Code))
+		{ // erfolgreich
+		if (Code == TtyCodeBuUm)
+			SendePuffer.BuZiMode = BuMode;
+		else if (Code == TtyCodeZiUm)
+			SendePuffer.BuZiMode = ZiMode;
+		return true;
+		}
+	else
+		return false;
 	}
 
 

@@ -68,26 +68,27 @@
 
 
 //#define TWI_DEBUG
-	// TWI-Ereignisse werden protokolliert
+	//!< TWI-Ereignisse werden protokolliert
 
 //#define BUSFEHLER_ABBRUCH
-	// bei Bus-Fehlern Abbruch der Verbindung
+	//!< bei Bus-Fehlern Abbruch der Verbindung
 
 #define FALSCHKDO_FEHLERSTOP
-	// Unpassende Kommandos auf dem I²C-Bus werden mit Fehlerstop quittiert
+	//!< Unpassende Kommandos auf dem I²C-Bus werden mit Fehlerstop quittiert
 
 #define WIEDERHOLUNGSSENDUNGEN
-	// Status Mark / Space regelmäßig senden 
+	//!< Status Mark / Space regelmäßig senden 
 
 //#define LEDROT_BEI_UNERWARTETWDH
-	// LED rot wird eingeschaltet, wenn BusKdoSpaceWdh oder BusKdoMarkWdh empfangen wird, ohne
-	// das entsprechendes "Haupt-Kommando" empfangen wurde
+	//!< LED rot wird eingeschaltet, wenn BusKdoSpaceWdh oder BusKdoMarkWdh empfangen wird, ohne
+	//!< das entsprechendes "Haupt-Kommando" empfangen wurde
 
 //#define NOWATCHDOG
-	// Watchdog abgeschaltet
+	//!< Watchdog abgeschaltet
 
 
-const char Identifier[] PROGMEM = "___TxP2_Messgeraet___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+//! Identifikation im Programmspeicher
+const PROGMEM char Identifier[] = "___TxP2_Messgeraet___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 
 
 #include "timercs.h"
@@ -111,8 +112,8 @@ const char Identifier[] PROGMEM = "___TxP2_Messgeraet___" __DATE__ "___" __TIME_
 // sonstige Konstanten
 // -------------------
 
-#define KENNUNG_MAXLEN 20
-#define KENNWORT_MAXLEN 20
+#define KENNUNG_MAXLEN 20 //!< maximale Länge der Kennungsgeber-Texte.
+#define KENNWORT_MAXLEN 20 //!< maximale Länge des Kennwortes für die Fernabfrage.
 
 typedef char TKennung[KENNUNG_MAXLEN];
 
@@ -134,29 +135,30 @@ typedef char TKennung[KENNUNG_MAXLEN];
 // interner Eeprom-Speicher
 // ------------------------
 
-uint8_t BusEigenAdresse_EE EEMEM = 80 * 2;
+uint8_t BusEigenAdresse_EE EEMEM = 80 * 2; 
+	//!< Eigene TWI-Adresse, nur Basisteil! (4 Sub-Adressen)
 
 TKennung Kennung_EE[BUS_MEHRFACH_ADR] EEMEM = 
-    { "\r\ntxp2-mess", "\r\ntxp2-pruefsend", "\r\ntxp2-bildloch", "\r\ntxp2-rueckruf"} ;
+    { "\r\ntxp2-mess", "\r\ntxp2-pruefsend", "\r\ntxp2-bildloch", "\r\ntxp2-rueckruf"} ; //!< Kopie von #Kennung im EEPROM
 
-char Kennwort_EE[KENNWORT_MAXLEN] EEMEM = "kennwort";
-
+char Kennwort_EE[KENNWORT_MAXLEN] EEMEM = "kennwort"; //!< Kennwort für Spezialfunktionen.
 
 // Kennung und Kennwort
 
-TKennung Kennung[BUS_MEHRFACH_ADR];
+TKennung Kennung[BUS_MEHRFACH_ADR]; //!< Eigene Kennungen, da kein echter Fernschreiber angeschlossen.
 
-char Kennwort[KENNWORT_MAXLEN];
+char Kennwort[KENNWORT_MAXLEN]; //!< Kennwort für Fernabfrage des Anrufspeichers.
 
 
 // Einstell-Modus
 
-bool WarteKonfig = false;
+bool WarteKonfig = false; //!< \todo noch unbenutzt. Keine Konfiguration implementiert.
 
 
+//! Modul / Schnittstelle irreversibel stoppen.
+//! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
 
-void FehlerStop(int Nummer)
-// Nur ein Reset befreit
+void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ )
 	// Fehler-Codes: 
 	// 1: Bus-Empfang trotz Sperre
 	// 2: General Call ohne entsprechende Freigabe
@@ -219,6 +221,7 @@ void FehlerStop(int Nummer)
 	}	
 
 
+//! Schaltet LED entspechend der Status-Bits an.
 static void LEDAktualisieren()
 	{
 	if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
@@ -239,6 +242,7 @@ static void LEDAktualisieren()
 	}
 	
 	
+//! Schaltet LED entspechend der Status-Bits an.
 static void GeSendeText(char* s)
 	{
 	while (!GeSendePufferLeer())
@@ -251,7 +255,8 @@ static void GeSendeText(char* s)
 		}
 	}
 	
-	
+
+//! Sendet einen Text aus dem Programmspeicher an den Verbindungspartner.
 static void GeSendeTextP(PGM_P s)
 	{
 	while (!GeSendePufferLeer())
@@ -265,6 +270,7 @@ static void GeSendeTextP(PGM_P s)
 	}
 
 
+//! Sendet eine Zahl (dezimal) an den Verbindungspartner.	
 static void GeSendeZahl(uint8_t x)
 	{
 	uint8_t i;
@@ -285,6 +291,7 @@ static void GeSendeZahl(uint8_t x)
 	}
 
 
+//! Sendet eine Zahl (dezimal) ggf. mit Vorzeichen an den Verbindungspartner.	
 static void GeSendeVorzeichenZahl(int8_t x)
 	{
 	if (x < 0)
@@ -297,6 +304,8 @@ static void GeSendeVorzeichenZahl(int8_t x)
 	}
 
 
+//! Gibt die eigene Kennung beim Verbindungspartner aus und wertet eingegegeben Text
+//! auf Übereinstimmung mit dem gespeicherten Kennwort aus.
 static bool KennungsausgabeUndKennwortAbfrage(uint8_t Nr)
 	{
 	char *p;
@@ -328,6 +337,7 @@ static bool KennungsausgabeUndKennwortAbfrage(uint8_t Nr)
 	}
 
 
+//! Wartet einen kurzen moment.	
 void KurzePause() // = 500 ms
 	{
 	TMsTimer MessTimer;
@@ -338,6 +348,7 @@ void KurzePause() // = 500 ms
 	}
 		
 
+//! Wartet einen langen Moment.		
 void LangePause() // = 2 sek
 	{
 	TMsTimer MessTimer;
@@ -349,20 +360,22 @@ void LangePause() // = 2 sek
 		
 
 #define MAXPUFFER 500
+	//!< Größe des Universal-Zwischenspeichers.
 
+//! Zwischenspeicher für viele Funktionen:
+//! \par bei Messgerät:
+//! \par * speichert Pegelwechsel bezogen auf erste Flanke des Start-Bits
+//! \par * Puffer[0] speichert Wechsel zum ersten Mark-Bit
+//! \par * Puffer[1] speichert Wechsel zum nächsten Space-Bit
+//! \par bei Rückruf:
+//! \par * bis zum ersten 255 die Rufnummer
+//! \par * bis zum zweiten 255 die Baudot-Codes
+//! \par bei Bilderlochen:
+//! \par * bis zum gespeicherten Ende die Baudot-Codes
 char Puffer[MAXPUFFER+1];
-// Zwischenspeicher für viele Funktionen:
-// bei Messgerät:
-    // speichert Pegelwechsel bezogen auf erste Flanke des Start-Bits
-    // Puffer[0] speichert Wechsel zum ersten Mark-Bit
-    // Puffer[1] speichert Wechsel zum nächsten Space-Bit
-// bei Rückruf:
-	// bis zum ersten 255 die Rufnummer
-	// bis zum zweiten 255 die Baudot-Codes
-// bei Bilderlochen:
-	// bis zum gespeicherten Ende die Baudot-Codes
 
 	
+//! Behandelt die Funktion des Moduls als Messgerät für die Baudot-Zeichen.	
 static void VerbindungMessgeraet()
 	{
 	enum { StartSperre, WarteStart, Laeuft, Ausgabe } MessPhase = StartSperre;
@@ -457,6 +470,7 @@ static void VerbindungMessgeraet()
 	}
 
 
+//! Behandelt die Funktion des Moduls als Rückruf-Automat.
 static void VerbindungRueckruf()
 	{
 	uint16_t PufferPos;
@@ -605,9 +619,13 @@ static void VerbindungRueckruf()
 	} // VerbindungRueckruf
 
 
+////////////////////////////////////////////////////////////////////////////////
+
+//! Für Lochstreifen-Bildlocher: Loch-Spalten je Buchstabe
 enum { BildGroesse = 6 } ; // 6 Lochreihen (maximal) für jedes Zeichen
 
-uint8_t BildTab[2][32*BildGroesse] PROGMEM = {
+//! Für Lochstreifen-Bildlocher: Bitmuster für alle Buchstaben. Sortiert nach Baudot-Codes.
+const PROGMEM uint8_t BildTab[2][32*BildGroesse] = {
 /*Buchst:*/ {	0, 		255, 	255, 	255, 	255, 	255, 	
 				16, 	16, 	31, 	16, 	16, 	0, 	
 				0, 		0, 		0, 		255, 	255, 	255, 	
@@ -674,6 +692,7 @@ uint8_t BildTab[2][32*BildGroesse] PROGMEM = {
 				255, 	255, 	255, 	255, 	255, 	255} }; 
 
 
+//! Behandelt die Funktion des Moduls als Lochstreifen-Bildlocher.
 static void VerbindungBildlocher()
 	{
 	TMsTimer WarteTimer;
@@ -760,7 +779,12 @@ static void VerbindungBildlocher()
 	}
 
 
-
+//! Unterfunktion für Prüfsender. Sendet ein Zeichen mit definierter Verzerrung.
+//-------------------------------------------------------------------------
+//! \param Funktion Welches Bit / welche Bits sind zu verzerren:
+//! 1-5 = Datenbits, 6 = Startbit, 7 = Stopbit, 8 = alle, 9 = Pegelverzerrung.
+//! \param Code Baudot-Code des zu sendenden Zeichens.
+//! \param Zerrgrad Grad der Verzerrung (Millisekunden oder Prozent)
 static void PruefSendeZeichen(uint8_t Funktion, uint8_t Code, int8_t Zerrgrad)
 	{
 	TMsTimer SendeTimer;
@@ -840,6 +864,10 @@ static void PruefSendeZeichen(uint8_t Funktion, uint8_t Code, int8_t Zerrgrad)
 	}
 
 
+//! Sendet RYRYRYRYRYRY mit definierter Verzerrung.
+//-------------------------------------------------------------------------
+//! \param Funktion Welches Bit / welche Bits sind zu verzerren:
+//! 1-5 = Datenbits, 6 = Startbit, 7 = Stopbit, 8 = alle, 9 = Pegelverzerrung.
 static void Pruefsendung(uint8_t Funktion)
 	{
 				// Funktionen:		0,	1,	2,	3,	4,	5,	6,	7,	8,	9 
@@ -878,6 +906,8 @@ static void Pruefsendung(uint8_t Funktion)
 	}
 
 
+
+//! Behandelt die Funktion des Moduls als Testsender für definiert verzerrte Zeichen.
 static void VerbindungTestsender()
 	{
 	KurzePause();	
@@ -929,9 +959,7 @@ static void VerbindungTestsender()
 	} // VerbindungTestsender
 
 
-// Verbindungen bearbeiten
-// =======================
-
+//! Bearbeitet alle kommenden Verbindungen.
 static void VerbindungKommend()
 	{
 	LED_EIN(GRUEN);
@@ -972,8 +1000,8 @@ static void VerbindungKommend()
 	}
 	
 
+//! wird nach kurzem Tastendruck aufgerufen
 static void Deaktivieren()
-// wird nach kurzem Tastendruck aufgerufen
 	{
 	LED_EIN(BLAU);
 	Aktivieren(false);
@@ -989,12 +1017,12 @@ static void Deaktivieren()
 	} // Deaktivieren
 
 
+//! wird nach langem Tastendruck aufgerufen
 static void Konfiguration()
-// wird nach langem Tastendruck aufgerufen
 	{
 	if (!WarteKonfig)
 		{
-		WarteKonfig = true;
+		WarteKonfig = true; //! \todo dies hat noch gar keine Auswirkung...
 		LED_EIN(ROT);
 		}
 	else

@@ -1,4 +1,7 @@
 // das Ganze nur, wenn es nicht abgeschaltet ist
+
+//! \todo DOXYGEN noch nicht ganz fertig (Debugging fehlt)
+
 #ifndef OHNE_SPEICHER
 
 #include <inttypes.h>
@@ -20,10 +23,10 @@
 // ===========================
 
 #define EXTEEPROM_DEBUG
-	// Wenn definiert, kann interaktiv das Externe EEPROM ausgelesen werden.
+	//!< Wenn definiert, kann interaktiv das Externe EEPROM ausgelesen werden.
 
 //#define SWTWI_SHOWMSG
-	// wenn definiert, wird der Eeprom-Zugriff protokolliert.
+	// !< wenn definiert, wird der Eeprom-Zugriff protokolliert.
 
 
 // Ausgabe-Funktionen für's Debuggen
@@ -35,9 +38,14 @@ extern void LokalZeichenAusgabe(char c);
 extern void LokalHexAusgabe(uint8_t i);
 extern void SerSendFlush();
 
+void FehlerStop(uint8_t Code); // aus SeriellUndSpeicher.c
 
+
+// ####################################################################################
 // Software-TWI-Code
 // =================
+// Allgemein für alle Arten von TWI-Bausteinen
+// ####################################################################################
 
 #ifdef SWTWI_DEBUG
 
@@ -74,26 +82,23 @@ extern void SerSendFlush();
 #endif //SWTWI_DEBUG
 
 
-void FehlerStop(uint8_t Code); // aus SeriellUndSpeicher.c
-
-
-// Variablen für Software I²C-Bus
+//! Variablen für Software I²C-Bus
 // ------------------------------
-//	nur ein Master, nur Master-Mode
+//!	nur ein Master, nur Master-Mode
 
 typedef struct 
 	{
-	uint8_t Phase; // 0 = untätig, 1-254 = Transfer läuft, 255 = Transfer abgeschlossen
-				   // Wechsel von 255 auf 0 muß durch Applikation erfolgen, vorher aber AnzDaten auf 0 setzen
-	uint8_t Adresse; 
-	uint8_t *Puffer; 
-	uint8_t AnzDaten; // Soll-Anzahl Daten-Bytes, bei >= 1 geht es los. 
-					  // 1 = Adresse + 1 Daten-Byte! 
-	uint8_t Ergebnis; // Ist-Anzahl übertragene Bytes; ideal: AnzDaten + 1 (1 für Adresse)
+	uint8_t Phase; //!< 0 = untätig, 1-254 = Transfer läuft, 255 = Transfer abgeschlossen
+				   //!< Wechsel von 255 auf 0 muß durch Applikation erfolgen, vorher aber AnzDaten auf 0 setzen
+	uint8_t Adresse; //!< TWI-Adresse des Slave
+	uint8_t *Puffer; //!< Zeiger auf bereitgestellten / gefüllten Datenpuffer.
+	uint8_t AnzDaten; //!< Soll-Anzahl Daten-Bytes, bei >= 1 geht es los. 
+					  //!< 1 = Adresse + 1 Daten-Byte! 
+	uint8_t Ergebnis; //!< Ist-Anzahl übertragene Bytes; ideal: AnzDaten + 1 (1 für Adresse)
 	// intern:
-	uint8_t AktByte; // Aktuell zu übertragenes Daten-Byte (ggf. auch Adresse)
-	uint8_t BitNr;
-	uint8_t ByteNr; // wandert durch den Puffer
+	uint8_t AktByte; //!< Aktuell zu übertragenes Daten-Byte (ggf. auch Adresse)
+	uint8_t BitNr; //!< Aktuell gesendetes / empfangenes Bit.
+	uint8_t ByteNr; //!< wandert durch den Puffer
 	} T_SwTwiTransferdaten;
 
 // gültige "Zustände":
@@ -104,9 +109,9 @@ typedef struct
 //	255			x		Transfer abgeschlossen
 			
 
-#ifdef EXTEEPROM_SIMULATION
+#ifdef EXTEEPROM_SIMULATION 
 
-#define XEEPROM_SIZE 256U
+#define XEEPROM_SIZE 256U //!< Für interne Simulation des externen EEPROM.
 
 uint16_t XeeSimAdr = 0;
 
@@ -171,9 +176,11 @@ ISR(TIMER2_COMPA_vect)
 #define BitDebugOut(x)
 
 
+
+//! regelmäßig aufrufen für Software-TWI.
+//------------------------------------------
+//! maximale TWI-Frequenz = halbe Aufruf-Frequenz
 void SwTwiAktion(volatile T_SwTwiTransferdaten *p)
-	// regelmäßig aufrufen für Software-TWI
-	// maximale TWI-Frequenz = halbe Aufruf-Frequenz
 	{
 	switch (p->Phase)
 		{
@@ -440,35 +447,43 @@ extern void DoSwTwi();
 // EEPROM-Zugriff über SwTWI
 // =========================
 
-volatile T_SwTwiTransferdaten EepromTwi;
+volatile T_SwTwiTransferdaten EepromTwi; //!< Die Arbeitsdaten für einen Software-TWI-Bus
 
 
+//! Extern regelmäßig aufzurufende Funktion für den Ablauf des Softwarebasierten TWI-Masters.
+//! Funktion kehrt sehr schnell zurück. (nur ein Bit je Aufruf).
 void DoSwTwi()
 	{
 	SwTwiAktion(&EepromTwi);
 	}
 
 
-#define XEEPROM_SIZE 32768U
+// ####################################################################################
+// Zugriff auf EEPROM mit TWI-Schnittstelle über Software-TWI
+// ####################################################################################
+
+	
 
 // Daten für Interface zum Externen Eeprom
 // ---------------------------------------
 
-#define XEEPROM_PUFFER_MAX 32
+#define XEEPROM_SIZE 32768U //!< Größe des externen EEPROM
+
+#define XEEPROM_PUFFER_MAX 32 //!< Zwischengespeicherte Daten
 //#define XEEPROM_PUFFER_MAX 8
 	// muss 2er Potenz sein
 
-#define XEEPROM_TWI_ADR 0xA0
+#define XEEPROM_TWI_ADR 0xA0 //!< TWI-Adresse des EEPROM.
 
 typedef struct
 	{
-	uint16_t StartAdr;
-	uint8_t TransfBuf[2+XEEPROM_PUFFER_MAX];
-	uint8_t SchreibAnz; // Anzahl beschriebener Byte
-	bool Gesperrt; // wird gerade gelesen oder geschrieben
-	} TEeZwischenPuffer;
+	uint16_t StartAdr; //!< Start-Adresse im EEPROM
+	uint8_t TransfBuf[2+XEEPROM_PUFFER_MAX]; //!< Datenpuffer
+	uint8_t SchreibAnz; //!< Anzahl beschriebener Byte
+	bool Gesperrt; //!< wird gerade gelesen oder geschrieben
+	} TEeZwischenPuffer; //!< Daten für EEPROM-Zugriff.
 
-enum { Frei, Auslesen, Schreiben } EeMode;
+enum { Frei, Auslesen, Schreiben } EeMode; //!< Art des EEPROM-Zugriffs
 
 // gültige Zustände:
 // EeMode		EZP.Gesperrt	Bedeutung
@@ -479,9 +494,11 @@ enum { Frei, Auslesen, Schreiben } EeMode;
 //	Schreiben	true			Puffer wird in das EEPROM übertragen, nicht mehr beschreiben
 
 
-TEeZwischenPuffer EZP, HilfEZP;
+TEeZwischenPuffer EZP; //!< Zwischen-Puffer für EEPROM-Zugriff.
+TEeZwischenPuffer HilfEZP; //!< Hilfs-Zwischen-Puffer für EEPROM-Zugriff bei gleichzeitigem Lesen und Schreiben.
 
 
+//! Initialisierung des EEPROM-Zugriffs.
 void EeInit()
 	{
 	EeMode = Frei;
@@ -497,24 +514,28 @@ void EeInit()
 	}
 
 
+//! Abbruch eines EEPROM-Zugriffs.
 void EeAbbruch()
 	{
 	EeInit();
 	}
 
 
+//! Errechnet Anfang eines Blockes im EEPROM zu einer gegebenen Adresse.
 static inline uint16_t EeBlockAnf(uint16_t Adresse) // Blockanfang
 	{
 	return (Adresse & ~(XEEPROM_PUFFER_MAX - 1));
 	}
 
 	
+//! Beschränkt eine EEPROM-Speicheradresse auf den erlaubten Bereich.
 static inline uint16_t EeAdrNorm(uint16_t adr)
 	{
 	return adr & (XEEPROM_SIZE - 1);
 	}
 
 
+//! Prüft, ob laufender EEPROM-Zugriff abgeschlossen ist.	
 static void EeTransferPruefen()
 	{
 	if (EepromTwi.Phase != 255)
@@ -596,6 +617,7 @@ static void EeTransferPruefen()
 	}
 	
 
+//! Startet einen TWI-Zugriff auf das EEPROM.	
 static void EeStartTransfer()
 	{
 	#ifdef SWTWI_SHOWMSG
@@ -660,12 +682,18 @@ static void EeStartTransfer()
 
 bool EeAbschliessen();
 
-			
+	
+//! Macht einen Lesezugriff auf das EEPROM.
+//--------------------------------------------	
+//! optimiert auf sequentielles Lesen, das heißt: beim Lesen des letzten Byte 
+//! wird der Puffer verworfen und schon der nächste Block geholt!
+//! Blockiert nicht, solange der Zugriff nicht abgeschlossen ist.
+//! \param [in,out] Adresse Speicheradresse im EEPROM
+//! \param [out] Wert Ablageort für ausgelesenes Wert
+//! \param [in] inc Adresse inkrementieren, wenn erfolgreich
+//! \retval true Zugriff erfolgt, Wert ist befüllt
+//! \retval false Zugriff noch nicht beendet, Funktionsaufruf ggf. wiederholen.
 bool EeLesen(uint16_t* Adresse, uint8_t *Wert, bool inc) 
-	// optimiert auf sequentielles Lesen
-	// das heißt: beim Lesen des letzten Byte wird der Puffer verworfen und schon der nächste Block geholt!
-	// true: gültig, false: noch nicht gültig
-	// inc: Adresse inkrementieren, wenn erfolgreich
 	{
 	if (EeMode == Schreiben) 
 		if (!EeAbschliessen())
@@ -707,6 +735,13 @@ bool EeLesen(uint16_t* Adresse, uint8_t *Wert, bool inc)
 	}
 	
 
+//! Macht einen Lesezugriff auf das EEPROM.
+//--------------------------------------------	
+//! optimiert auf sequentielles Lesen, das heißt: beim Lesen des letzten Byte 
+//! wird der Puffer verworfen und schon der nächste Block geholt!
+//! Blockiert bis der Zugriff abgeschlossen ist.
+//! \param [in] Adresse Speicheradresse im EEPROM
+//! \return gelesenes Byte aus dem Eeprom.
 uint8_t EeLesen2(uint16_t Adresse) 
 	// wartet bis erfolgreich
 	{
@@ -718,6 +753,11 @@ uint8_t EeLesen2(uint16_t Adresse)
 	}
 	
 	
+//! Hilfsfunktion für Schreibzugriff auf EEPROM.
+//! \param ezp zu bearbeitender Puffer
+//! \param [in] Adresse Speicheradresse im EEPROM
+//! \param [in] Wert für die EEPROM-Speicherzelle.
+//! \retval true wenn Puffer frei für die Annahme des Bytes.
 static bool EePufferSchreib(TEeZwischenPuffer *ezp, uint16_t Adresse, uint8_t Wert) 
 	{
 	if (ezp->SchreibAnz == 0)
@@ -742,10 +782,16 @@ static bool EePufferSchreib(TEeZwischenPuffer *ezp, uint16_t Adresse, uint8_t We
 	}
 		
 
+//! Macht einen Lesezugriff auf das EEPROM.
+//--------------------------------------------	
+//! optimiert auf sequentielles Schreiben.
+//! Blockiert nicht, solange der Zugriff nicht abgeschlossen ist.
+//! \param [in,out] Adresse Speicheradresse im EEPROM
+//! \param [in] Wert zu speicherndes Byte
+//! \param [in] inc Adresse inkrementieren, wenn erfolgreich
+//! \retval true Zugriff erfolgt Wert ist geschrieben.
+//! \retval false Zugriff noch nicht beendet, Funktionsaufruf ggf. wiederholen.
 bool EeSchreiben(uint16_t* Adresse, uint8_t Wert, bool inc) 
-	// optimiert auf sequentielles Schreiben
-	// true: abgeschlossen, false: nochmal aufrufen
-	// inc: Adresse inkrementieren, wenn erfolgreich
 	{
 	if (EeMode == Auslesen) 
 		EeMode = Frei;
@@ -787,7 +833,12 @@ bool EeSchreiben(uint16_t* Adresse, uint8_t Wert, bool inc)
 	}
 
 
-bool EeAbschliessen() // true: abgeschlossen, false: nochmal aufrufen
+//! Aktuellen Lese- oder Schreibzugriff beenden.
+//--------------------------------------------	
+//! Blockiert nicht, solange der Zugriff nicht abgeschlossen ist.
+//! \retval true Zugriff ist abgeschlossen.
+//! \retval false Zugriff noch nicht beendet, Funktionsaufruf ggf. wiederholen.
+bool EeAbschliessen() 
 	{
 	if (EeMode == Auslesen)
 		EeMode = Frei;
@@ -980,8 +1031,9 @@ void XEepromDebug()
 #endif //def EXTEEPROM_DEBUG
 
 
+// ###############################################################################
 // Speicherung von Telegrammen im EEPROM
-// =====================================
+// ###############################################################################
 
 // Variablen für Meldungsspeicher im externen EEPROM
 // -------------------------------------------------
@@ -1009,26 +1061,27 @@ enum { MsgStartNeu = 0xAA, MsgStart = 0xCC, MsgEnde = 0xDD, MsgEndeLetzte = 0xEE
 //  [E] Position des Zeiger EndeLetzteMeldung: Ende der letzten Meldung (das Byte wird bei der
 //                                           nächsten empfangenen Meldung überschrieben
 
-uint16_t EndeLetzteMeldung; // Letztes Byte der Letzten Meldung. Wird erst am Ende des Empfangs 
-							// der neuen Nachricht aktualisiert
+uint16_t EndeLetzteMeldung; //!< Letztes Byte der Letzten Meldung. Wird erst am Ende des Empfangs 
+							//!< der neuen Nachricht aktualisiert
 
-uint16_t SpeicherAdresse; // tatsächliche Adresse beim Schreiben in das externe EEPROM
+uint16_t SpeicherAdresse; //!< tatsächliche Adresse beim Schreiben in das externe EEPROM
 
-uint16_t BeginnErsteMeldung; // tatsächliche Adresse der ersten ungelesenen Meldung im externen EEPROM
-	// ODER auch Adresse des Ende einer Meldung, wenn keine ungelesene Meldung im externen EEPROM
+uint16_t BeginnErsteMeldung; //!< tatsächliche Adresse der ersten ungelesenen Meldung im externen EEPROM
+	//!< ODER auch Adresse des Ende einer Meldung, wenn keine ungelesene Meldung im externen EEPROM
 
-uint16_t BeginnErsteMeldung2; // im internen EEPROM gespeicherte Adresse der ersten ungel. Meldung
-	// wird nur bei großen Abweichungen ( > 1000 Zeichen) aktualisiert
+uint16_t BeginnErsteMeldung2; //!< im internen EEPROM gespeicherte Adresse der ersten ungel. Meldung
+	//!< wird nur bei großen Abweichungen ( > 1000 Zeichen) aktualisiert
 
-uint16_t WiedergabeAdresse;
+uint16_t WiedergabeAdresse; //!< Leseposition in der aktuell Wiedergegebenen Meldung
 
-uint16_t BeginnLetzteWiedergMeldung; // Beginn der aktuell Wiedergegebenen Meldung
+uint16_t BeginnLetzteWiedergMeldung; //!< Beginn der aktuell Wiedergegebenen Meldung
 
-#define ADR_UNGUELTIG ((uint16_t) ~1)
+#define ADR_UNGUELTIG ((uint16_t) ~1) //!< Wert für ungültige Adressen
 
-bool SpeichernEin = false;
+bool SpeichernEin = false; //!< Meldungsempfang wird gespeichert.
 
 
+//!< Alles im EEPROM löschen.
 void MsgSpeicherLoeschen()
 	{
 	BeginnErsteMeldung2 = 0;
@@ -1045,8 +1098,8 @@ void MsgSpeicherLoeschen()
 	}
 
 	
+//!< Initialisiert alle Verweise auf die erste, letzte usw. Meldung
 void MsgSpeicherInit()
-	// Initialisiert alle Verweise auf die erste, letzte usw. Meldung
 	{
 	bool StartGefunden = false;
 
@@ -1089,6 +1142,7 @@ void MsgSpeicherInit()
 	}
 	
 
+//! Ein Zeichen in das EEPROM schreiben.
 void AufzeichnungZeichen(char c)
 	{
 	if (SpeicherAdresse != ADR_UNGUELTIG)
@@ -1096,6 +1150,7 @@ void AufzeichnungZeichen(char c)
 	}
 
 
+//! Ein Zahl in das EEPROM schreiben.
 void AufzeichnungZahl2(uint8_t x)
 	{ // wartet auf jeden fall auf erfolgreiche Ausführung...
 	uint8_t z = x / 10;
@@ -1110,6 +1165,7 @@ void AufzeichnungZahl2(uint8_t x)
 	}
 
 
+//! Beginn einer Aufzeichnung im EEPROM markieren (Datum und Uhrzeit)	
 bool AufzeichnungBeginn(uint8_t Jahr, uint8_t Monat, uint8_t Tag, uint8_t Stunde, uint8_t Minute)
 	{
 	// Position feststellen
@@ -1135,6 +1191,7 @@ bool AufzeichnungBeginn(uint8_t Jahr, uint8_t Monat, uint8_t Tag, uint8_t Stunde
 	}
 
 
+//! Ende einer Aufzeichnung im EEPROM markieren 
 void AufzeichnungEnde()
 	{
 	while (!EeSchreiben(&SpeicherAdresse, MsgEndeLetzte, false))
@@ -1152,6 +1209,7 @@ void AufzeichnungEnde()
 	}
 	
 
+//! Laufende Aufzeichnung abbrechen.
 void AufzeichnungAbbruch()
 	{
 	EeAbbruch();
@@ -1163,9 +1221,10 @@ void AufzeichnungAbbruch()
 // ==========
 
 
+//! initialisiert die Wiedergabe. 
+//------------------------------
+//! Danach muss WiedergabeNaechsteMeldung aufgerufen werden
 void WiedergabeStart()
-	// initialisiert die Wiedergabe. 
-	// Danach muss WiedergabeNaechsteMeldung aufgerufen werden
 	{
 	while (!EeAbschliessen())
 		DoSwTwi();
@@ -1174,9 +1233,11 @@ void WiedergabeStart()
 	}
 
 
+//! Springt zur nächste Meldung im EEPROM 
+//---------------------------------------------
+//! darf auch mehrfach aufgerufen werden, bleibt bei neuer Meldung stehen
+//! \retval true wenn noch eine ungelesene Meldung gefunden wurde...
 bool WiedergabeNaechsteMeldung()
-	// liefert true, wenn noch eine ungelesene Meldung gefunden wurde...
-	// darf auch mehrfach aufgerufen werden, bleibt bei neuer Meldung stehen
 	{
 	if (WiedergabeAdresse == ADR_UNGUELTIG)
 		return false;
@@ -1210,8 +1271,11 @@ SerSendFlush();
 	}
 	
 
+//! Gibt nächste Meldung aus dem EEPROM wieder.
+//---------------------------------------------
+//! darf auch mehrfach aufgerufen werden, bleibt bei neuer Meldung stehen
+//! \retval Zeichen auf dem EEPROM, '\0' am Meldungsende (wiederholbar).
 char WiedergabeZeichen()
-	// liefert fortlaufend '\0' am Meldungsende
 	{
 	if (WiedergabeAdresse == ADR_UNGUELTIG)
 		return '\0';
@@ -1237,8 +1301,10 @@ char WiedergabeZeichen()
 	}
 
 
+//! Löscht die aktuell wiedergegebene Meldung.
+//----------------------------------------------	
+//! springt auch automatisch zur nächsten Meldung
 void WiedergabeLoescheAktuelleMeldung()
-	// springt auch automatisch zur nächsten Meldung
 	{
 	bool ErsteMeldungWurdeGeloescht;
 	uint16_t NaechsteNeueMeldung;
@@ -1278,6 +1344,8 @@ void WiedergabeLoescheAktuelleMeldung()
 	}
 	
 	
+//! Beendet die laufende Wiedergabe
+//----------------------------------------------	
 void WiedergabeEnde()
 	{
 	while (!EeAbschliessen())

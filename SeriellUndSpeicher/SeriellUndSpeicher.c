@@ -128,7 +128,7 @@
 
 
 //! Identifikation im Programmspeicher
-PROGMEM const char Identifier[] = "___TxP2_SeriellUndSpeicher___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 
 
 #include "timercs.h"
@@ -622,7 +622,7 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin);
 //! Bearbeitet ankommende Verbindungen.
 //-------------------------------------
 //! Sendet an Verbindungspartner den Einschaltauftrag. Startet ggf. die 
-//! Aufzeichnung.
+//! Aufzeichnung. Kehrt erst nach Verbindungsabbau zurück.
 static void VerbindungKommend()
 	{
 	bool SeriellEin;
@@ -663,6 +663,10 @@ static void VerbindungKommend()
 	}
 	
 
+//! Bearbeitet gehende Verbindungen.
+//-------------------------------------
+//! Wartet auf Wahlziffern, ermittelt Verbindungspartner, sendet den Einschaltauftrag. 
+//! Kehrt erst nach Verbindungsabbau zurück.
 static void VerbindungGehend()
 	{
 	LED_EIN(GELB);
@@ -727,6 +731,7 @@ static void VerbindungGehend()
 	}
 
 
+//! Schaltet LED entspechend der Status-Bits an.
 static void LEDAktualisieren()
 	{
 	if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
@@ -747,6 +752,7 @@ static void LEDAktualisieren()
 	}
 	
 	
+//! Schaltet LED entspechend der Status-Bits an.
 static void GeSendeText(char* s)
 	{
 	GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
@@ -758,6 +764,7 @@ static void GeSendeText(char* s)
 	}
 	
 
+//! Sendet einen Text aus dem Programmspeicher an den Verbindungspartner.
 static void GeSendeTextP(PGM_P s)
 	{
 	GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
@@ -774,12 +781,21 @@ static void GeSendeTextP(PGM_P s)
 
 #ifndef OHNE_SPEICHER
 
+
+//! Gibt die aufgezeichneten Meldungen wieder.
+//--------------------------------------------
+//! Basisfunktion für lokale Wiedergabe und Fernabfrage. 
+//! \param FnZchnAusg Funktion für die Wiedergabe eines Zeichens.
+//! \param FnTextPAusg Funktion für die Wiedergabe eines Textes aus dem Programmspeicher.
+//! \param FnAusgFlush Funktion für die Leerung des Wiedergabepuffers.
+//! \param FnUnterbrechung Funktion für die Abfrage, ob der Benutzer ein Zeichen eingegegeben hat.
+//! \param FnZeichenEing Funktion für die Abfrage eines durch den Benutzer eingegegeben Zeichens.
+
 static void Wiedergabe(void (*FnZchnAusg)(char c),
 						void (*FnTextPAusg)(PGM_P s),
 						void (*FnAusgFlush)(),
 						bool (*FnUnterbrechung)(),
 						char (*FnZeichenEing)())
-	// gibt die aufgezeichneten Meldungen wieder
 	{ 
 	bool Beenden;
 	uint8_t ZeichenZaehler, ZeilenZaehler;
@@ -973,6 +989,8 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 #endif //ndef OHNE_SPEICHER
 
 	
+//! Gibt die eigene Kennung beim Verbindungspartner aus und wertet eingegegeben Text
+//! auf Übereinstimmung mit dem gespeicherten Kennwort aus.
 static bool KennungsausgabeUndKennwortAbfrage(bool SeriellEin, bool AufzeichnungEin)
 	{
 	char *p;
@@ -1036,8 +1054,8 @@ static char ZeichenLesen()
 	}
 	
 	
+//! Hilfsfunktion bei Wiedergabe an Gegenstelle (Fernabfrage)
 static void ZeichenSenden(char c)
-// nur Hilfsfunktion bei Wiedergabe an Gegenstelle (Fernabfrage)
 	{
 	while (!GeSendeZeichen(c))
 		{
@@ -1049,8 +1067,8 @@ static void ZeichenSenden(char c)
 	}
 	
 
+//! Hilfsfunktion bei Wiedergabe an Gegenstelle (Fernabfrage)
 static void SendenAbschliessen()
-// nur Hilfsfunktion bei Wiedergabe an Gegenstelle (Fernabfrage)
 	{
 	while (!PufferLeer(&SendePuffer) && !KoAusschalten())
 		{
@@ -1059,7 +1077,10 @@ static void SendenAbschliessen()
 		}
 	}
 	
-		
+	
+//! Behandelt nach Verbindungsaufbau die Datenübertragung in beiden Richtungen.
+//-----------------------------------------------------------------------------
+//! Wird bei kommenden und bei gehenden Verbindungen benutzt.
 static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 	{
 	while (true)
@@ -1146,11 +1167,11 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 		LEDAktualisieren();
 		}
 
-	}
+	} // VerbindungSteht
 
 
+//! wird nach kurzem Tastendruck aufgerufen
 static void Deaktivieren()
-// wird nach kurzem Tastendruck aufgerufen
 	{
 	LED_EIN(BLAU);
 	Aktivieren(false);
@@ -1169,8 +1190,8 @@ static void Deaktivieren()
 	} // Deaktivieren
 
 
+//! wird nach langem Tastendruck aufgerufen
 static void Konfiguration()
-// wird nach langem Tastendruck aufgerufen
 	{
 	LED_EIN(ROT);
 	Aktivieren(false);
@@ -1227,6 +1248,7 @@ static void Konfiguration()
 	}
 
 
+//! Testfunktion zur Auflistung aller angeschlossenen Module	
 static void BusteilnehmerListen()
 	{
 	LokalTextAusgabeP(PSTR("\r\nStatus der angeschlossenen Module:\r\n"));
