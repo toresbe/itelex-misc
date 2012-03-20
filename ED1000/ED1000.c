@@ -294,7 +294,10 @@ static void ED1000IO()
 		//		__int8 BCoef[NCoef+1] = { 128, -87,  99	};
 		// --> ys0 = (67 * (x0 - x2) + 87 * ys1 - 99 * ys2) / 128;
 		//           A0/A2            -B1        -B2           B0
-		int16_t h = (67 * (x0 - x2) + 87 * ys1 - 99 * ys2);
+		// Zur Vermeidung von Überlauf bei 8-Bit-Berechnungen alle A-Koeffizienten / 2
+		// --> ys0 = (33 * (x0 - x2) + 87 * ys1 - 99 * ys2) / 128;
+		//           A0/A2            -B1        -B2           B0
+		int16_t h = (33 * (x0 - x2) + 87 * ys1 - 99 * ys2);
 		ys0 = h >> 7;
 
 		// MARK: 
@@ -304,7 +307,10 @@ static void ED1000IO()
 		//		__int8 BCoef[NCoef+1] = { 128,  19, 102 };
 		// --> ym0 = (80 * (x0 - x2) - 19 * ym1 - 102 * ym2) / 128;
 		//           A0/A2            -B1        -B2           B0
-		h = (80 * (x0 - x2) - 19 * ym1 - 102 * ym2);
+		// Zur Vermeidung von Überlauf bei 8-Bit-Berechnungen alle A-Koeffizienten / 2
+		// --> ym0 = (40 * (x0 - x2) - 19 * ym1 - 102 * ym2) / 128;
+		//           A0/A2            -B1        -B2           B0
+		h = (40 * (x0 - x2) - 19 * ym1 - 102 * ym2);
 		ym0 = h >> 7;
 		
 #endif //ndef V21
