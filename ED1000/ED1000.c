@@ -1000,11 +1000,6 @@ int main()
 	wdt_enable(WDTO_2S);
 #endif //NOWATCHDOG
 
-	// nur für den Simulator:
-	PINB = 0xFF;
-	PINC = 0xFF;
-	PIND = 0xFF;
-
 	// Ports initialisieren
 	init_LEDROT();
 	init_LEDGELB();
