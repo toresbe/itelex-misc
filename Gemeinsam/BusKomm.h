@@ -16,21 +16,21 @@ extern volatile uint8_t Status;
 
 //!< Manches Bit doppelt belegt, abhängig von Bit 7.
 
-enum { StatBit_Frei				= 7	}; //!< keine Verbindung besteht (weder innen noch außen)
-enum { StatBit_BusKdoEmpfangen	= 6	}; //!< Empfangenes Kommando noch nicht abschließend bearbeitet
+enum { StatBit_Frei				= 7	}; //!< 0x80, keine Verbindung besteht (weder innen noch außen)
+enum { StatBit_BusKdoEmpfangen	= 6	}; //!< 0x40, Empfangenes Kommando noch nicht abschließend bearbeitet
 // folgende Bits gelten nur bei Frei = JA:
-enum { StatBit_LeitungKennung	= 5 }; //!< Leitungsschnittstelle (nur gültig bei StatBit_Frei = 1)
-enum { StatBit_SpezialGeraetKennung	= 4 }; //!< Spezialgerät, nicht für Dialog mit Benutzer geeignet (nur gültig bei StatBit_Frei = 1)
+enum { StatBit_LeitungKennung	= 5 }; //!< 0xA0, Leitungsschnittstelle (nur gültig bei StatBit_Frei = 1)
+enum { StatBit_SpezialGeraetKennung	= 4 }; //!< 0x90, Spezialgerät, nicht für Dialog mit Benutzer geeignet (nur gültig bei StatBit_Frei = 1)
 // folgende Bits gelten nur bei Frei = NEIN:
-enum { StatBit_Verbunden		= 5	}; //!< Verbindung ist komplett hergestellt 
-enum { StatBit_AngerufenBelegt	= 4	}; //!< Fernschreiber wurde von anderem Partner (intern oder extern) aktiviert
-enum { StatBit_FsBefBetrieb		= 3	}; //!< Fernschreiber ist eingeschaltet (Polarität)
-enum { StatBit_FsBefEin			= 2	}; //!< Fernschreiber Stromschleife ist aktivert (Ausgabe)
-enum { StatBit_FsMeldBetrieb	= 1	}; //!< Fernschreiber angeschaltet (Stromschleife aktiv oder nur kurz unterbrochen
-enum { StatBit_FsMeldEin		= 0 }; //!< Fernschreiber Stromschleife mit Stromfluß (Einlesung)
+enum { StatBit_Verbunden		= 5	}; //!< 0x20, Verbindung ist komplett hergestellt 
+enum { StatBit_AngerufenBelegt	= 4	}; //!< 0x10, Fernschreiber wurde von anderem Partner (intern oder extern) aktiviert
+enum { StatBit_FsBefBetrieb		= 3	}; //!< 0x08, Fernschreiber ist eingeschaltet (Polarität)
+enum { StatBit_FsBefEin			= 2	}; //!< 0x04, Fernschreiber Stromschleife ist aktivert (Ausgabe)
+enum { StatBit_FsMeldBetrieb	= 1	}; //!< 0x02, Fernschreiber angeschaltet (Stromschleife aktiv oder nur kurz unterbrochen
+enum { StatBit_FsMeldEin		= 0 }; //!< 0x01, Fernschreiber Stromschleife mit Stromfluß (Einlesung)
 
-typedef volatile enum { Ok, KeineAntwort, Abbruch, Besetzt } TBusErgebnis;
-typedef volatile enum { Nichts, Senden, BedSenden, Lesen, Fertig } TBusAuftrag;
+typedef volatile enum { Ok, KeineAntwort, Abbruch, Besetzt } TBusErgebnis; //!< Ergebnis des letzten abgeschlossenen Buszugriffs.
+typedef volatile enum { Nichts, Senden, BedSenden, Lesen, Fertig } TBusAuftrag; //!< Art des gewünschten Buszugriffs.
 
 extern volatile TBusAuftrag BusAuftrag; //!< Aktuell anstehende Bus-Aktivität des eigenen Moduls.
 extern volatile TBusErgebnis BusErgebnis; //!< Ergebnis des letzten BusSenden Aufrufs. Besetzt nur nach BedSenden. 
