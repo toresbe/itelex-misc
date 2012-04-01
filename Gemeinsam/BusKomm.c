@@ -1,7 +1,7 @@
 #include <inttypes.h>
 #include <avr/wdt.h>
 
-#include <bool.h>
+#include <stdbool.h>
 #include "TwiEvents.h"
 
 #include "TxP2-Defs.h"

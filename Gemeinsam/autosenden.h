@@ -4,7 +4,7 @@
 
 #include <avr/pgmspace.h>
 
-#include "bool.h"
+#include <stdbool.h>
 
 void AutoSendenTextP(PGM_P s);
 

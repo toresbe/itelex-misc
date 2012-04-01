@@ -3,7 +3,7 @@
 #define __TASTE_H__
 
 #include <inttypes.h>
-#include <bool.h>
+#include <stdbool.h>
 
 
 typedef enum { 

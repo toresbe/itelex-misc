@@ -10,7 +10,7 @@
 
 // bei nicht zulässiger Aktion wird Reset durchgeführt!
 
-#include "bool.h"
+#include <stdbool.h>
 
 #include "FifoPuffer.h"
 

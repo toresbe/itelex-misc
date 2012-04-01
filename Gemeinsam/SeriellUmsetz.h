@@ -3,7 +3,7 @@
 #define __SERIELLUMSETZ_H__
 
 #include <inttypes.h>
-#include <bool.h>
+#include <stdbool.h>
 
 // Empfang: Umsetzung Seriell (Baudot) --> Parallel (Daten)
 	

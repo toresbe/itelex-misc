@@ -6,7 +6,7 @@
 #include <avr/pgmspace.h>
 #include <inttypes.h>
 
-#include "Bool.h"
+#include <stdbool.h>
 
 //! Wird in der Schleife beim Fern-Dialog aufgerufen.
 //--------------------------------------------------

@@ -2,7 +2,7 @@
 
 #define __BAUDOTCODE_H__
 
-#include <bool.h>
+#include <stdbool.h>
 
 enum { TtyCodeWR = 2 } ; //!< Baudot-Code für Wagenrücklauf.
 enum { TtyCodeZL = 8 } ; //!< Baudot-Code für Zeilenvorschub.

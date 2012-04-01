@@ -6,7 +6,7 @@
 
 #include <avr/pgmspace.h>
 
-#include "bool.h"
+#include <stdbool.h>
 
 extern PROGMEM char OkStrP[];
 

@@ -4,7 +4,7 @@
 
 #include <inttypes.h>
 #include <avr/interrupt.h>
-#include <bool.h>
+#include <stdbool.h>
 
 #include "bits.h"
 

@@ -7,9 +7,9 @@
 #include <inttypes.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <stdbool.h>
 
 #include "bits.h"
-#include "bool.h"
 
 #include "BaudotCode.h"
 #include "MsTimer.h"

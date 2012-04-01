@@ -3,7 +3,7 @@
 #define __FIFOPUFFER_H__
 
 #include <inttypes.h>
-#include <bool.h>
+#include <stdbool.h>
 
 enum { MaxPuffer = 50 } ; 
 
