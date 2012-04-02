@@ -399,7 +399,7 @@ static bool Handshake300(char Zeichen1, char Zeichen2, char WarteZeichen, uint8_
 			{
 			if (BIT_IS_SET(UCSR0A, RXC0)) // Zeichen empfangen
 				{
-				byte Stat = UCSR0A;
+				uint8_t Stat = UCSR0A;
 				char Empf = UDR0;
 				if (!BIT_IS_SET(Stat, FE0))
 					{

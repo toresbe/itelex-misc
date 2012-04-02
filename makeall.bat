@@ -1,4 +1,3 @@
-svn update .
 make -C AnalogModem2/default
 make -C ED1000/default
 make -C ED1000/FuerPrototyp
