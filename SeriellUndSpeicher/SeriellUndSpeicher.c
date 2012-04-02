@@ -497,14 +497,6 @@ char LokalZeichenLesen()
 	}
 	
 	
-//! Ist ein Zeichen von der seriellen Schnittstelle (Empfangspuffer) noch unbearbeitet?
-//! \returns Empfangspuffer ist nicht leer.	
-static bool LokalEingabeErfolgt()
-	{
-	return !PufferLeer(&SerInBuf);
-	}
-	
-	
 //! Ein Zeichen auf der seriellen Schnittstelle ausgeben.
 //-------------------------------------------------------
 //! Wenn Ausgabepuffer voll, blockiert diese Funktion, erledigt aber die 
@@ -764,19 +756,51 @@ static void GeSendeText(char* s)
 	}
 	
 
-//! Sendet einen Text aus dem Programmspeicher an den Verbindungspartner.
-static void GeSendeTextP(PGM_P s)
+// #define DEBUG_OUT
+
+
+//! Gibt die eigene Kennung beim Verbindungspartner aus und wertet eingegegeben Text
+//! auf Übereinstimmung mit dem gespeicherten Kennwort aus.
+static bool KennungsausgabeUndKennwortAbfrage(bool SeriellEin, bool AufzeichnungEin)
 	{
-	GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
-	while (pgm_read_byte(s) != '\0')
+	char *p;
+	char c;
+	
+	GeSendeText(Kennung);
+	//! \todo Kennungsausgabe auch Aufzeichnen.
+	
+	GeSendeCode(TtyCodeBuUm);
+
+	p = Kennwort;
+	while (true)
 		{
-		GeSendeZeichen(pgm_read_byte(s));
-		s++;
+		DoSwTwi();
+		if (KoEmpfZeichen(&c))
+			{
+			if (SeriellEin)
+				LokalZeichenAusgabe(c);
+
+#ifndef OHNE_SPEICHER
+			if (AufzeichnungEin)
+				AufzeichnungZeichen(c);
+#endif //ndef OHNE_SPEICHER
+
+			if ((c == '\r' || c == '\n') && *p == '\0')
+				{
+				// HACK TEST: LED_EIN(ROT);
+				return true;
+				}
+			else if (c == *p) // Vergleich eingegebenes Zeichen mit aktuellem Kennwort-Soll-Zeichen
+				p++; // erledigt gleichzeitig eine falsche Wortlänge
+			else
+				return false;
+			}
+				
+		if (KoAusschalten()) // falls Abbruch durch Sender
+			return false;
 		}
 	}
-
-
-// #define DEBUG_OUT
+	
 
 
 #ifndef OHNE_SPEICHER
@@ -986,49 +1010,24 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 	WiedergabeEnde();
 	}
 	
-#endif //ndef OHNE_SPEICHER
 
-	
-//! Gibt die eigene Kennung beim Verbindungspartner aus und wertet eingegegeben Text
-//! auf Übereinstimmung mit dem gespeicherten Kennwort aus.
-static bool KennungsausgabeUndKennwortAbfrage(bool SeriellEin, bool AufzeichnungEin)
+//! Sendet einen Text aus dem Programmspeicher an den Verbindungspartner.
+static void GeSendeTextP(PGM_P s)
 	{
-	char *p;
-	char c;
-	
-	GeSendeText(Kennung);
-	//! \todo Kennungsausgabe auch Aufzeichnen.
-	
-	GeSendeCode(TtyCodeBuUm);
-
-	p = Kennwort;
-	while (true)
+	GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
+	while (pgm_read_byte(s) != '\0')
 		{
-		DoSwTwi();
-		if (KoEmpfZeichen(&c))
-			{
-			if (SeriellEin)
-				LokalZeichenAusgabe(c);
-
-#ifndef OHNE_SPEICHER
-			if (AufzeichnungEin)
-				AufzeichnungZeichen(c);
-#endif //ndef OHNE_SPEICHER
-
-			if ((c == '\r' || c == '\n') && *p == '\0')
-				{
-				// HACK TEST: LED_EIN(ROT);
-				return true;
-				}
-			else if (c == *p) // Vergleich eingegebenes Zeichen mit aktuellem Kennwort-Soll-Zeichen
-				p++; // erledigt gleichzeitig eine falsche Wortlänge
-			else
-				return false;
-			}
-				
-		if (KoAusschalten()) // falls Abbruch durch Sender
-			return false;
+		GeSendeZeichen(pgm_read_byte(s));
+		s++;
 		}
+	}
+
+
+//! Ist ein Zeichen von der seriellen Schnittstelle (Empfangspuffer) noch unbearbeitet?
+//! \returns Empfangspuffer ist nicht leer.	
+static bool LokalEingabeErfolgt()
+	{
+	return !PufferLeer(&SerInBuf);
 	}
 	
 
@@ -1077,6 +1076,9 @@ static void SendenAbschliessen()
 		}
 	}
 	
+
+#endif //ndef OHNE_SPEICHER
+
 	
 //! Behandelt nach Verbindungsaufbau die Datenübertragung in beiden Richtungen.
 //-----------------------------------------------------------------------------

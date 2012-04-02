@@ -1,0 +1,10 @@
+svn update .
+make -C AnalogModem2/default
+make -C ED1000/default
+make -C ED1000/FuerPrototyp
+make -C ED1000/V.21
+make -C FernschrTW39/default
+make -C FernschrTW39/DoppelAusgabe
+make -C Messgeraet/default
+make -C SeriellUndSpeicher/default
+make -C SeriellUndSpeicher/OhneSpeicher
