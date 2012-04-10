@@ -520,7 +520,7 @@ void TwiInit()
 
 uint8_t WahlZuAdresse(uint8_t Wahl, uint8_t AnzZiffern)
 	{
-	if (AnzZiffern == 1)
+	if (AnzZiffern == 1 && Wahl <= 9)
 		return ((Wahl == 0) ? 110 : 100 + Wahl) << 1;
 	else
 		return ((Wahl == 0) ? 100 : Wahl) << 1;
