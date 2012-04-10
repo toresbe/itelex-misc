@@ -508,7 +508,7 @@ void TwiInit()
 //------------------------------------------------------
 //! \param Wahl Wahlziffer bzw. Wahlziffern.
 //! \param AnzZiffern Anzahl der Ziffern der Wahlnummer.
-//! \return TWI-Adresse zur Wahlziffer(n), nicht * 2
+//! \return TWI-Adresse zur Wahlziffer(n)
 
 //! \remarks Beispiele zu den Parametern: 
 //! \n Ziffern: 3 4 --> Wahl = 34, AnzZiffern = 2
@@ -529,7 +529,7 @@ uint8_t WahlZuAdresse(uint8_t Wahl, uint8_t AnzZiffern)
 
 //! Übersetzt eine TWI-Adresse in eine Wahlziffern-Folge.
 //------------------------------------------------------
-//! \param[in] Adresse TWI-Adresse zur Wahlziffer(n), nicht * 2
+//! \param[in] Adresse TWI-Adresse zur Wahlziffer(n)
 //! \param[out] AnzZiffern Anzahl der Ziffern der Wahlnummer.
 //! \return Wahlziffer bzw. Wahlziffern.
 
