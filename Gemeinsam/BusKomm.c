@@ -521,9 +521,15 @@ void TwiInit()
 uint8_t WahlZuAdresse(uint8_t Wahl, uint8_t AnzZiffern)
 	{
 	if (AnzZiffern == 1 && Wahl <= 9)
-		return ((Wahl == 0) ? 110 : 100 + Wahl) << 1;
-	else
-		return ((Wahl == 0) ? 100 : Wahl) << 1;
+		return ((Wahl == 0) ? 110 : (100 + Wahl)) << 1;
+	else if (AnzZiffern == 2)
+		{
+		if (Wahl == 0)
+			return 100 << 1;
+		else if (Wahl <= 99)
+			return Wahl << 1;
+		}
+	return BusAdrUngueltig; // also bei AnzZiffern != 1 und != 2 oder Wahl > 99
 	}
 
 
@@ -537,16 +543,24 @@ uint8_t WahlZuAdresse(uint8_t Wahl, uint8_t AnzZiffern)
 
 uint8_t AdresseZuWahl(uint8_t Adresse, uint8_t *AnzZiffern)
 	{
-	Adresse = Adresse >> 1;
-	if (Adresse > 100)
+	if (Adresse > BusAdrMax || Adresse < BusAdrMin)
 		{
-		*AnzZiffern = 1;
-		return (Adresse == 110) ? 0 : (Adresse - 100);
+		*AnzZiffern = 0;
+		return 0;
 		}
 	else
 		{
-		*AnzZiffern = 2;
-		return (Adresse == 100) ? 0 : Adresse;
+		Adresse = Adresse >> 1;
+		if (Adresse > 100)
+			{
+			*AnzZiffern = 1;
+			return (Adresse >= 110) ? 0 : (Adresse - 100);
+			}
+		else
+			{
+			*AnzZiffern = 2;
+			return (Adresse == 100) ? 0 : Adresse;
+			}
 		}
 	}
 
