@@ -37,7 +37,7 @@ volatile uint8_t BusKollisionZaehler;
 volatile bool BusEmpfMark;
 volatile bool BusEmpfMarkwechsel;
 volatile uint16_t TwiIsrCount;
-volatile uint8_t TwiWatchdogCount;
+volatile uint16_t TwiWatchdogCount;
 
 // lokal:
 static volatile uint8_t BusEmpfPuffer[EMPF_PUFFER_GROESSE]; 
