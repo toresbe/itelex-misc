@@ -154,7 +154,6 @@ ISR(TWI_vect)
 #endif //TWI_DEBUG
 	
 	TwiIsrCount++;
-	TwiWatchdogCount = 0;
 	
 	switch (TWSR & TwiEv_Mask)
 		{
@@ -277,6 +276,7 @@ ISR(TWI_vect)
 			
 		case TwiEv_SR_AddrACK		:
 			wdt_reset();
+			TwiWatchdogCount = 0;
         	CLR_BIT(NewStat, TWEA); // damit nach erstem Datenbyte NACK gesendet wird 
 			BusFrei = false;
 			DEBUG_BUSTRANSFER_EMPFANGSTART;
@@ -539,7 +539,7 @@ uint8_t WahlZuAdresse(uint8_t Wahl, uint8_t AnzZiffern)
 //! \param[out] AnzZiffern Anzahl der Ziffern der Wahlnummer.
 //! \return Wahlziffer bzw. Wahlziffern.
 
-//! \remarks Beispiele zu den Parametern und Übersetzungsregel siehe WahlZuAdresse.
+//! \remarks Beispiele zu den Parametern und Übersetzungsregel siehe WahlZuAdresse().
 
 uint8_t AdresseZuWahl(uint8_t Adresse, uint8_t *AnzZiffern)
 	{
