@@ -4,4 +4,4 @@ TW39: D1 BF
 Seriell: F9 D5 F7
 ED1000: F9 D5 F7
 Messgeraet: F9 D5 F7
-ip-Telex: FD D6 F7
+ip-Telex mit Bootloader: FD D6 F7
