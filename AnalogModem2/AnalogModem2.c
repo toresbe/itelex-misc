@@ -99,6 +99,11 @@ uint8_t VerbindungsaufbauVerzoegerung;
 	//!< Verzögerung in 1/10 sek. zwischen letzter Ziffer und Sendung des Kenntons (Originate Mark)
 	//!< beim Aufbau einer normalen TelexPhone-Verbindung.
 
+uint8_t WahlbeginnVerzoegerungFest;
+	//!< Verzögerung in 1/10 sek. zwischen Schleifenschluss und Freigabe der Wahl.
+	//!< Wenn Wert Null wird auf den Wählton gewartet.
+	//!< Wenn Wert größer Null wird diese feste Verzögerung gewartet.
+
 uint8_t NebenstellenTabelle[10]; 
 	//!< Nummern der Maschine, die bei Anrufen die Nachricht annehmen soll 
 	//!< (im Bereich 10 bis 99). \par
@@ -147,6 +152,8 @@ EEMEM uint8_t VerbindungsaufbauVerzoegerung_EE = 60;
 EEMEM uint8_t NebenstellenTabelle_EE[10] = { 31 } ; // alles andere mit 0 initialisiert
 	//!< #NebenstellenTabelle, Kopie im EEPROM.
 
+EEMEM uint8_t WahlbeginnVerzoegerungFest_EE = 0;
+	//!< #WahlbeginnVerzoegerungFest, Kopie im EEPROM
 
 enum { DiagnoseSpeicherLen = 50 } ;
 	//!< Größe des Debugging-Diagnosespeichers.
@@ -1469,7 +1476,9 @@ static void VerbindungGehend()
 	
 	enum { PhWarteWaehlton, PhWahl, PhKlingeln, PhAnswertone, PhWarteTraeger, PhHandshake } Phase;
 	Phase = PhWarteWaehlton;
-	
+	StartTimer(&SignaltonTimer);	
+		// für den Fall dass eine feste Verzögerung der Wahlfreigabe eingestellt ist.
+		
 	// Hauptschleife mit drei Aufgabe:
 	// a) auf Telegramme reagieren
 	// b) auf Zustandswechsel des Modems reagieren
@@ -1545,7 +1554,16 @@ static void VerbindungGehend()
 		switch (Phase)
 			{
 			case PhWarteWaehlton:
-				if (!BIT_IS_SET(GetState(false), STATEBIT_CALLPROGRESS))
+				if (WahlbeginnVerzoegerungFest > 0)
+					{ // feste Verzögerung, kein Warten auf den Wählton.
+					if (TimerVal(&SignaltonTimer) >= 10 * WahlbeginnVerzoegerungFest)
+						{ // Feste Zeit ist abgelaufen
+						clr_LEDBLAU();
+						BusSenden(BusKdoWahlFreigabe); // Wahlaufforderung senden
+						Phase = PhWahl;
+						}
+					}
+				else if (!BIT_IS_SET(GetState(false), STATEBIT_CALLPROGRESS))
 					{
 					clr_LEDROT();
 					StartTimer(&SignaltonTimer);
@@ -2161,6 +2179,8 @@ static bool JustierWahlziffernAbfragen()
 //! im Hauptprogramm kommt danach Grundstellen().
 static void Einstellen()
 	{
+	uint8_t WaehltonErkennung = (WahlbeginnVerzoegerungFest == 0) ? 1 : 0;
+	
 	if (!FernDialogVerbinden(Hauptanschluss))
 		{
 		PruefeBusSchluss(0, 7);
@@ -2182,6 +2202,9 @@ static void Einstellen()
 		&& BitAbfrageFern(PSTR("kommende durchwahl zulassen"), &KonfigBits, 1 << KonfigBit_DurchwahlErlaubt)
 		&& (!BIT_IS_SET(KonfigBits, KonfigBit_DurchwahlErlaubt) // folgende Abfrage nur bei nicht gesperrter Durchwahl
 		    || DurchwahlenAbfrage())
+		&& BitAbfrageFern(PSTR("wahlfreigabe mit waehlton"), &WaehltonErkennung, 1)
+		&& (WaehltonErkennung // folgende Abfrage nur bei nicht durch Wählton erfolgende Freigabe
+			|| ZahlAbfrageFern(PSTR("verzoegerung wahlfreigabe (x/10 sek)"), &WahlbeginnVerzoegerungFest, 1))
 		&& ZahlAbfrageFern(PSTR("verzoegerung letzte ziffer - beginn kennton ...\r\n ... (x/10 sek)"), &VerbindungsaufbauVerzoegerung, 1)
 		&& JustierWahlziffernAbfragen()
 		&& ZahlAbfrageFern(PSTR("justierung verzoegerung abheben - erste ziffer ...\r\n ... (x/10 sek)"), &JustierWahlVerzoegerung, 1)
@@ -2197,6 +2220,11 @@ static void Einstellen()
 		PruefeBusSchluss(0, 7); 
 		}
 
+	if (WaehltonErkennung)
+		WahlbeginnVerzoegerungFest = 0;
+	else if (WahlbeginnVerzoegerungFest == 0)
+		WahlbeginnVerzoegerungFest = 1;
+		
 	BusEigenAdressePruefenUndSetzen(NeuEigenAdresse);
 	
 	set_LEDROT();
@@ -2212,6 +2240,8 @@ static void Einstellen()
 	eeprom_write_byte(&JustierWahlVerzoegerung_EE, JustierWahlVerzoegerung);
 	eeprom_write_byte(&JustierNeustartPause_EE, JustierNeustartPause);
 	eeprom_write_byte(&VerbindungsaufbauVerzoegerung_EE, VerbindungsaufbauVerzoegerung); 
+	wdt_reset();
+	eeprom_write_byte(&WahlbeginnVerzoegerungFest_EE, WahlbeginnVerzoegerungFest);
 	for (uint8_t i = 0 ; i < 10 ; i++)
 		eeprom_write_byte(&NebenstellenTabelle_EE[i], NebenstellenTabelle[i]);
 	eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
@@ -2368,6 +2398,7 @@ int main()
 	JustierWahlVerzoegerung = eeprom_read_byte(&JustierWahlVerzoegerung_EE);
 	JustierNeustartPause = eeprom_read_byte(&JustierNeustartPause_EE);
 	VerbindungsaufbauVerzoegerung = eeprom_read_byte(&VerbindungsaufbauVerzoegerung_EE); 
+	WahlbeginnVerzoegerungFest = eeprom_read_byte(&WahlbeginnVerzoegerungFest_EE);
 	for (uint8_t i = 0 ; i < 10 ; i++)
 		NebenstellenTabelle[i] = eeprom_read_byte(&NebenstellenTabelle_EE[i]);
 

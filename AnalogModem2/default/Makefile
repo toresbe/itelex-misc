@@ -6,14 +6,16 @@
 PROJECT = AnalogModem2
 MCU = atmega168
 TARGET = AnalogModem2.elf
-CC = avr-gcc.exe
+CC = avr-gcc
+
+CPP = avr-g++
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99   -DPLATINE_VERSION=20    -DF_CPU=11059200UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
+CFLAGS += -Wall -gdwarf-2 -std=gnu99   -DPLATINE_VERSION=20        -DF_CPU=11059200UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 
 ## Assembly specific flags
@@ -27,7 +29,7 @@ LDFLAGS +=  -Wl,-Map=AnalogModem2.map
 
 
 ## Intel Hex file production flags
-HEX_FLASH_FLAGS = -R .eeprom
+HEX_FLASH_FLAGS = -R .eeprom -R .fuse -R .lock -R .signature
 
 HEX_EEPROM_FLAGS = -j .eeprom
 HEX_EEPROM_FLAGS += --set-section-flags=.eeprom="alloc,load"
@@ -44,9 +46,7 @@ OBJECTS = 73K221.o BaudotCode.o SeriellUmsetz.o AnalogModem2.o BusKomm.o MsTimer
 LINKONLYOBJECTS = 
 
 ## Build
-all: $(TARGET) AnalogModem2.hex AnalogModem2.eep AnalogModem2.lss size
-
-## Compile
+all: $(TARGET) AnalogModem2.hex AnalogModem2.eep AnalogModem2.lss## Compile
 73K221.o: ../73K221.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
@@ -87,10 +87,6 @@ $(TARGET): $(OBJECTS)
 %.lss: $(TARGET)
 	avr-objdump -h -S $< > $@
 
-size: ${TARGET}
-	@echo
-	@avr-size -C --mcu=${MCU} ${TARGET}
-
 ## Clean target
 .PHONY: clean
 clean:
@@ -98,5 +94,5 @@ clean:
 
 
 ## Other dependencies
--include $(shell mkdir dep 2>/dev/null) $(wildcard dep/*)
+-include $(shell mkdir dep 2>NUL) $(wildcard dep/*)
 
