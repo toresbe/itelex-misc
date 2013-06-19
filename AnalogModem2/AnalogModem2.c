@@ -1556,7 +1556,7 @@ static void VerbindungGehend()
 			case PhWarteWaehlton:
 				if (WahlbeginnVerzoegerungFest > 0)
 					{ // feste Verzögerung, kein Warten auf den Wählton.
-					if (TimerVal(&SignaltonTimer) >= 10 * WahlbeginnVerzoegerungFest)
+					if (TimerVal(&SignaltonTimer) >= 100 * WahlbeginnVerzoegerungFest)
 						{ // Feste Zeit ist abgelaufen
 						clr_LEDBLAU();
 						BusSenden(BusKdoWahlFreigabe); // Wahlaufforderung senden
