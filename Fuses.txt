@@ -1,4 +1,5 @@
 Fuses füer TxP2-Firmware:
+(extended / high / low)
 AnalogModem: F9 D5 E0
 TW39: D1 BF
 Seriell: F9 D5 F7
