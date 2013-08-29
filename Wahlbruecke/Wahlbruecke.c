@@ -63,7 +63,7 @@
 
 
 //! Marker im Code als Identifikation
-PROGMEM const char Identifier[] = "___TxP2_TW39___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+PROGMEM const char Identifier[] = "___Wahlbruecke___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 
 
 // Eeprom-Speicher
