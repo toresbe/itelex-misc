@@ -1,5 +1,6 @@
 //================================================================
-// Fernschreiber-Schnittstelle TW39 für TxP2-System
+// Fernschreiber-Schnittstelle "Wahlbrücke" für TxP2-System
+//  Komponente einer Relaisstation von TelexPhone auf i-Telex
 //	für ATmega8 auf Platine FernschrTW39
 //================================================================
 //		
@@ -31,12 +32,6 @@
 
 // Schalter für Code-Varianten
 // ===========================
-
-//#define PARALLELAUSGABE
-	//!< Für Platine TW39doppel: Sendung und Empfang wird auf der zweiten 
-	//!< Schnittstelle mitprotokolliert. Dann darf der Kontroller der 
-	//!< zweiten Schnittstelle nicht bestückt sein.
-	// 
 
 //#define FALSCHKDO_FEHLERSTOP
 	//!< Unpassende Kommandos auf dem I²C-Bus werden mit Fehlerstop quittiert.
@@ -71,17 +66,10 @@ PROGMEM const char Identifier[] = "___Wahlbruecke___" __DATE__ "___" __TIME__ "_
 
 EEMEM uint8_t Platzhalter[4]; //!< Platzhalter, da Anfang des EEPROM gern von Störungen betroffen ist
 EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
-EEMEM uint8_t MitWaehlscheibe_EE = 1; //!< Hat das Gerät eine Wählscheibe
-EEMEM uint8_t WahlauffordImpulsLaenge_EE = 30; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
-EEMEM uint8_t KommendSperreWahl_EE = 0; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 
 
 // Variablen
 // ---------
-
-bool MitWaehlscheibe; //!< Gerät het eine Wählscheibe
-uint8_t WahlauffordImpulsLaenge; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
-
 
 bool BefehlEinschalten; //!< Fs soll laufen
 bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
@@ -89,7 +77,6 @@ bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
 bool MeldungMark; //!< Fs Schleifenstrom ist Ein
 
 TMsTimer AusschaltungTimer; //!< Zählt die Millisekunden von Schleifenunterbrechung bis Ausschaltung
-TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port bis tatsächlichem Pegelwechsel
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -106,25 +93,15 @@ static void TW39IO()
 	{
 	// Pegel & Polung ausgeben
 	// -----------------------
-	bset_FS_AKTIV(BefehlEinschalten);
-	#ifdef PARALLELAUSGABE
-		bset_FS2_AKTIV(BefehlEinschalten);
-	#endif //def PARALLELAUSGABE
+	bset_FS_AUSG(BefehlEinschalten && BefehlMark);
 
 	if (BefehlEinschalten)
 		bset_LEDBLAU(!BefehlMark);
-	bset_FS_AUSG(BefehlMark);
-	#ifdef PARALLELAUSGABE
-		bset_FS2_AUSG(BefehlMark);
-	#endif //def PARALLELAUSGABE
 
-#define NEU
-
-#ifdef NEU
 	// Schleifenstrom auswerten: Einschaltung oder nicht
 	// -------------------------------------------------
-	if (get_FS_EING())
-		{ // Schleifenstrom ist aus (negierter Eingang)
+	if (!get_FS_EING())
+		{ // Schleifenstrom ist aus
 		if (MeldungEingeschaltet)
 			{
 			if (TimerVal(&AusschaltungTimer) > 800) // mehr als 800 ms kein Strom --> aus
@@ -146,96 +123,14 @@ static void TW39IO()
 		
 	// Schleifenstrom auswerten: Mark / Space
 	// --------------------------------------
-	if (!BefehlMark || !MeldungEingeschaltet)
+	if (!MeldungEingeschaltet)
 		{
 		MeldungMark = true; // Beim Senden von Space ist kein Empfang möglich --> Grundstellung
-		StartTimer(&EntprellungTimer);
 		}
 	else
 		{ // sinnvolle Auswertung des Schleifenstroms möglich
-		if (get_FS_EING())
-			{ // Strom ist aus --> Space
-			if (MeldungMark)
-				{ // der Applikation wird noch Mark gemeldet
-				if (TimerVal(&EntprellungTimer) > 3) // mindestens 3 ms konstant Space --> Space melden
-					MeldungMark = false;
-				}
-			else // !MeldungMark
-				StartTimer(&EntprellungTimer); // Regelzustand bei Space: Space wird auch gemeldet
-			} // Strom ist aus
-		else // !get_FS_EING()
-			{ // Schleifenstrom fließt
-			if (!MeldungMark)
-				{ // der Applikation wird noch Space gemeldet
-				if (TimerVal(&EntprellungTimer) > 3) // mindestens 3 ms konstant Mark --> Mark melden
-					MeldungMark = true;
-				}
-			else // MeldungMark
-				StartTimer(&EntprellungTimer); // Regelzustand bei Mark: Mark wird auch gemeldet
-			} // else !get_FS_EING() == Schleifenstrom fließt
-		} // else BefehlMark && MeldungEingeschaltet
-	
-#else
-	// Schleifenstrom auswerten
-	// ------------------------
-	if (BefehlMark || !MeldungEingeschaltet)
-		{
-		if (get_FS_EING())
-			{ // Strom ist aus --> Space
-			if (!MeldungEingeschaltet || TimerVal(&AusschaltungTimer) > 500)
-				{ // mehr als 0,5 s Stromunterbrechung --> Ausschalten
-				MeldungEingeschaltet = false;
-				MeldungMark = true;
-				StartTimer(&EntprellungTimer);
-				}
-			else if (MeldungMark)
-				{ // der Applikation wird noch Mark gemeldet
-				if (TimerVal(&EntprellungTimer) > 3)
-					{ // mindestens 3 ms konstant Space --> Space melden
-					MeldungMark = false;
-					}
-				}
-			else // !MeldungMark
-				{ // Regelzustand bei Space: Space wird auch gemeldet
-				StartTimer(&EntprellungTimer);
-				}
-			} // Strom ist aus
-		else // !get_FS_EING
-			{ // Schleifenstrom fließt
-			if (!MeldungMark)
-				{ // der Applikation wird noch Space gemeldet
-				if (TimerVal(&EntprellungTimer) > 3)
-					{ // mindestens 3 ms konstant Mark --> Mark melden
-					MeldungMark = true;
-					}
-				}
-			else // MeldungMark
-				{ // Regelzustand bei Mark: Mark wird auch gemeldet
-				if (!MeldungEingeschaltet)
-					{ // erst mal stabile Einschaltung abwarten...
-					if (TimerVal(&EntprellungTimer) > 100)
-						{
-						MeldungEingeschaltet = true;
-						StartTimer(&AusschaltungTimer);
-						}
-					else
-						; // warten
-					}
-				else // ist schon Eingeschaltet (Meldung)
-					{ 
-					StartTimer(&AusschaltungTimer);
-					StartTimer(&EntprellungTimer);
-					}
-				}
-			} // else !get_FS_EING
-		} // else FsSendMark --> Schleife ist Schnittstellen-Ausgabeseitig ein
-	else // !BefehlMark && MeldungEingeschaltet
-		{
-		MeldungMark = true; // nur Simplex-Modus
-		StartTimer(&EntprellungTimer);
-		StartTimer(&AusschaltungTimer);
+		MeldungMark = get_FS_EING();
 		}
-#endif
 
 	if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
 		bset_LEDGELB(!MeldungMark);
@@ -245,8 +140,6 @@ static void TW39IO()
 	} // TW39IO
 	
 	
-uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
-
 char BuZiMode; //!< Marker für Buchstaben-Ziffern-Umschaltung.
 
 
@@ -518,71 +411,6 @@ static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	
 /////////////////////////////////////////////////////////////
 
-//! Wickelt die gehende Wahl ab bei vorhandener Wählscheibe.
-//----------------------------------------------
-//! \retval true bei erfolgreichem Verbindungsaufbau.
-
-static bool WahlMitWaehlscheibe()
-	{
-	uint8_t Wahlziffer;
-	TMsTimer WahlendeTimer;
-	bool EsWurdeGewaehlt;
-
-	// kurzzeitiger Mißbrauch von WahlendeTimer für Wahlaufforderung: 0,3 Sek unterbrechung
-	StartTimer(&WahlendeTimer);
-	EsWurdeGewaehlt = false;
-	while (TimerVal(&WahlendeTimer) < 700)
-		TW39IO();
-
-	BefehlMark = false;
-	
-	StartTimer(&WahlendeTimer);
-	while (TimerVal(&WahlendeTimer) < 10 * WahlauffordImpulsLaenge) 
-		TW39IO();
-		
-	BefehlMark = true;
-	
-	Wahlziffer = 0;
-	StartTimer(&WahlendeTimer); // der Timer prüft auch, ob überhaupt gewählt wird...
-	while (true)
-		{
-		TW39IO();
-		if (!MeldungMark)
-			{ // Pause durch Wählscheibe
-			Wahlziffer++;
-			do
-				TW39IO();
-			while (!MeldungMark && MeldungEingeschaltet);
-			StartTimer(&WahlendeTimer);
-			}
-		
-		if (!MeldungEingeschaltet || KoAusschalten())
-			return false;
-			
-		if (Wahlziffer > 0 && TimerVal(&WahlendeTimer) > 200)
-			{
-			if (Wahlziffer > 9)
-				GeWaehlen(0);
-			else
-				GeWaehlen(Wahlziffer);
-			Wahlziffer = 0;
-			EsWurdeGewaehlt = true;
-			}
-			
-		if (KoEinschalten())
-			return true;
-
-		if (TimerVal(&WahlendeTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 15 / 45 Sekunden nicht gewählt
-			{ // auf das Ausschalten durch die Schlusstaste warten
-			AbschaltungZuLangeWahlpause(EsWurdeGewaehlt);
-			return false;
-			}
-		} // while (true)
-	}
-	
-	
-/////////////////////////////////////////////////////////////
-
 //! Wickelt die gehende Wahl ab bei nicht vorhandener Wählscheibe.
 //----------------------------------------------------------------
 //! Tastaturwahl. 
@@ -681,29 +509,13 @@ static void VerbindungGehend()
 			return; 
 
 		case GeEinschWahl:
-			if (MitWaehlscheibe)
-				{
-				if (WahlMitWaehlscheibe())
-					{
-					TW39Einschalten();
-					break; // ist jetzt Verbunden
-					}
-				}
-			else // ohne Waehlscheibe
-				{
-				if (WahlMitTastatur())
-					// Einschalten ist nicht erforderlich, da schon eingeschaltet ist...
-					break; // ist jetzt verbunden
-				}
+			if (WahlMitTastatur())
+				// Einschalten ist nicht erforderlich, da schon eingeschaltet ist...
+				break; // ist jetzt verbunden
+
 			GeAusschalten();
 			TW39Ausschalten();
 			
-			if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
-				{
-				clr_LEDGELB();
-				KommendSperren();
-				}
-				
 			return;
 
 /*
@@ -724,7 +536,7 @@ static void VerbindungGehend()
 			return;
 		}
 
-	VerbindungSteht(!MitWaehlscheibe); // wenn keine Wählscheibe, dann automatische Kennungsgeber-Abfrage
+	VerbindungSteht(false); // keine automatische Kennungsgeber-Abfrage
 
 	}
 
@@ -797,94 +609,6 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 	}
 
 
-/////////////////////////////////////////////////////////////
-
-//! Behandelt die Selbstkonfiguration des Moduls.
-//-----------------------------------------------
-//! Arbeitet mit dem angeschlossenen Endgerät zusammen.
-
-static void Konfiguration()
-	{
-	SeriellUmsetzInit();
-	BuZiMode = '\0';
-	Aktivieren(false);
-	set_LEDROT();
-	
-	if (!TW39Einschalten())
-		return;
-	
-	LokalTextAusgabeP(PSTR("\r\n konfiguration tw39 version " SVNVERSION " datum " __DATE__));
-
-	// Durchwahl...
-	if (!KonfigurationAllgemein())
-		return;
-
-	// Wählscheibe vorhanden?
-	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden?      "));
-
-	if (LokalBoolEingabe(&MitWaehlscheibe) == 0)
-		return;
-
-	if (MitWaehlscheibe != (eeprom_read_byte(&MitWaehlscheibe_EE) != 0))
-		eeprom_write_byte(&MitWaehlscheibe_EE, MitWaehlscheibe ? 1 : 0);
-
-	LokalTextAusgabeP(OkStrP);
-
-	if (MitWaehlscheibe)
-		{
-		// Länge Wahlaufforderungsimpuls?
-		LokalTextAusgabeP(PSTR("\r\n laenge wahlauff-imp. (akt. "));
-		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
-		LokalTextAusgabeP(PSTR("/100 sek)?      "));
-
-		if (LokalZahlEingabe(&WahlauffordImpulsLaenge, 0) == 0)
-			return;
-
-		if (WahlauffordImpulsLaenge < 1)
-			WahlauffordImpulsLaenge = 1;
-
-		if (WahlauffordImpulsLaenge != eeprom_read_byte(&WahlauffordImpulsLaenge_EE))
-			eeprom_write_byte(&WahlauffordImpulsLaenge_EE, WahlauffordImpulsLaenge);
-
-		LokalTextAusgabeP(OkStrP);
-		}
-
-	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
-	LokalTextAusgabeP(PSTR("\r\n kommend-sperre mit wahl: (akt. "));
-	if (KommendSperreWahl != 0)
-		LokalZahlAusgabe(KommendSperreWahl, 2);
-	else
-		LokalTextAusgabeP(PSTR("nein"));
-	LokalTextAusgabeP(PSTR(") neu (0 = nein):     "));
-
-	if (LokalZahlEingabe(&KommendSperreWahl, 0) == 0)
-		return;
-
-	if (KommendSperreWahl != eeprom_read_byte(&KommendSperreWahl_EE))
-		eeprom_write_byte(&KommendSperreWahl_EE, KommendSperreWahl);
-
-	LokalTextAusgabeP(OkStrP);
-	
-	// weitere Eingaben
-
-	LokalTextAusgabeP(PSTR("\r\n +++ \r\n"));
-	}
-
-
-/////////////////////////////////////////////////////////////
-
-//! Beendet die Selbstkonfiguration des Moduls.
-//-----------------------------------------------
-//! Arbeitet mit dem angeschlossenen Endgerät zusammen.
-
-static void KonfigurationEnde()
-	{
-	TW39Ausschalten();
-	Aktivieren(true);
-	clr_LEDROT();
-	}
-	
-	
 /////////////////////////////////////////////////////////////
 
 //! Schaltet das Modul in einen Modus, der keine kommenden Verbindungen zulässt.
@@ -975,13 +699,7 @@ int main()
 	init_LEDGRUEN();
 	init_LEDBLAU();
 	init_FS_AUSG();
-	init_FS_AKTIV();
 	init_FS_EING(); 
-#ifdef PARALLELAUSGABE
-	init_FS2_AUSG();
-	init_FS2_AKTIV();
-	init_FS2_EING(); 
-#endif //def PARALLELAUSGABE
 	init_TASTE();
 	//init_TASTE2();
 
@@ -993,9 +711,6 @@ int main()
 	
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
 	BusEigenAdrMehrfach = 1;
-	MitWaehlscheibe = eeprom_read_byte(&MitWaehlscheibe_EE) != 0;
-	WahlauffordImpulsLaenge = eeprom_read_byte(&WahlauffordImpulsLaenge_EE);
-	KommendSperreWahl = eeprom_read_byte(&KommendSperreWahl_EE);
 
 	BefehlEinschalten = false;
 	BefehlMark = true;
@@ -1107,8 +822,8 @@ int main()
 		if (Tastendruck == Lang)
 			{
 			Tastendruck = NichtGedr;
-			Konfiguration();
-			KonfigurationEnde();
+			//Konfiguration();
+			//KonfigurationEnde();
 			}
 
 		if (Tastendruck == Kurz)

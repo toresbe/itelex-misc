@@ -1,19 +1,21 @@
 ###############################################################################
-# Makefile for the project FernschrTW39
+# Makefile for the project Wahlbruecke
 ###############################################################################
 
 ## General Flags
-PROJECT = FernschrTW39
+PROJECT = Wahlbruecke
 MCU = atmega8
-TARGET = FernschrTW39.elf
-CC = avr-gcc.exe
+TARGET = Wahlbruecke.elf
+CC = avr-gcc
+
+CPP = avr-g++
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DFUER_TW39   -fgnu89-inline             -DF_CPU=6144000UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -DPLATINE_VERSION=13 
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DFUER_TW39 -fgnu89-inline -DF_CPU=6144000UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums  -DPLATINE_VERSION=13 
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 
 ## Assembly specific flags
@@ -23,11 +25,11 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 
 ## Linker flags
 LDFLAGS = $(COMMON)
-LDFLAGS +=  -Wl,-Map=FernschrTW39.map
+LDFLAGS +=  -Wl,-Map=Wahlbruecke.map
 
 
 ## Intel Hex file production flags
-HEX_FLASH_FLAGS = -R .eeprom
+HEX_FLASH_FLAGS = -R .eeprom -R .fuse -R .lock -R .signature
 
 HEX_EEPROM_FLAGS = -j .eeprom
 HEX_EEPROM_FLAGS += --set-section-flags=.eeprom="alloc,load"
@@ -35,19 +37,17 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Include Directories
-INCLUDES = -I"D:\Daten\AvrProgs\TxP2\FernschrTW39\..\..\C-Libs" -I"D:\Daten\AvrProgs\TxP2\FernschrTW39\..\Gemeinsam" 
+INCLUDES = -I"D:\Daten\AvrProgs\TxP2\Wahlbruecke\..\..\C-Libs" -I"D:\Daten\AvrProgs\TxP2\Wahlbruecke\..\Gemeinsam" 
 
 ## Objects that must be built in order to link
-OBJECTS = FernschrTW39.o TxP2-Endgeraet.o FifoPuffer.o BaudotCode.o BusKomm.o Taste.o SeriellUmsetz.o KonfigDialog.o LokalAusgabe.o MsTimer.o BusKomm2.o 
+OBJECTS = Wahlbruecke.o TxP2-Endgeraet.o FifoPuffer.o BaudotCode.o BusKomm.o Taste.o SeriellUmsetz.o KonfigDialog.o LokalAusgabe.o MsTimer.o BusKomm2.o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
 
 ## Build
-all: $(TARGET) FernschrTW39.hex FernschrTW39.eep FernschrTW39.lss size
-
-## Compile
-FernschrTW39.o: ../FernschrTW39.c
+all: $(TARGET) Wahlbruecke.hex Wahlbruecke.eep Wahlbruecke.lss## Compile
+Wahlbruecke.o: ../Wahlbruecke.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 TxP2-Endgeraet.o: ../../Gemeinsam/TxP2-Endgeraet.c
@@ -93,16 +93,12 @@ $(TARGET): $(OBJECTS)
 %.lss: $(TARGET)
 	avr-objdump -h -S $< > $@
 
-size: ${TARGET}
-	@echo
-	@avr-size -C --mcu=${MCU} ${TARGET}
-
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) FernschrTW39.elf dep/* FernschrTW39.hex FernschrTW39.eep FernschrTW39.lss FernschrTW39.map
+	-rm -rf $(OBJECTS) Wahlbruecke.elf dep/* Wahlbruecke.hex Wahlbruecke.eep Wahlbruecke.lss Wahlbruecke.map
 
 
 ## Other dependencies
--include $(shell mkdir dep 2>/dev/null) $(wildcard dep/*)
+-include $(shell mkdir dep 2>NUL) $(wildcard dep/*)
 
