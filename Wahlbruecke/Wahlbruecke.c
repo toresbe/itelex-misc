@@ -65,7 +65,7 @@ PROGMEM const char Identifier[] = "___Wahlbruecke___" __DATE__ "___" __TIME__ "_
 // ---------------
 
 EEMEM uint8_t Platzhalter[4]; //!< Platzhalter, da Anfang des EEPROM gern von Störungen betroffen ist
-EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
+EEMEM uint8_t BusEigenAdresse_EE = 88 << 1; //!< Eigene Busadresse auf dem I²C-Bus
 
 
 // Variablen
