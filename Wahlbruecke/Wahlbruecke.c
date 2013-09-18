@@ -428,6 +428,15 @@ static bool WahlMitTastatur()
 
 	SeriellUmsetzInit();
 		
+	LokalCodeAusgabe(TtyCodeBuUm);
+	LokalCodeAusgabe(TtyCodeBuUm);
+	LokalCodeAusgabe(TtyCodeBuUm);
+	LokalCodeAusgabe(TtyCodeWR);
+	LokalCodeAusgabe(TtyCodeZL);
+	LokalZeichenAusgabe('g');
+	LokalZeichenAusgabe('a');
+	LokalCodeAusgabe(TtyCodeWR);
+	LokalCodeAusgabe(TtyCodeZL);
 	LokalCodeAusgabe(TtyCodeZiUm);
 
 	StartTimer(&WahlendeTimer);
@@ -604,9 +613,9 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			
 		// Test:
 		// bset_LEDROT(AutoKennungAbfrage);
-		}
+		} // while true
 
-	}
+	} // VerbindungSteht()
 
 
 /////////////////////////////////////////////////////////////
