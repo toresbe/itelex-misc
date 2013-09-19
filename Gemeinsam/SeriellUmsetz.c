@@ -64,8 +64,13 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 	switch (SerUmSendBitNr)
 		{
 		case 1: // Ausgabe starten, aber nur, wenn nicht gerade empfangen wird
-			if (SerUmEmpfBitNr == SerUmEmpfWarte || SerUmEmpfBitNr == SerUmEmpfFertig)
+			if ((SerUmEmpfBitNr == SerUmEmpfWarte || SerUmEmpfBitNr == SerUmEmpfFertig)
+				&& TimerVal(&SerUmTimerE) >= 50) //! \todo 1. Testen und 2. was passiert beim TimerVal-Überlauf?
 				{
+				StartTimer(&SerUmTimerE);
+					// warum das? Damit am ende des gesendeten Zeichens der Timer bei 
+					// ca. 150 steht und damit größer als 50 ist und nicht etwa 
+					// 'zufällig' gerade überläuft.
 				*SeriellAusg = false;
 				StartTimer(&SerUmTimerA);
 				SerUmSendBitNr = 2;
@@ -116,7 +121,7 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 		case 1: // im Start-Bit
 			if (SeriellEing // Strom wieder da
 				&& (++SerUmEmpfPegel > 150)) // zu viele 1-Impulse im Startbit --> von vorn
-				SerUmEmpfBitNr = SerUmEmpfWarte;
+				SerUmEmpfBitNr = SerUmEmpfWarte; //! \todo Zum debuggen etwas vorsehen.
 			else if (TimerVal(&SerUmTimerE) >= 11) // Startbit gültig, Daten empfangen
 				{
 				SerUmEmpfBitNr = 2;
@@ -134,6 +139,10 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 						{
 						SerUmEmpfFehler = (SerUmEmpfPegel < 128); 
 						SerUmEmpfBitNr++;
+						StartTimer(&SerUmTimerE); 
+							// wird noch mal gestarten, damit beim Umsetzen für die Ausgabe
+							// noch der beginn des nächsten ggf. im Empfang laufenden Zeichens 
+							// gewartet wird.
 						}
 					else
 						{ // Strom immer noch unterbrochen
