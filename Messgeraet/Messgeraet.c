@@ -625,6 +625,7 @@ static void VerbindungRueckruf()
 	PufferPos++; // steht jetz auf Anfang des Textes...
 	
 	LangePause();
+	StartTimer(&WarteTimer);
 		
 	while (true)
 		{
@@ -634,7 +635,10 @@ static void VerbindungRueckruf()
 			break;
 			}
 
-		if (GeSendePufferLeer())
+		if (!KoEmpfMark())
+			StartTimer(&WarteTimer);
+
+		if (GeSendePufferLeer() && TimerVal(&WarteTimer) > 1500)
 			GeSendeCode(Puffer[PufferPos++]);
 		
 		if (KoAusschalten())
