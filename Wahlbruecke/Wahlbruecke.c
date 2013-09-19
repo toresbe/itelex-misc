@@ -420,6 +420,10 @@ static bool WahlMitTastatur()
 	{
 	char c;
 	TMsTimer WahlendeTimer;
+	TMsTimer BeginnTimer; 
+		// filtert alle empfangenen Zeichen aus, die vor dem 'ga' empfangen werden, 
+		// wie z.B. automatische datums-ausgabe der vermittlung.
+	bool WahlFreigabe;
 	bool EsWurdeGewaehlt;
 	int Falschziffern;
 	
@@ -427,20 +431,11 @@ static bool WahlMitTastatur()
 		return false;
 
 	SeriellUmsetzInit();
-		
-	LokalCodeAusgabe(TtyCodeBuUm);
-	LokalCodeAusgabe(TtyCodeBuUm);
-	LokalCodeAusgabe(TtyCodeBuUm);
-	LokalCodeAusgabe(TtyCodeWR);
-	LokalCodeAusgabe(TtyCodeZL);
-	LokalZeichenAusgabe('g');
-	LokalZeichenAusgabe('a');
-	LokalCodeAusgabe(TtyCodeWR);
-	LokalCodeAusgabe(TtyCodeZL);
-	LokalCodeAusgabe(TtyCodeZiUm);
-
+	
 	StartTimer(&WahlendeTimer);
+	StartTimer(&BeginnTimer);
 	EsWurdeGewaehlt = false;
+	WahlFreigabe = false;
 	Falschziffern = 0;
 	BuZiMode = '\0';
 
@@ -451,19 +446,24 @@ static bool WahlMitTastatur()
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
 			{
-			c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
 			SerUmEmpfBitNr = SerUmEmpfWarte;
-			if (c >= '0' && c <= '9')
+			if (WahlFreigabe)
 				{
-				GeWaehlen(c - '0');
-				EsWurdeGewaehlt = true;
-				}
-			else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
-				{
-				Falschziffern++;
-				}
-
-			StartTimer(&WahlendeTimer);
+				c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
+				if (c >= '0' && c <= '9')
+					{
+					GeWaehlen(c - '0');
+					EsWurdeGewaehlt = true;
+					}
+				else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
+					{
+					Falschziffern++;
+					}
+				StartTimer(&WahlendeTimer);
+				} // if (WahlFreigabe)
+			else 
+				// ignorieren
+				StartTimer(&BeginnTimer);
 			}
 
 		while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 100)
@@ -483,6 +483,21 @@ static bool WahlMitTastatur()
 			return true;
 			}
 
+		if (!WahlFreigabe && TimerVal(&BeginnTimer) >= 2000) // 2 Sekunden Ruhe nach Verbindungsaufbau
+			{
+			LokalCodeAusgabe(TtyCodeBuUm);
+			LokalCodeAusgabe(TtyCodeBuUm);
+			LokalCodeAusgabe(TtyCodeBuUm);
+			LokalCodeAusgabe(TtyCodeWR);
+			LokalCodeAusgabe(TtyCodeZL);
+			LokalZeichenAusgabe('g');
+			LokalZeichenAusgabe('a');
+			LokalCodeAusgabe(TtyCodeWR);
+			LokalCodeAusgabe(TtyCodeZL);
+			LokalCodeAusgabe(TtyCodeZiUm);
+			WahlFreigabe = true;
+			}
+			
 		if (TimerVal(&WahlendeTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 15 / 45 Sekunden nicht gewählt
 			{ // auf das Ausschalten durch die Schlusstaste warten
 			AbschaltungZuLangeWahlpause(EsWurdeGewaehlt);
