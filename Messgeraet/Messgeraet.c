@@ -375,6 +375,36 @@ void LangePause() // = 2 sek
 char Puffer[MAXPUFFER+1];
 
 	
+//! Behandelt das ignorieren von ankommenden Daten in den ersten zwei Sekunden.
+//--------------------------
+//! \retval true, wenn nicht abgebrochen.
+static bool VerbindungIgnoriereErsteZweiSekunden(uint8_t SubAddr)
+	{
+	TMsTimer PauseTimer;
+	
+	StartTimer(&PauseTimer);
+	
+	while (TimerVal(&PauseTimer) < 2000)
+		{
+		char c;
+		if (!KoEmpfMark() || !GeSendePufferLeer()) 
+			StartTimer(&PauseTimer);
+			
+		if (KoEmpfZeichen(&c) && c == CodeChrWerDa)
+			GeSendeText(Kennung[SubAddr]);
+
+		if (KoAusschalten())
+			{
+			GeAusschalten();
+			return false;
+			}
+		LEDAktualisieren();
+		}		
+
+	return true;
+	} // VerbindungIgnoriereErsteZweiSekunden()
+
+	
 //! Behandelt die Funktion des Moduls als Messgerät für die Baudot-Zeichen.	
 static void VerbindungMessgeraet()
 	{
@@ -388,6 +418,7 @@ static void VerbindungMessgeraet()
 
 	GeSendeText(Kennung[SUBADDR_MESSUNG]);
 	GeSendeCode(TtyCodeBuUm);
+	StartTimer(&MessTimer);
 
 	while (true)
 		{
@@ -476,8 +507,6 @@ static void VerbindungRueckruf()
 	uint16_t PufferPos;
 	TMsTimer WarteTimer;
 	
-	KurzePause();
-
 	// erst mal Normal, bis das richtige Kennwort eingegegen ist...
 	while (true)
 		{
@@ -718,7 +747,7 @@ static void VerbindungBildlocher()
 				EmpfZifferMode = false;
 
 			if (c == TtyCodeZiWerDa && EmpfZifferMode)
-				KennungsausgabeUndKennwortAbfrage(SUBADDR_BILDLOCH);
+				GeSendeText(Kennung[SUBADDR_BILDLOCH]);
 			else
 				{ // im Puffer ablegen
 				if (PufferPosEin < MAXPUFFER)
@@ -910,8 +939,6 @@ static void Pruefsendung(uint8_t Funktion)
 //! Behandelt die Funktion des Moduls als Testsender für definiert verzerrte Zeichen.
 static void VerbindungTestsender()
 	{
-	KurzePause();	
-
 	GeSendeTextP(PSTR("\r\nPruefsender."));
 
 	while (true)
@@ -972,7 +999,8 @@ static void VerbindungKommend()
 		{
 		if (WarteKonfig)
 			; // TODO
-		else
+		else if (VerbindungIgnoriereErsteZweiSekunden(KoAnwahlnummer())) // gibt bei vorzeitigem Verbindungsabbau false zurück.
+			{
 			switch (KoAnwahlnummer())
 				{
 				case SUBADDR_MESSUNG:
@@ -992,6 +1020,7 @@ static void VerbindungKommend()
 					return;
 			
 				}
+			}
 		}
 
 	// folgender Punkt wird nur bei ungültiger Anwahlnummer erreicht...
