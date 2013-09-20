@@ -462,8 +462,11 @@ static bool WahlMitTastatur()
 				StartTimer(&WahlendeTimer);
 				} // if (WahlFreigabe)
 			else 
-				// ignorieren
+				{ // ignorieren
 				StartTimer(&BeginnTimer);
+				StartTimer(&WahlendeTimer);
+				}
+
 			}
 
 		while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 100)
