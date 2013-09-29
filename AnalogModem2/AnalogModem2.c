@@ -1794,6 +1794,7 @@ void VerbindungHergestellt()
 	StartTimer(&TraegerPruefTimer);
 
 	AltEmpfMark = false;
+	BusEmpfMark = true;
 	PegelSchnellWdh = false;
 	
 	SET_BIT_Status(StatBit_Verbunden);
@@ -2030,8 +2031,10 @@ Ende erweiterte Version. */
 //----------------------------------------------------------------------------
 void FernDialogCallback()
 	{
+/* HACK
 	bset_LEDGELB(!BIT_IS_SET(Status, StatBit_FsBefEin));
 	bset_LEDBLAU(!BIT_IS_SET(Status, StatBit_FsMeldEin));
+*/
 	}
 
 
@@ -2192,8 +2195,10 @@ static void Einstellen()
 
 	set_LEDGRUEN();			
 
-	if (TextAusgabeFern(PSTR("\r\n konfiguration analog modem version " SVNVERSION " datum " __DATE__))
+	if (/* HACK TextAusgabeFern(PSTR("\r\n konfiguration analog modem version " SVNVERSION " datum " __DATE__))
 		&& ZahlAbfrageFern(PSTR("anzahl klingelzeichen bis annahme"), &AnnahmeKlingelzeichen, 1)
+		&& */ ZahlAbfrageFern(PSTR("klingel"), &AnnahmeKlingelzeichen, 1)
+		&& ZahlAbfrageFern(PSTR("wdh kl"), &AnnahmeKlingelzeichen, 1)
 		&& AmtswahlAbfrage()
 		&& BitAbfrageFern(PSTR("feste hauptstelle"), &KonfigBits, 1 << KonfigBit_FesterHauptanschluss)
 		&& (!BIT_IS_SET(KonfigBits, KonfigBit_FesterHauptanschluss) // folgende Abfrage nur bei FesterHauptanschluss

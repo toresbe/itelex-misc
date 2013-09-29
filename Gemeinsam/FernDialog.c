@@ -102,6 +102,8 @@ bool FernDialogVerbinden(uint8_t SucheStartAdresse)
 
 		} // while true
 
+	BusEmpfMark = true;
+		
 	// kurz warten bevor es rappelt...
 	StartTimer(&Timer);
 	while (TimerVal(&Timer) < 1200)
@@ -120,18 +122,28 @@ bool FernDialogVerbinden(uint8_t SucheStartAdresse)
 bool CodeEmpfangenFern(uint8_t *c)
 	{
 	bool Dummy;
-	static uint8_t Zaehler;
+	static uint8_t Zaehler = 0;
 	
 	SerUmEmpfBitNr = SerUmEmpfWarte;
 
 #warning "HACK aktiv nur fuer ModemAnalog Debug-Ausgabe ueber LED bei Fernkonfiguration"
+
+	// HACK nur für Analog-Modem:
+	//PORTC = (PORTC & ~3) | (Zaehler & 3); // die unteren 3 Bit = LED rot gelb grün mit den unteren 3 Bit des Zählers füttern
 	
-	// HACK Blau ein bei ModemAnalog:
-	PORTD |= (1<<2)
 
 	while (SerUmEmpfBitNr != SerUmEmpfFertig)
 		{
 		
+		// HACK:
+		PORTC = (PORTC & ~7) | (SerUmEmpfBitNr & 7); // die unteren 3 Bit = LED rot gelb grün mit den unteren 3 Bit des Zählers füttern
+
+		//HACK:
+		if (BusEmpfMark)
+			PORTD &= ~(1<<2);
+		else
+			PORTD |= (1<<2);
+
 		SendeLebenszeichen();
 
 		//HACK keine LED mehr ansteuern... 
@@ -146,13 +158,7 @@ bool CodeEmpfangenFern(uint8_t *c)
 	*c = SerUmEmpfDaten;
 	SerUmEmpfBitNr = SerUmEmpfWarte;
 
-	// HACK Blau aus bei ModemAnalog:
-	PORTD &= ~(1<<2)
-	
 	Zaehler++;
-	
-	// HACK nur für Analog-Modem:
-	PORTC = (PORTC & ~7) | (Zaehler & 7) // die unteren 3 Bit = LED rot gelb grün mit den unteren 3 Bit des Zählers füttern
 	
 	return true;
 	}
