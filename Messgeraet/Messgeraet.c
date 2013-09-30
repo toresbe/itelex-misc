@@ -363,19 +363,19 @@ void LangePause() // = 2 sek
 	//!< Größe des Universal-Zwischenspeichers.
 
 //! Zwischenspeicher für viele Funktionen:
-//! \par bei Messgerät:
-//! \par * speichert Pegelwechsel bezogen auf erste Flanke des Start-Bits
-//! \par * Puffer[0] speichert Wechsel zum ersten Mark-Bit
-//! \par * Puffer[1] speichert Wechsel zum nächsten Space-Bit
-//! \par bei Rückruf:
-//! \par * bis zum ersten 255 die Rufnummer
-//! \par * bis zum zweiten 255 die Baudot-Codes
-//! \par bei Bilderlochen:
-//! \par * bis zum gespeicherten Ende die Baudot-Codes
+//! - bei Messgerät:
+//!   - speichert Pegelwechsel bezogen auf erste Flanke des Start-Bits
+//!   - Puffer[0] speichert Wechsel zum ersten Mark-Bit
+//!   - Puffer[1] speichert Wechsel zum nächsten Space-Bit
+//! - bei Rückruf:
+//!   - bis zum ersten 255 die Rufnummer
+//!   - bis zum zweiten 255 die Baudot-Codes
+//! - bei Bilderlochen:
+//!   - bis zum gespeicherten Ende die Baudot-Codes
 char Puffer[MAXPUFFER+1];
 
 	
-//! Behandelt das ignorieren von ankommenden Daten in den ersten zwei Sekunden.
+//! Behandelt das Ignorieren von ankommenden Daten in den ersten zwei Sekunden.
 //--------------------------
 //! \retval true, wenn nicht abgebrochen.
 static bool VerbindungIgnoriereErsteZweiSekunden(uint8_t SubAddr)

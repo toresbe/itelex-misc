@@ -293,9 +293,9 @@ uint8_t KoAnwahlnummer()
 //! Bestätigung der Einschaltung des eigenen Gerätes
 //--------------------------------------------------
 //! Funktion ist in zwei Situationen aufzurufen: 
-//! \par 1. Als Bestätigung der eigenen Einschaltung bei einem kommenden Anruf 
-//! (Aktuelle Betriebsart ist EinschaltungKo). 
-//! \par 2. Als Wunsch des Verbindungsaufbaus vom eigenen Gerät.
+//! 1. Als Bestätigung der eigenen Einschaltung bei einem kommenden Anruf 
+//! (Aktuelle Betriebsart ist #EinschaltungKo). 
+//! 2. Als Wunsch des Verbindungsaufbaus vom eigenen Gerät.
 //! \retval GeEinschAnrufquitt Verbindung ist fertig aufgebaut (Situation 1)
 //! \retval GeEinschWahl Es darf nun gewählt werden (Situation 2)
 //! \retval GeEinschFehler Es ist ein Fehler aufgetreten.
@@ -597,10 +597,10 @@ bool GeSendePufferLeer()
 //! Bewirkt den Verbindungsabbau.
 //---------------------------------
 //! Funktion ist in zwei Situationen aufzurufen:
-//! \par 1. Als Bestätigung der Ausschaltung, wenn von der Gegenstelle diese
+//! 1. Als Bestätigung der Ausschaltung, wenn von der Gegenstelle diese
 //! angefordert wurde (dann war KoAusschalten() true).
-//! \par 2. Als Ausschaltwunsch des eigenen Geräts.
-//! \par In beiden Situationen kehrt die Funktion erst nach beidseitig 
+//! 2. Als Ausschaltwunsch des eigenen Geräts. 
+//! In beiden Situationen kehrt die Funktion erst nach beidseitig 
 //! durchgeführter Ausschaltung zurück.
 
 void GeAusschalten()

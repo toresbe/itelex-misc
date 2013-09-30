@@ -106,20 +106,20 @@ uint8_t WahlbeginnVerzoegerungFest;
 
 uint8_t NebenstellenTabelle[10]; 
 	//!< Nummern der Maschine, die bei Anrufen die Nachricht annehmen soll 
-	//!< (im Bereich 10 bis 99). \par
+	//!< (im Bereich 10 bis 99). \n
 	//!< [0]: 	Hauptstelle, die bei Anwahl ohne Nebenstellennummer oder bei besetzter direkt 
 	//!<		angewählter Endstelle benutzt wird. wird bei Programmstart nach AktuellEmpfaenger 
-	//!<		kopiert mit * 2. \par
+	//!<		kopiert mit * 2. \n
 	//!< [1] bis [9]: Nebenstellen-Durchwahlen für direkte Durchwahlen.
 
 #define Hauptanschluss NebenstellenTabelle[0]
-	//!< siehe NebenstellenTabelle.
+	//!< siehe #NebenstellenTabelle.
 				
 uint8_t AktuellEmpfaenger;
 	//!< aktuell bei kommenden Rufen zu verwendedendes Endgerät. 
 	//!< Hier wird bei GEHENDEN Anrufen auch die Endgeräte-Nummer gespeichert.
-	//!< Bei Flag KonfigBit_FesterHauptanschluss wird aber möglichst immer der Eintrag "Hauptanschluss" verwendet
-	//!< * 2 für I²C-Adressierung ist bei AktuellEmpfaenger bereits enthalten
+	//!< Bei Flag #KonfigBit_FesterHauptanschluss wird aber möglichst immer der Eintrag #Hauptanschluss verwendet. \n
+	//!< * 2 für I²C-Adressierung ist bei AktuellEmpfaenger bereits enthalten.
 
 
 // ****************************************************************
@@ -161,10 +161,10 @@ enum { DiagnoseSpeicherLen = 50 } ;
 EEMEM uint8_t DiagnoseSpeicher[DiagnoseSpeicherLen] = { 0x11, 0x22, 0x33, 0x44, 0x55 } ;
 	//!< Speicher für Diagnosedaten.
 
-	//!< Inhalte: \par
-	//!< 0x01 + Code: PruefeBusSchluss hat ungültigen Befehlscode erkannt. \par
-	//!< 0x02 + Code: HandshakeGehend hat nicht funktioniert \par
-	//!< 0x03 + Code: VerbindungGehend hat unplanmäßig abgebrochen \par
+	//!< Inhalte: \n
+	//!< 0x01 + Code: PruefeBusSchluss hat ungültigen Befehlscode erkannt. \n
+	//!< 0x02 + Code: HandshakeGehend hat nicht funktioniert \n
+	//!< 0x03 + Code: VerbindungGehend hat unplanmäßig abgebrochen \n
 
 static uint8_t DiagnoseSpeicherPos = 0;
 	//!< Schreibindex für #DiagnoseSpeicher. 
@@ -226,31 +226,28 @@ static void SeriellAus()
 	
 	
 
-// FehlerStop
-// ==========
 //! Programmstop nach Fehler. 
 //---------------------------
 //! Fehlercode wird durch die LED angezeigt (schnelles Blinken).
 //! Modul kann durch langen Tastendruck neu gestartet werden.
 //! \param Nummer Fehlercode-Nummer, Bit 0 = blinkende LED rot, Bit 1 = gelb...
-//! \note verwendete Fehlercodes:
-
-//!	\par 1: Bus-Empfang trotz Sperre oder TWI-Fehler
-//!	\par 2: Falscher TWI-Event (z.B. General Call)
-//!	\par 3: ungültiges Bus-Kommando bei kommender Verbindung
-//!	\par 4: ungültiges Bus-Kommando bei Konfiguration oder gehender Verbindung
-//!	\par 5: ungültiges Bus-Kommando bei gehender Verbindung (Wahlzustand)
-//!	\par 6: noch nicht programmierter Code für Annahme eines Anrufs während der
+//! verwendete Fehlercodes:
+//!	- 1: Bus-Empfang trotz Sperre oder TWI-Fehler
+//!	- 2: Falscher TWI-Event (z.B. General Call)
+//!	- 3: ungültiges Bus-Kommando bei kommender Verbindung
+//!	- 4: ungültiges Bus-Kommando bei Konfiguration oder gehender Verbindung
+//!	- 5: ungültiges Bus-Kommando bei gehender Verbindung (Wahlzustand)
+//!	- 6: noch nicht programmierter Code für Annahme eines Anrufs während der
 //!		Anrufphase (durch Einschaltung eines Endgeräts) aufgerufen
-//!	\par 7: ungültiges Bus-Kommando nach Einschalt-Kommando an Endgerät bei 
+//!	- 7: ungültiges Bus-Kommando nach Einschalt-Kommando an Endgerät bei 
 //!		kommender Verbindung (erwartet wird BusQuittEin)
-//!	\par 8: keine freie Bus-Adresse gefunden
-//!	\par 9: frei
-//!	\par 10: kein Endgerät für kommenden Anruf gefunden
-//! \par 11: frei
-//!	\par 12: frei
-//!	\par 13: ungültiges Bus-Kommando bei aufgebauter Verbindung
-//!	\par 14: Kann keine freie Adresse mehr finden...
+//!	- 8: keine freie Bus-Adresse gefunden
+//!	- 9: frei
+//!	- 10: kein Endgerät für kommenden Anruf gefunden
+//! - 11: frei
+//!	- 12: frei
+//!	- 13: ungültiges Bus-Kommando bei aufgebauter Verbindung
+//!	- 14: Kann keine freie Adresse mehr finden...
 
 void FehlerStop(int Nummer)
 	{
@@ -482,17 +479,17 @@ void WarteEndeTelefonat()
 	
 //! Sucht ein freies Endgerät im Falle eines kommenden Rufs. 
 //----------------------------------------------------------
-//! Ermittelt verfügbaren angeschlossenen Fernschreiber her. Dieser wird aber 
-//! nicht Reserviert und nicht angeschaltet.
+//! Ermittelt verfügbaren angeschlossenen Fernschreiber. Dieser wird aber 
+//! nicht Reserviert und nicht angeschaltet. \n
 //! Gesucht wird mit folgenden Prioritäten:
-//! \par 1. Hauptanschluss (bei Flag KonfigBit_FesterHauptanschluss)
-//! \par oder
-//! \par 2. Letzes Gerät, von dem ein abgehendes Telefonat geführt wurde 
-//! (wenn Flag KonfigBit_FesterHauptanschluss nicht gesetzt)
-//! \par sowie
-//! \par 3. bei besetztem Gerät nach 1. bzw. 2. NÄCHSTER freier Anschluss
-//! \par Der gefundener Anschluss steht nachher in AktuellEmpfaenger.
-//! \returns Freies Endgerät wurde gefinden.
+//! - Hauptanschluss (bei Flag #KonfigBit_FesterHauptanschluss) 
+//! oder
+//! - Letzes Gerät, von dem ein abgehendes Telefonat geführt wurde 
+//! (wenn Flag #KonfigBit_FesterHauptanschluss nicht gesetzt) 
+//! sowie
+//! - bei besetztem Gerät nach 1. bzw. 2. NÄCHSTER freier Anschluss 
+//! Der gefundener Anschluss steht nachher in #AktuellEmpfaenger.
+//! \return ein freies Endgerät wurde gefunden.
 
 bool FreiesEndgeraetFuerAnruf()
 	{
@@ -542,7 +539,7 @@ bool FreiesEndgeraetFuerAnruf()
 //! Kehrt erst zurück, wenn eine TelexPhone-Verbindung erkannt wurde oder
 //! ein (sonstiges) Telefonat beendet wurde. Die Funktion blockiert also während 
 //! eines Telefonanrufs.
-//! \returns Anruf ist durch das TxP-System anzunehmen.
+//! \return Anruf ist durch das TxP-System anzunehmen.
 
 bool Anruferkennung()
 	{
@@ -551,7 +548,7 @@ bool Anruferkennung()
 	if (BusEigenAdresse == BusAdrUngueltig)
 		return false;
 
-	// TODO: Schnellstart?
+	//! \todo Schnellstart?
 	CLR_BIT_Status(StatBit_Frei);
 	CLR_BIT_Status(StatBit_LeitungKennung); 
 	SET_BIT_Status(StatBit_AngerufenBelegt);
@@ -1972,8 +1969,8 @@ void VerbindungHergestellt()
 
 //! Funktion nach kurzem Tastendruck
 //----------------------------------
-//! Standard-Version: nur deaktivierung. 
-//! \par Erweiterte Version: Testfunktionen
+//! - Standard-Version: nur deaktivierung.
+//! - Erweiterte Version: Testfunktionen, momentan deaktiviert.
 static void TasteFunktion()
 	{
 	bool Lange;
