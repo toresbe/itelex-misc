@@ -68,7 +68,7 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 				&& TimerVal(&SerUmTimerE) >= 50) //! \todo 1. Testen und 2. was passiert beim TimerVal-Überlauf?
 				{
 				StartTimer(&SerUmTimerE);
-					// warum das? Damit am ende des gesendeten Zeichens der Timer bei 
+					// warum das: Damit am ende des gesendeten Zeichens der Timer bei 
 					// ca. 150 steht und damit größer als 50 ist und nicht etwa 
 					// 'zufällig' gerade überläuft.
 				*SeriellAusg = false;
@@ -140,7 +140,7 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 						SerUmEmpfFehler = (SerUmEmpfPegel < 128); 
 						SerUmEmpfBitNr++;
 						StartTimer(&SerUmTimerE); 
-							// wird noch mal gestarten, damit beim Umsetzen für die Ausgabe
+							// wird noch mal gestartet, damit beim Umsetzen für die Ausgabe
 							// noch der beginn des nächsten ggf. im Empfang laufenden Zeichens 
 							// gewartet wird.
 						}

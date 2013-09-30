@@ -1791,6 +1791,7 @@ void VerbindungHergestellt()
 	StartTimer(&TraegerPruefTimer);
 
 	AltEmpfMark = false;
+	BusEmpfMark = true;
 	PegelSchnellWdh = false;
 	
 	SET_BIT_Status(StatBit_Verbunden);

@@ -102,6 +102,8 @@ bool FernDialogVerbinden(uint8_t SucheStartAdresse)
 
 		} // while true
 
+	BusEmpfMark = true;
+		
 	// kurz warten bevor es rappelt...
 	StartTimer(&Timer);
 	while (TimerVal(&Timer) < 1200)
