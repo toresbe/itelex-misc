@@ -511,9 +511,9 @@ void TwiInit()
 //! \return TWI-Adresse zur Wahlziffer(n)
 
 //! \remarks Beispiele zu den Parametern: 
-//! \n Ziffern: 3 4 --> Wahl = 34, AnzZiffern = 2
-//! \n Ziffern: 0 4 --> Wahl = 4, AnzZiffern = 2
-//! \n Ziffer:   4  --> Wahl = 4, AnzZiffern = 1
+//! \n Ziffern: 3 4 --> Wahl = 34, AnzZiffern = 2 (TWI-Adresse 34 << 1)
+//! \n Ziffern: 0 4 --> Wahl = 4, AnzZiffern = 2 (TWI-Adresse 4 << 1)
+//! \n Ziffer:   4  --> Wahl = 4, AnzZiffern = 1 (TWI-Adresse 104 << 1)
 //! \n Übersetzungsregel:
 //! \n einstellig 1 - 9 --> 101 - 109 ; 0 --> 110
 //! \n zweistellig 01 - 99 --> 1 - 99 ; 00 --> 100

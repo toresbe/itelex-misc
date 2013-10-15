@@ -65,7 +65,7 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 		{
 		case 1: // Ausgabe starten, aber nur, wenn nicht gerade empfangen wird
 			if ((SerUmEmpfBitNr == SerUmEmpfWarte || SerUmEmpfBitNr == SerUmEmpfFertig)
-				&& TimerVal(&SerUmTimerE) >= 50) //! \todo 1. Testen und 2. was passiert beim TimerVal-Überlauf?
+				&& TimerVal(&SerUmTimerE) >= 50) 
 				{
 				StartTimer(&SerUmTimerE);
 					// warum das: Damit am ende des gesendeten Zeichens der Timer bei 
