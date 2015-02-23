@@ -549,7 +549,7 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 	// 12: Versuch, beim MEGA 8 mehrere Adressen einzustellen
 	// 13: GeEinschalten liefert ungültigen Code
 	{
-	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (1<<TWSTO) | (1<<TWEN) | (0<<TWIE);
+	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWEN) | (0<<TWIE);
 	
 	uint8_t TasteZ = 0;
 	bool TasteWirk = false;

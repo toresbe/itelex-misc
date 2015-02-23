@@ -251,7 +251,7 @@ static void SeriellAus()
 
 void FehlerStop(int Nummer)
 	{
-	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (1<<TWSTO) | (1<<TWEN) | (0<<TWIE);
+	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWEN) | (0<<TWIE);
 	
 	uint8_t TasteZ = 0;
 	bool TasteWirk = false;
@@ -1785,21 +1785,33 @@ void VerbindungHergestellt()
 	//uint8_t DiagnoseSpeicherPos = 0;
 	uint8_t TelegrammFehlerZaehler = 0;
 	uint8_t TraegerFehlZaehler = 0;
+
+	// folgende Variablen für Test, ob Zeichenausgabe am Anfang funktioniert
+	uint8_t CodePuffer[8] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
+	uint8_t CodePufferIdx = 0;
+	TMsTimer CodeSendeVerzoegerung;
+	bool CodeSendMark;
+	bool CodeSendMarkAlt;
 	
 	StartTimer(&PegelWdhTimer);
 	StartTimer(&LongDistancePruefTimer);
 	StartTimer(&TraegerPruefTimer);
 
+	StartTimer(&CodeSendeVerzoegerung);
+	CodeSendMark = true;
+	CodeSendMarkAlt = true;
+	SerUmSendBitNr = SerUmSendWarte;
+
 	AltEmpfMark = false;
 	BusEmpfMark = true;
 	PegelSchnellWdh = false;
-	
+
 	SET_BIT_Status(StatBit_Verbunden);
 
 	Transmit(true); // Initial-Pegel setzen
 	
 	while (true)
-		{ // LED: rot = schlechter Pegel oder verlorenes Telegramm, gelb = Sende Space, blau = empfange Space
+		{ // LED: rot = schlechter Pegel oder verlorenes Telegramm, gelb/grün = Sende Space, blau = empfange Space
 		uint8_t Code;
 
 		if (GetEmpfByte(&Code))
@@ -1827,6 +1839,30 @@ void VerbindungHergestellt()
 				} // switch Code
 			} // if GetEmpfByte
 			
+		// Initiale Sendung des Pufferinhalts
+		if (CodePufferIdx < 8 || SerUmSendBitNr != SerUmSendWarte)
+			{
+			if TimerVal(&CodeSendeVerzoegerung) < 1000)
+				; // nichts tun, erst nach 1 Sekunde verzögerung
+			else
+				{
+				if (SerUmSendBitNr == SerUmSendWarte)
+					{
+					SerUmSendDaten = CodePuffer[CodePufferIdx];
+					CodePufferIdx++;
+					SerUmSendBitNr = SerUmSendStart;
+					}
+				SeriellUmsetzung(true, &CodeSendMark);
+				if (CodeSendMark != CodeSendMarkAlt)
+					{
+					Transmit(CodeSendMark);
+					CodeSendMarkAlt = CodeSendMark;
+					//! \todo LED
+					}
+				}
+			}
+		else // Ende des Hacks...
+		
 		// vom Bus kommandierten Pegel an Modem geben
 		if (BusEmpfMarkwechsel)
 			{
@@ -1851,7 +1887,14 @@ void VerbindungHergestellt()
 			}
 
 		// vom Modem empfangenen Pegel an Endgerät weitergeben
-		if (ReceiveMark())
+		
+		bool h; // 
+		if (CodePufferIdx < 8 || SerUmSendBitNr != SerUmSendWarte)
+			h = CodeSendMark;
+		else
+			h = ReceiveMark();
+			
+		if (h)
 			{
 			clr_LEDBLAU();
 			if (!AltEmpfMark && BusAuftrag == Nichts)
