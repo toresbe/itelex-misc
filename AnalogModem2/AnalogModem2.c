@@ -114,14 +114,23 @@ uint8_t NebenstellenTabelle[10];
 
 #define Hauptanschluss NebenstellenTabelle[0]
 	//!< siehe #NebenstellenTabelle.
-				
+
+// Betriebsdaten
+// =============
+	
 uint8_t AktuellEmpfaenger;
 	//!< aktuell bei kommenden Rufen zu verwendedendes Endgerät. 
 	//!< Hier wird bei GEHENDEN Anrufen auch die Endgeräte-Nummer gespeichert.
 	//!< Bei Flag #KonfigBit_FesterHauptanschluss wird aber möglichst immer der Eintrag #Hauptanschluss verwendet. \n
 	//!< * 2 für I²C-Adressierung ist bei AktuellEmpfaenger bereits enthalten.
 
+// Maximal X Baudot-Zeichen in dem Puffer für das automatische Senden eines Textes bei Verbindungsbeginn (z.B. Uhrzeit)
+#define AUTOSENDMAXBUF 50
 
+uint8_t AutoSendBuf[AUTOSENDMAXBUF];
+	//!< Puffer mit Baudot-Zeichen, die nach Verbindungsaufbau an das eigene Gerät und an die Gegenstelle
+	//!< gesendet werden. Ende der Puffers mit 0xFF markieren.
+	
 // ****************************************************************
 // Eeprom
 // ****************************************************************
@@ -899,6 +908,21 @@ void VerbindungKommend()
 	SeriellAus();
 	
 	clr_LEDGELB();
+	
+	AutoSendBuf[0] = 0xFF; //! \todo Hier das Datum einbauen.
+	
+	// Hack zum Test:
+	AutoSendBuf[0] = TtyCodeBuUm;
+	AutoSendBuf[1] = TtyCodeWR;
+	AutoSendBuf[2] = TtyCodeZL;
+	AutoSendBuf[3] = ZeichenZuCode('t', BuMode);
+	AutoSendBuf[4] = ZeichenZuCode('e', BuMode);
+	AutoSendBuf[5] = ZeichenZuCode('s', BuMode);
+	AutoSendBuf[6] = ZeichenZuCode('t', BuMode);
+	AutoSendBuf[7] = TtyCodeWR;
+	AutoSendBuf[8] = TtyCodeZL;
+	AutoSendBuf[9] = 0xFF;
+	
 	
 	void VerbindungHergestellt();
 	VerbindungHergestellt();	
@@ -1764,6 +1788,8 @@ static void VerbindungGehend()
 	clr_LEDBLAU();
 	clr_LEDGRUEN();
 	// gelb bleibt an...
+
+	AutoSendBuf[0] = 0xFF;
 	
 	void VerbindungHergestellt();
 	VerbindungHergestellt();	
@@ -1775,37 +1801,42 @@ static void VerbindungGehend()
 //! Endgerät ist ein und Verbindung ist kommend ODER gehend fertig aufgebaut...
 //! Träger wird überwacht und bei Verlust Endgerät ausgeschaltet. Bei Ausschaltung vom
 //! Endgerät wird Träger ausgeschaltet und Modem "legt auf".
+//! Die Variable #AutoSendBuf beachten!
+
 void VerbindungHergestellt()
 	{ 
 	TMsTimer TraegerPruefTimer; // alle 0,02 Sekunden wird Träger geprüft. Bei 50 x nein Verbindungsabbau...
 	TMsTimer PegelWdhTimer;
 	TMsTimer LongDistancePruefTimer;
-	bool AltEmpfMark;
+	bool LetztBusKdoMark;
 	bool PegelSchnellWdh;
 	//uint8_t DiagnoseSpeicherPos = 0;
 	uint8_t TelegrammFehlerZaehler = 0;
 	uint8_t TraegerFehlZaehler = 0;
-
-	// folgende Variablen für Test, ob Zeichenausgabe am Anfang funktioniert
-	uint8_t CodePuffer[8] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
-	uint8_t CodePufferIdx = 0;
-	TMsTimer CodeSendeVerzoegerung;
-	bool CodeSendMark;
-	bool CodeSendMarkAlt;
+	uint8_t AutoSendIdx; // Zeiger auf den AutoSendBuf, nach Abschluss wird der Index auf 0xFF gesetzt.
+	TMsTimer AutoSendDelay;
+	bool AutoSendMark;
+	bool ModSendMark;
+	bool ModSendChange;
 	
 	StartTimer(&PegelWdhTimer);
 	StartTimer(&LongDistancePruefTimer);
 	StartTimer(&TraegerPruefTimer);
+	StartTimer(&AutoSendDelay);
 
-	StartTimer(&CodeSendeVerzoegerung);
-	CodeSendMark = true;
-	CodeSendMarkAlt = true;
+	AutoSendMark = true;
 	SerUmSendBitNr = SerUmSendWarte;
+	if (AutoSendBuf[0] == 0xFF)
+		AutoSendIdx = 0xFF;
+	else
+		AutoSendIdx = 0;
 
-	AltEmpfMark = false;
+	LetztBusKdoMark = false;
 	BusEmpfMark = true;
 	PegelSchnellWdh = false;
-
+	ModSendMark = true;
+	ModSendChange = false;
+	
 	SET_BIT_Status(StatBit_Verbunden);
 
 	Transmit(true); // Initial-Pegel setzen
@@ -1840,34 +1871,40 @@ void VerbindungHergestellt()
 			} // if GetEmpfByte
 			
 		// Initiale Sendung des Pufferinhalts
-		if (CodePufferIdx < 8 || SerUmSendBitNr != SerUmSendWarte)
+		if (AutoSendIdx != 0xFF)
 			{
-			if TimerVal(&CodeSendeVerzoegerung) < 1000)
+			if (TimerVal(&AutoSendDelay) < 1000)
 				; // nichts tun, erst nach 1 Sekunde verzögerung
 			else
 				{
 				if (SerUmSendBitNr == SerUmSendWarte)
 					{
-					SerUmSendDaten = CodePuffer[CodePufferIdx];
-					CodePufferIdx++;
-					SerUmSendBitNr = SerUmSendStart;
+					if (AutoSendIdx < AUTOSENDMAXBUF && AutoSendBuf[AutoSendIdx] != 0xFF)
+						{
+						SerUmSendDaten = AutoSendBuf[AutoSendIdx];
+						AutoSendIdx++;
+						SerUmSendBitNr = SerUmSendStart;
+						}
+					else
+						AutoSendIdx = 0xFF;
 					}
-				SeriellUmsetzung(true, &CodeSendMark);
-				if (CodeSendMark != CodeSendMarkAlt)
-					{
-					Transmit(CodeSendMark);
-					CodeSendMarkAlt = CodeSendMark;
-					//! \todo LED
-					}
-				}
-			}
-		else // Ende des Hacks...
-		
-		// vom Bus kommandierten Pegel an Modem geben
-		if (BusEmpfMarkwechsel)
+				SeriellUmsetzung(true, &AutoSendMark);
+				ModSendChange = (AutoSendMark != ModSendMark);
+				ModSendMark = AutoSendMark;
+				} // else Verzögerungszeit ist abgelaufen
+			} // AutoSendBuf noch nicht abgearbeitet
+			
+		else // vom Bus kommandierten Pegel an Modem geben
 			{
-			Transmit(BusEmpfMark);
-			if (BusEmpfMark)
+			ModSendChange = BusEmpfMarkwechsel;
+			ModSendMark = BusEmpfMark;
+			BusEmpfMarkwechsel = false;
+			}
+			
+		if (ModSendChange)
+			{
+			Transmit(ModSendMark);
+			if (ModSendMark)
 				{
 				if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
 					clr_LEDGELB();
@@ -1883,21 +1920,15 @@ void VerbindungHergestellt()
 					set_LEDGRUEN();
 				CLR_BIT_Status(StatBit_FsBefEin);
 				}
-			BusEmpfMarkwechsel = false;
+			ModSendChange = false;
 			}
 
 		// vom Modem empfangenen Pegel an Endgerät weitergeben
 		
-		bool h; // 
-		if (CodePufferIdx < 8 || SerUmSendBitNr != SerUmSendWarte)
-			h = CodeSendMark;
-		else
-			h = ReceiveMark();
-			
-		if (h)
+		if ((AutoSendIdx != 0xFF) ? AutoSendMark : ReceiveMark())
 			{
 			clr_LEDBLAU();
-			if (!AltEmpfMark && BusAuftrag == Nichts)
+			if (!LetztBusKdoMark && BusAuftrag == Nichts)
 				{
 				BusSenden(BusKdoMark);
 				SET_BIT_Status(StatBit_FsMeldEin);
@@ -1906,7 +1937,7 @@ void VerbindungHergestellt()
 		else
 			{
 			set_LEDBLAU();
-			if (AltEmpfMark && BusAuftrag == Nichts)
+			if (LetztBusKdoMark && BusAuftrag == Nichts)
 				{
 				BusSenden(BusKdoSpace);
 				CLR_BIT_Status(StatBit_FsMeldEin);
@@ -1916,7 +1947,7 @@ void VerbindungHergestellt()
 		// Wiederholungssendung des Pegels?
 		if (BusAuftrag == Nichts && TimerVal(&PegelWdhTimer) >= (PegelSchnellWdh ? 4 : 652))
 			{
-			BusSenden(AltEmpfMark ? BusKdoMarkWdh : BusKdoSpaceWdh);
+			BusSenden(LetztBusKdoMark ? BusKdoMarkWdh : BusKdoSpaceWdh);
 			}
 			
 		// Gesendete (über I²C) Daten angekommen?
@@ -1927,22 +1958,22 @@ void VerbindungHergestellt()
 				switch (BusSendeDaten)
 					{
 					case BusKdoMark:
-						AltEmpfMark = true;
+						LetztBusKdoMark = true;
 						PegelSchnellWdh = true;
 						break;
 						
 					case BusKdoSpace:
-						AltEmpfMark = false;
+						LetztBusKdoMark = false;
 						PegelSchnellWdh = true;
 						break;
 						
 					case BusKdoMarkWdh:
-						AltEmpfMark = true;
+						LetztBusKdoMark = true;
 						PegelSchnellWdh = false;
 						break;
 						
 					case BusKdoSpaceWdh:
-						AltEmpfMark = false;
+						LetztBusKdoMark = false;
 						PegelSchnellWdh = false;
 						break;
 					} // switch (BusSendeDaten)
@@ -2128,7 +2159,7 @@ static bool AmtswahlAbfrage()
 
 
 //! Abfrage der Nebenstellen-Nummer für ankommende Durchwahlen
-//-----------------------------------------
+//------------------------------------------------------------
 //! \retval true Wenn kein Eingabe-Abbruch erfolgte.	
 static bool DurchwahlenAbfrage()
 	{
