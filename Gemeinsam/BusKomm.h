@@ -30,7 +30,8 @@ enum { StatBit_FsMeldBetrieb	= 1	}; //!< 0x02, Fernschreiber angeschaltet (Strom
 enum { StatBit_FsMeldEin		= 0 }; //!< 0x01, Fernschreiber Stromschleife mit Stromfluß (Einlesung)
 
 typedef volatile enum { Ok, KeineAntwort, Abbruch, Besetzt } TBusErgebnis; //!< Ergebnis des letzten abgeschlossenen Buszugriffs.
-typedef volatile enum { Nichts, Senden, BedSenden, Lesen, Fertig } TBusAuftrag; //!< Art des gewünschten Buszugriffs.
+typedef volatile enum { Nichts, Senden, BedSenden, Lesen, Rundsenden, Fertig } TBusAuftrag; //!< Art des gewünschten Buszugriffs.
+	// Rundsendung ist eine Sendung von Daten an alle anderen.
 
 extern volatile TBusAuftrag BusAuftrag; //!< Aktuell anstehende Bus-Aktivität des eigenen Moduls.
 extern volatile TBusErgebnis BusErgebnis; //!< Ergebnis des letzten BusSenden Aufrufs. Besetzt nur nach BedSenden. 
@@ -38,6 +39,7 @@ extern volatile uint8_t BusVerbPartner; //!< Aktueller Verbindungspartner als I²
 extern uint8_t BusEigenAdresse; //!< Aktuelle eigene Adresse als I²C-Adresse, also * 2. Bei Mehrfach-Adressen nur Basisadresse.
 extern uint8_t BusEigenAdrMehrfach; 
 	//!< Anzahl der Bus-Adressen des eigenen Moduls. Muss Potenz von 2 sein (also 1, 2, 4, 8, 16, ...) , Standard = 1
+extern bool RundsendEmpfFreig; //!< Freigabe des Empfangs von Rundsendungen 
 extern volatile uint8_t BusAnrufSubAdresse; //!< Aktuelle eigene Adresse der aktuellen Verbindung.
 extern volatile uint8_t BusSendeDaten; //!< zu sendendes Byte.
 extern volatile bool BusFrei; //!< True, wenn Modul bereit für neue Bus-Aktivität.
@@ -47,6 +49,13 @@ extern volatile bool BusEmpfMark; //!< Aktueller "Empfangspegel". Wird durch Emp
 extern volatile bool BusEmpfMarkwechsel; //!< \brief Flag für Empfangspegel-Wechsel. 
 	//!< \details Wird durch Empfang von BusKdoMark oder BusKdoSpace gesetzt.
 	//!< Muss durch das Anwendungsprogramm gelöscht werden.
+	
+enum { RundsendMaxDaten = 16 } ; //!< Maximale Anzahl Byte für eine Rundsendung
+
+extern volatile uint8_t RundsendDaten[RundsendMaxDaten]; //!< zu sendende ODER empfangene Daten
+
+extern volatile uint8_t RundsendAnzDaten; //!< tatsächliche Anzahl an zu sendende ODER empfangene Daten.
+	//!< wird bei Beginn eine Empfangs auf 0 gesetzt
 	
 extern volatile uint16_t TwiIsrCount;
 	//!< Zählt die Anzahl der Aufrufe der TWI-Interrupt-Routine. Nur für Debugging-Zwecke.

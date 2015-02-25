@@ -908,7 +908,8 @@ void VerbindungKommend()
 	SeriellAus();
 	
 	clr_LEDGELB();
-	
+
+/* HACK im Hauptprogramm gesetzt 
 	AutoSendBuf[0] = 0xFF; //! \todo Hier das Datum einbauen.
 	
 	// Hack zum Test:
@@ -922,6 +923,7 @@ void VerbindungKommend()
 	AutoSendBuf[7] = TtyCodeWR;
 	AutoSendBuf[8] = TtyCodeZL;
 	AutoSendBuf[9] = 0xFF;
+*/
 	
 	
 	void VerbindungHergestellt();
@@ -2462,6 +2464,7 @@ int main()
 	// Variablen aus EEPROM initialisieren
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
 	BusEigenAdrMehrfach = 1;
+	RundsendEmpfFreig = true;
 	
 	KonfigBits = eeprom_read_byte(&KonfigBits_EE);
 	AnnahmeKlingelzeichen = eeprom_read_byte(&AnnahmeKlingelzeichen_EE);
@@ -2474,6 +2477,8 @@ int main()
 	for (uint8_t i = 0 ; i < 10 ; i++)
 		NebenstellenTabelle[i] = eeprom_read_byte(&NebenstellenTabelle_EE[i]);
 
+	AutoSendBuf[0] = 0xFF;
+	
 	// Module initialisieren
 	MsTimerInit();
 	SeriellUmsetzInit();
@@ -2588,6 +2593,16 @@ int main()
 			Grundstellen(false);
 			}
 
+		//HACK:
+		if (RundsendAnzDaten > 0)
+			{
+			uint8_t i;
+			
+			for (i = 0 ; i < RundsendAnzDaten && i < AUTOSENDMAXBUF ; i++)
+				AutoSendBuf[i] = RundsendDaten[i] & 0x1F;
+			AutoSendBuf[i] = 0xFF;
+			}
+		
 		} // Hauptschleife endlos
 	} // main
 	

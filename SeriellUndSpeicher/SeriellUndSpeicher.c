@@ -1528,7 +1528,48 @@ int main()
 					BusteilnehmerListen();
 					Aktivieren(true);
 					break;
-										
+						
+// HACK:
+				case CTRL('x'):
+
+	BusWarteFertig();
+
+	uint8_t sreg_alt = SREG;
+	cli();
+	
+	BusAuftrag = Rundsenden;
+	
+	RundsendDaten[0] = TtyCodeBuUm;
+	RundsendDaten[1] = TtyCodeWR;
+	RundsendDaten[2] = TtyCodeZL;
+	RundsendDaten[3] = ZeichenZuCode('t', BuMode);
+	RundsendDaten[4] = ZeichenZuCode('e', BuMode);
+	RundsendDaten[5] = ZeichenZuCode('s', BuMode);
+	RundsendDaten[6] = ZeichenZuCode('t', BuMode);
+	RundsendDaten[7] = TtyCodeWR;
+	RundsendDaten[8] = TtyCodeZL;
+	RundsendAnzDaten = 9;
+	
+	if (BusFrei)
+		{
+		while (BIT_IS_SET(TWCR, TWSTO))
+			;
+		SET_BIT(TWCR, TWSTA);
+		}
+		
+	SREG = sreg_alt; // setzt altes Interrupt-Enable zurück
+
+	BusWarteFertig();
+
+	if (BusErgebnis == Ok)
+		LokalTextAusgabeP(PSTR("\r\nRundsend Ok"));
+	else
+		LokalTextAusgabeP(PSTR("\r\nRundsend FEHLER"));
+	
+	BusAuftrag = Nichts; // TODO check ob das sein muss
+
+					break;
+
 				default:
 					LokalTextAusgabeP(PSTR("\r\nUngültiges Kommando"));
 					HauptmenueAusgeben = true;
