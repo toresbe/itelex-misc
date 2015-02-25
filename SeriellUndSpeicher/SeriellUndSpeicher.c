@@ -1577,6 +1577,8 @@ int main()
 
 		if (Minute != MinuteLetzeRundsendung && BusFrei && (BusAuftrag == Nichts || BusAuftrag == Fertig))
 			{
+			MinuteLetzeRundsendung = Minute;
+			
 			uint8_t sreg_alt = SREG;
 			cli();
 			
