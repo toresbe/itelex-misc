@@ -40,7 +40,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 INCLUDES = -I"D:\Daten\AvrProgs\TxP2\AnalogModem2\..\Gemeinsam" -I"D:\Daten\AvrProgs\TxP2\AnalogModem2\..\..\C-Libs" 
 
 ## Objects that must be built in order to link
-OBJECTS = 73K221.o BaudotCode.o SeriellUmsetz.o AnalogModem2.o BusKomm.o MsTimer.o Taste.o FernDialog.o BusKomm2.o 
+OBJECTS = 73K221.o BaudotCode.o SeriellUmsetz.o AnalogModem2.o BusKomm.o MsTimer.o Taste.o FernDialog.o BusKomm2.o LokalUhr.o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -72,6 +72,9 @@ FernDialog.o: ../../Gemeinsam/FernDialog.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 BusKomm2.o: ../../Gemeinsam/BusKomm2.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+LokalUhr.o: ../../Gemeinsam/LokalUhr.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link

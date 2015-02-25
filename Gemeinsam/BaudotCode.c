@@ -43,7 +43,6 @@ uint8_t ZeichenZuCode(char c, char Mode)
 //! \retval '\0' bei falschem Modus oder bei Buchstaben oder Ziffen-Umschaltung.
 //! \retval '#' bei ungültigen Zeichen oder sonstigen Steuerzeichen.
 char CodeZuZeichen(uint8_t code, char *Mode)
-
 	{
 	if (code == TtyCodeZiUm)
 		*Mode = ZiMode;

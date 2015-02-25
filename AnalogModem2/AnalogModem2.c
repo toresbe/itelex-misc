@@ -24,6 +24,7 @@
 #include "BusKomm.h"
 #include "SeriellUmsetz.h"
 #include "FernDialog.h"
+#include "LokalUhr.h"
 
 #include "73K221.h"
 
@@ -130,6 +131,7 @@ uint8_t AktuellEmpfaenger;
 uint8_t AutoSendBuf[AUTOSENDMAXBUF];
 	//!< Puffer mit Baudot-Zeichen, die nach Verbindungsaufbau an das eigene Gerät und an die Gegenstelle
 	//!< gesendet werden. Ende der Puffers mit 0xFF markieren.
+
 	
 // ****************************************************************
 // Eeprom
@@ -909,22 +911,9 @@ void VerbindungKommend()
 	
 	clr_LEDGELB();
 
-/* HACK im Hauptprogramm gesetzt 
-	AutoSendBuf[0] = 0xFF; //! \todo Hier das Datum einbauen.
-	
-	// Hack zum Test:
-	AutoSendBuf[0] = TtyCodeBuUm;
-	AutoSendBuf[1] = TtyCodeWR;
-	AutoSendBuf[2] = TtyCodeZL;
-	AutoSendBuf[3] = ZeichenZuCode('t', BuMode);
-	AutoSendBuf[4] = ZeichenZuCode('e', BuMode);
-	AutoSendBuf[5] = ZeichenZuCode('s', BuMode);
-	AutoSendBuf[6] = ZeichenZuCode('t', BuMode);
-	AutoSendBuf[7] = TtyCodeWR;
-	AutoSendBuf[8] = TtyCodeZL;
-	AutoSendBuf[9] = 0xFF;
-*/
-	
+	uint8_t Res;
+	Res = LokalUhrBaudotAusgabe(AutoSendBuf);
+	AutoSendBuf[Res] = 0xFF; // Abschluss-Zeichen
 	
 	void VerbindungHergestellt();
 	VerbindungHergestellt();	
@@ -2477,7 +2466,9 @@ int main()
 	for (uint8_t i = 0 ; i < 10 ; i++)
 		NebenstellenTabelle[i] = eeprom_read_byte(&NebenstellenTabelle_EE[i]);
 
+	// sonstige Daten initialisieren
 	AutoSendBuf[0] = 0xFF;
+	LokalUhrInit();
 	
 	// Module initialisieren
 	MsTimerInit();
@@ -2593,14 +2584,15 @@ int main()
 			Grundstellen(false);
 			}
 
-		//HACK:
+		// Rundsendedaten auswerten:
 		if (RundsendAnzDaten > 0)
 			{
-			uint8_t i;
-			
-			for (i = 0 ; i < RundsendAnzDaten && i < AUTOSENDMAXBUF ; i++)
-				AutoSendBuf[i] = RundsendDaten[i] & 0x1F;
-			AutoSendBuf[i] = 0xFF;
+			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
+				; // ok, schön...
+			else
+				; // keine Ahnung, was hier gesendet wurde, ist aber auch egal...
+				
+			RundsendAnzDaten = 0;
 			}
 		
 		} // Hauptschleife endlos
