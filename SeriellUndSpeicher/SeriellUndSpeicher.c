@@ -182,6 +182,9 @@ uint8_t Tag; //!< Tag der mitlaufenden Uhr.
 uint8_t Stunde; //!< Stunde der mitlaufenden Uhr.
 uint8_t Minute; //!< Minute der mitlaufenden Uhr.
 
+uint8_t MinuteLetzeRundsendung; //!< Minute der letzten Rundsendung der Uhrzeit.
+
+
 // Kennung und Kennwort
 
 char Kennung[KENNUNG_MAXLEN]; //!< Eigene Kennung, da kein echter Fernschreiber angeschlossen.
@@ -1530,46 +1533,6 @@ int main()
 					break;
 						
 // HACK:
-				case CTRL('x'):
-
-	BusWarteFertig();
-
-	uint8_t sreg_alt = SREG;
-	cli();
-	
-	BusAuftrag = Rundsenden;
-	
-	RundsendDaten[0] = TtyCodeBuUm;
-	RundsendDaten[1] = TtyCodeWR;
-	RundsendDaten[2] = TtyCodeZL;
-	RundsendDaten[3] = ZeichenZuCode('t', BuMode);
-	RundsendDaten[4] = ZeichenZuCode('e', BuMode);
-	RundsendDaten[5] = ZeichenZuCode('s', BuMode);
-	RundsendDaten[6] = ZeichenZuCode('t', BuMode);
-	RundsendDaten[7] = TtyCodeWR;
-	RundsendDaten[8] = TtyCodeZL;
-	RundsendAnzDaten = 9;
-	
-	if (BusFrei)
-		{
-		while (BIT_IS_SET(TWCR, TWSTO))
-			;
-		SET_BIT(TWCR, TWSTA);
-		}
-		
-	SREG = sreg_alt; // setzt altes Interrupt-Enable zurück
-
-	BusWarteFertig();
-
-	if (BusErgebnis == Ok)
-		LokalTextAusgabeP(PSTR("\r\nRundsend Ok"));
-	else
-		LokalTextAusgabeP(PSTR("\r\nRundsend FEHLER"));
-	
-	BusAuftrag = Nichts; // TODO check ob das sein muss
-
-					break;
-
 				default:
 					LokalTextAusgabeP(PSTR("\r\nUngültiges Kommando"));
 					HauptmenueAusgeben = true;
@@ -1609,6 +1572,35 @@ int main()
 #ifndef OHNE_SPEICHER
 		eeprom_write_word_noblock(&BeginnErsteMeldung2_EE, BeginnErsteMeldung2);
 #endif //ndef OHNE_SPEICHER
+
+// HACK für TEST: Uhrzeit senden.
+
+		if (Minute != MinuteLetzeRundsendung && BusFrei && (BusAuftrag == Nichts || BusAuftrag == Fertig))
+			{
+			uint8_t sreg_alt = SREG;
+			cli();
+			
+			BusAuftrag = Rundsenden;
+			
+			RundsendDaten[0] = 'c';
+			RundsendDaten[1] = 'l';
+			RundsendDaten[2] = 'k';
+			RundsendDaten[3] = Jahr;
+			RundsendDaten[4] = Monat;
+			RundsendDaten[5] = Tag;
+			RundsendDaten[6] = Stunde;
+			RundsendDaten[7] = Minute;
+			RundsendAnzDaten = 8;
+			
+			if (BusFrei)
+				{
+				while (BIT_IS_SET(TWCR, TWSTO))
+					;
+				SET_BIT(TWCR, TWSTA);
+				}
+				
+			SREG = sreg_alt; // setzt altes Interrupt-Enable zurück
+			}
 
 		} // while (1)
 	} // main()
