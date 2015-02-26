@@ -913,7 +913,14 @@ void VerbindungKommend()
 
 	uint8_t Res;
 	Res = LokalUhrBaudotAusgabe(AutoSendBuf);
-	AutoSendBuf[Res] = 0xFF; // Abschluss-Zeichen
+	if (Res > 0)
+		{
+		AutoSendBuf[Res] = TtyCodeWR;
+		AutoSendBuf[Res+1] = TtyCodeZL;
+		AutoSendBuf[Res+2] = 0xFF; // Abschluss-Zeichen
+		}
+	else
+		AutoSendBuf[0] = 0xFF; // Abschluss-Zeichen
 	
 	void VerbindungHergestellt();
 	VerbindungHergestellt();	

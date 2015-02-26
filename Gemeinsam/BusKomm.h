@@ -8,6 +8,17 @@
 
 #include "bits.h"
 
+
+// Varianten
+// ---------
+
+#ifdef FUER_TW39
+
+#define BUSKOMM_SPARVERSION
+	// dadurch wird Rundsenden und Empfang von Rundsendungen nicht implementiert
+	
+#endif //def FUER_TW39
+
 // Status-Variablen
 // ----------------
 
@@ -37,9 +48,7 @@ extern volatile TBusAuftrag BusAuftrag; //!< Aktuell anstehende Bus-Aktivität de
 extern volatile TBusErgebnis BusErgebnis; //!< Ergebnis des letzten BusSenden Aufrufs. Besetzt nur nach BedSenden. 
 extern volatile uint8_t BusVerbPartner; //!< Aktueller Verbindungspartner als I²C-Adresse, also * 2
 extern uint8_t BusEigenAdresse; //!< Aktuelle eigene Adresse als I²C-Adresse, also * 2. Bei Mehrfach-Adressen nur Basisadresse.
-extern uint8_t BusEigenAdrMehrfach; 
-	//!< Anzahl der Bus-Adressen des eigenen Moduls. Muss Potenz von 2 sein (also 1, 2, 4, 8, 16, ...) , Standard = 1
-extern bool RundsendEmpfFreig; //!< Freigabe des Empfangs von Rundsendungen 
+
 extern volatile uint8_t BusAnrufSubAdresse; //!< Aktuelle eigene Adresse der aktuellen Verbindung.
 extern volatile uint8_t BusSendeDaten; //!< zu sendendes Byte.
 extern volatile bool BusFrei; //!< True, wenn Modul bereit für neue Bus-Aktivität.
@@ -50,6 +59,13 @@ extern volatile bool BusEmpfMarkwechsel; //!< \brief Flag für Empfangspegel-Wech
 	//!< \details Wird durch Empfang von BusKdoMark oder BusKdoSpace gesetzt.
 	//!< Muss durch das Anwendungsprogramm gelöscht werden.
 	
+extern uint8_t BusEigenAdrMehrfach; 
+	//!< Anzahl der Bus-Adressen des eigenen Moduls. Muss Potenz von 2 sein (also 1, 2, 4, 8, 16, ...) , Standard = 1
+
+#ifndef BUSKOMM_SPARVERSION
+
+extern bool RundsendEmpfFreig; //!< Freigabe des Empfangs von Rundsendungen 
+
 enum { RundsendMaxDaten = 16 } ; //!< Maximale Anzahl Byte für eine Rundsendung
 
 extern volatile uint8_t RundsendDaten[RundsendMaxDaten]; //!< zu sendende ODER empfangene Daten
@@ -57,6 +73,9 @@ extern volatile uint8_t RundsendDaten[RundsendMaxDaten]; //!< zu sendende ODER e
 extern volatile uint8_t RundsendAnzDaten; //!< tatsächliche Anzahl an zu sendende ODER empfangene Daten.
 	//!< wird bei Beginn eine Empfangs auf 0 gesetzt
 	
+#endif //ndef BUSKOMM_SPARVERSION
+
+
 extern volatile uint16_t TwiIsrCount;
 	//!< Zählt die Anzahl der Aufrufe der TWI-Interrupt-Routine. Nur für Debugging-Zwecke.
 
@@ -73,6 +92,12 @@ extern void TwiInit(void);
 extern void BusWarteFertig(void);
 
 extern void BusSenden(uint8_t Kdo);
+
+#ifndef BUSKOMM_SPARVERSION
+
+extern void BusRundsenden(void);
+
+#endif //ndef BUSKOMM_SPARVERSION
 
 extern void WarteSchlussQuittung(uint16_t MaxTimer);
 
