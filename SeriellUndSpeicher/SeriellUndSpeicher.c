@@ -177,12 +177,6 @@ EEMEM uint16_t BeginnErsteMeldung2_EE = 0xEEEE; //!< #BeginnErsteMeldung2, Kopie
 // Uhr
 // ---
 
-uint8_t Jahr; //!< Jahr der mitlaufenden Uhr (nur die letzten zwei Stellen).
-uint8_t Monat; //!< Monat der mitlaufenden Uhr.
-uint8_t Tag; //!< Tag der mitlaufenden Uhr.
-uint8_t Stunde; //!< Stunde der mitlaufenden Uhr.
-uint8_t Minute; //!< Minute der mitlaufenden Uhr.
-
 uint8_t MinuteLetzeRundsendung; //!< Minute der letzten Rundsendung der Uhrzeit.
 
 

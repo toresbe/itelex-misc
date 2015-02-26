@@ -2,12 +2,11 @@
 
 #include "BaudotCode.h"
 
-// Zugriff auf die Uhrzeit nur über entsprechende Funktionen.
-static uint8_t JahrXX; //!< aktuelles Jahr - 2000
-static uint8_t Monat; //!< aktueller Monat
-static uint8_t Tag; //!< aktueller Tag. Auch Kennzeichen für überhaupt gesetztes Datum (wenn >0)
-static uint8_t Stunde; //!< aktuelle Stunde
-static uint8_t Minute; //!< aktuelle Minute
+uint8_t Jahr; //!< aktuelles Jahr - 2000
+uint8_t Monat; //!< aktueller Monat
+uint8_t Tag; //!< aktueller Tag. Auch Kennzeichen für überhaupt gesetztes Datum (wenn >0)
+uint8_t Stunde; //!< aktuelle Stunde
+uint8_t Minute; //!< aktuelle Minute
 
 
 //! Initialisiert alles
@@ -15,7 +14,7 @@ static uint8_t Minute; //!< aktuelle Minute
 
 void LokalUhrInit()
 	{
-	JahrXX = 0;
+	Jahr = 0;
 	Monat = 0;
 	Tag = 0;
 	Stunde = 0;
@@ -33,7 +32,7 @@ bool LokalUhrPruefeRundsendung(uint8_t *buf, uint8_t anz)
 		&& buf[1] == 'l'
 		&& buf[2] == 'k')
 		{
-		JahrXX = buf[3];
+		Jahr = buf[3];
 		Monat = buf[4];
 		Tag = buf[5];
 		Stunde = buf[6];
@@ -76,7 +75,7 @@ uint8_t LokalUhrBaudotAusgabe(uint8_t *buf)
 	buf[3] = TtyCodeZiPunkt;
 	BaudotZahlAusgabeZweistellig(buf + 4, Monat); 
 	buf[6] = TtyCodeZiPunkt;
-	BaudotZahlAusgabeZweistellig(buf + 7, JahrXX); 
+	BaudotZahlAusgabeZweistellig(buf + 7, Jahr); 
 	buf[9] = TtyCodeLeer;
 	BaudotZahlAusgabeZweistellig(buf + 10, Stunde); 
 	buf[12] = TtyCodeZiDoppelpunkt;
