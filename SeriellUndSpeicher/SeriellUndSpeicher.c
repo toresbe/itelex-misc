@@ -93,6 +93,7 @@
 #include "BusKomm.h"
 #include "KonfigDialog.h"
 #include "FifoPuffer.h"
+#include "LokalUhr.h"
 
 #ifndef OHNE_SPEICHER
 #include "SwTwi.h"
@@ -1348,6 +1349,7 @@ int main()
 
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
 	BusEigenAdrMehrfach = 1;
+	RundsendEmpfFreig = true;
 	
 	Jahr = eeprom_read_byte(&Jahr_EE);
 	Monat = eeprom_read_byte(&Monat_EE);
@@ -1573,16 +1575,11 @@ int main()
 		eeprom_write_word_noblock(&BeginnErsteMeldung2_EE, BeginnErsteMeldung2);
 #endif //ndef OHNE_SPEICHER
 
-// HACK für TEST: Uhrzeit senden.
+/* Reserve für später: Uhrzeit senden.
 
 		if (Minute != MinuteLetzeRundsendung && BusFrei && (BusAuftrag == Nichts || BusAuftrag == Fertig))
 			{
 			MinuteLetzeRundsendung = Minute;
-			
-			uint8_t sreg_alt = SREG;
-			cli();
-			
-			BusAuftrag = Rundsenden;
 			
 			RundsendDaten[0] = 'c';
 			RundsendDaten[1] = 'l';
@@ -1593,17 +1590,24 @@ int main()
 			RundsendDaten[6] = Stunde;
 			RundsendDaten[7] = Minute;
 			RundsendAnzDaten = 8;
-			
-			if (BusFrei)
-				{
-				while (BIT_IS_SET(TWCR, TWSTO))
-					;
-				SET_BIT(TWCR, TWSTA);
-				}
-				
-			SREG = sreg_alt; // setzt altes Interrupt-Enable zurück
+
+			BusRundsenden();
 			}
 
+*/
+
+		// Rundsendedaten auswerten:
+		if (RundsendAnzDaten > 0)
+			{
+			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
+				; // ok, schön...
+			else
+				; // keine Ahnung, was hier gesendet wurde, ist aber auch egal...
+				
+			RundsendAnzDaten = 0;
+			}
+		
+			
 		} // while (1)
 	} // main()
 
