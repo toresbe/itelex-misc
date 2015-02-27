@@ -228,7 +228,14 @@ ISR(TWI_vect)
 
         case TwiEv_MT_AddrNACK		:
 			BusAuftrag = Fertig;
-			BusErgebnis = KeineAntwort; // wiederholung hat keinen Sinn
+#ifndef BUSKOMM_SPARVERSION
+			if (BusAuftrag == Rundsenden)
+				BusErgebnis = Ok; 
+				// da Rundsenden nur ein 'Service' für den Empfänger ist, 
+				// ist es okay, wenn keiner 'zuhört'.
+			else
+#endif //ndef BUSKOMM_SPARVERSION			
+				BusErgebnis = KeineAntwort; // wiederholung hat keinen Sinn
 			SET_BIT(NewStat, TWSTO);
 			BusFrei = true;
 			DEBUG_BUSTRANSFER_FERTIG;
