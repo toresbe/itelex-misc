@@ -235,6 +235,8 @@ bool KonfigurationAllgemein()
 		if (LokalZahlEingabe(&Durchwahl, 0) == 0)
 			return false;
 
+		//! \todo Einstellige Durchwahlen erlauben.
+		
 		Durchwahl &= ~(BusEigenAdrMehrfach - 1);
 			// erreicht, dass bei (Bsp.) 8 Adressen die Basisadresse 8, 16, 24, ...
 			// ist
