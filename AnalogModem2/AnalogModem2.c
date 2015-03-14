@@ -99,6 +99,7 @@ uint8_t JustierNeustartPause;
 uint8_t VerbindungsaufbauVerzoegerung;	
 	//!< Verzögerung in 1/10 sek. zwischen letzter Ziffer und Sendung des Kenntons (Originate Mark)
 	//!< beim Aufbau einer normalen TelexPhone-Verbindung.
+	//!< Noch ist der Programmteil, der diesen Wert verwendet, nicht vorhanden.
 
 uint8_t WahlbeginnVerzoegerungFest;
 	//!< Verzögerung in 1/10 sek. zwischen Schleifenschluss und Freigabe der Wahl.
@@ -2459,19 +2460,46 @@ int main()
 
 	// Variablen aus EEPROM initialisieren
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
+	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
+		BusEigenAdresse = 110 << 1; // Standardwert "0"
+
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
 	
 	KonfigBits = eeprom_read_byte(&KonfigBits_EE);
+	// da es keine falschen Bitwerte gibt, wird auch nichts überprüft.
+	
 	AnnahmeKlingelzeichen = eeprom_read_byte(&AnnahmeKlingelzeichen_EE);
+	if (AnnahmeKlingelzeichen >= 15 || AnnahmeKlingelzeichen == 0)
+		AnnahmeKlingelzeichen = 1;
+		
 	for (uint8_t i = 0 ; i < AnzJustierWahlziffern ; i++)
 		JustierWahlziffern[i] = eeprom_read_byte(&JustierWahlziffern_EE[i]);
+		// da jeder Wert >= 10 das Listenende kennzeichnet, braucht nicht auf
+		// Einhaltung eines Wertebereichs geprüft zu werden.
+		
 	JustierWahlVerzoegerung = eeprom_read_byte(&JustierWahlVerzoegerung_EE);
+	if (JustierWahlVerzoegerung > 99 || JustierWahlVerzoegerung == 0)
+		JustierWahlVerzoegerung = 8;
+	
 	JustierNeustartPause = eeprom_read_byte(&JustierNeustartPause_EE);
+	if (JustierNeustartPause > 99 || JustierNeustartPause == 0)
+		JustierNeustartPause = 12;
+	
 	VerbindungsaufbauVerzoegerung = eeprom_read_byte(&VerbindungsaufbauVerzoegerung_EE); 
+	if (VerbindungsaufbauVerzoegerung > 99 || VerbindungsaufbauVerzoegerung == 0)
+		VerbindungsaufbauVerzoegerung = 60;
+	
 	WahlbeginnVerzoegerungFest = eeprom_read_byte(&WahlbeginnVerzoegerungFest_EE);
+	if (WahlbeginnVerzoegerungFest > 99)
+		WahlbeginnVerzoegerungFest = 0;
+
 	for (uint8_t i = 0 ; i < 10 ; i++)
+		{
 		NebenstellenTabelle[i] = eeprom_read_byte(&NebenstellenTabelle_EE[i]);
+		if (NebenstellenTabelle[i] > 99 || NebenstellenTabelle[i] < 10)
+			NebenstellenTabelle[i] = (i == 0) ? 31 : 0;
+		}
 
 	// sonstige Daten initialisieren
 	AutoSendBuf[0] = 0xFF;

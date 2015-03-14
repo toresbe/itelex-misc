@@ -737,6 +737,8 @@ int main()
 	MsTimerInit();
 	
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
+	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
+		BusEigenAdresse = 88 << 1; // Standardwert
 	BusEigenAdrMehrfach = 1;
 
 	BefehlEinschalten = false;

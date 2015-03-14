@@ -1342,6 +1342,8 @@ int main()
 	//SET_BIT(TIMSK1, OCIE1B); DoSwTwi wird jetzt direkt aufgerufen
 
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
+	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
+		BusEigenAdresse = 44 << 1; // Standardwert
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
 	
@@ -1350,13 +1352,31 @@ int main()
 	Tag = eeprom_read_byte(&Tag_EE);
 	Stunde = eeprom_read_byte(&Stunde_EE[Tag-1]);
 	Minute = eeprom_read_byte(&Minute_EE);
+	if (Jahr >= 100 || Monat > 12 || Tag > 31 || Stunde >= 24 || Minute >= 60)
+		{
+		Jahr = 0;
+		Monat = 1;
+		Tag = 1;
+		Stunde = 0;
+		Minute = 0;
+		}
 
 	UhrAktualisieren();
 	eeprom_read_string(Kennung, Kennung_EE);
+	if (Kennung[0] == '\377')
+		strcpy_P(Kennung, PSTR("\r\ntxp-ab"));
+	else
+		Kennung[sizeof(Kennung)-1] = '\0'; // sicherheitshalber
+		
 	eeprom_read_string(Kennwort, Kennwort_EE);
+	if (Kennwort[0] == '\377')
+		strcpy_P(Kennwort, PSTR("kennwort"));
+	else
+		Kennwort[sizeof(Kennwort)-1] = '\0'; // sicherheitshalber
 
 #ifndef OHNE_SPEICHER
 	BeginnErsteMeldung2 = eeprom_read_word(&BeginnErsteMeldung2_EE);
+	//! \todo Prüfen aif Sinigkeit?
 #endif //ndef OHNE_SPEICHER
 
 	SerIOInit();
