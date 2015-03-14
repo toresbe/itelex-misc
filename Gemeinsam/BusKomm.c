@@ -39,6 +39,15 @@ volatile bool BusEmpfMarkwechsel;
 volatile uint16_t TwiIsrCount;
 volatile uint16_t TwiWatchdogCount;
 
+#ifndef BUSKOMM_SPARVERSION
+
+bool RundsendEmpfFreig; 
+volatile uint8_t RundsendDaten[RundsendMaxDaten]; 
+volatile uint8_t RundsendAnzDaten; 
+
+#endif //ndef BUSKOMM_SPARVERSION
+	
+
 // lokal:
 static volatile uint8_t BusEmpfPuffer[EMPF_PUFFER_GROESSE]; 
 	//!< Puffert empfangene Kommandos vom TWI-Bus \e außer BusKdoMark und BusKdoSpace.
@@ -49,6 +58,14 @@ static volatile uint8_t BusEmpfPufferLesePos;
 static volatile uint8_t BusEmpfFremdStatus;
 	//!< Ablage für Status-Byte eines abgefragten Bus-Partners.
 
+#ifndef BUSKOMM_SPARVERSION
+
+static volatile uint8_t RundsendPufferPos;
+	//!< Index für RundsendDaten
+
+#endif //ndef BUSKOMM_SPARVERSION
+
+	
 // Makros für Debugging
 // --------------------
 // ggf mit Aktionen füllen
@@ -144,9 +161,10 @@ static void EmpfByteSpeichern(uint8_t RecData)
 //! Verarbeitet Statusänderungen des Atmel-TWI-Interface.
 ISR(TWI_vect)
 	{
-	uint8_t NewStat, RecData;
+	uint8_t NewStat, RecData, SendData;
 
 	NewStat = (0<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (1<<TWEN) | (1<<TWIE);
+		// TWEA standardmäßig gesetzt, muss ggf. wieder gelöscht werden.
 
 #ifdef TWI_DEBUG
 	void DebSp(uint8_t x);
@@ -167,6 +185,14 @@ ISR(TWI_vect)
 
         case TwiEv_MasterStart		:
         	DEBUG_BUSTRANSFER_START;
+#ifndef BUSKOMM_SPARVERSION
+			if (BusAuftrag == Rundsenden)
+				{
+				TWDR = 0;
+				RundsendPufferPos = 0;
+				}
+			else
+#endif //ndef BUSKOMM_SPARVERSION
 			if (BusAuftrag == Senden)
 				TWDR = BusVerbPartner & ~1; // Bit 0 = 0 -> Write
 			else
@@ -188,33 +214,73 @@ ISR(TWI_vect)
 		// Master-Transmit
 		// ---------------
         case TwiEv_MT_AddrACK		:
-			TWDR = BusSendeDaten;
+#ifndef BUSKOMM_SPARVERSION
+			if (BusAuftrag == Rundsenden)
+				SendData = RundsendDaten[RundsendPufferPos++];
+			else
+#endif //ndef BUSKOMM_SPARVERSION
+				SendData = BusSendeDaten;
 #ifdef TWI_DEBUG
-			DebSp(BusSendeDaten);
+			DebSp(SendData);
 #endif //TWI_DEBUG
+			TWDR = SendData;
 			break;
 
         case TwiEv_MT_AddrNACK		:
 			BusAuftrag = Fertig;
-			BusErgebnis = KeineAntwort; // wiederholung hat keinen Sinn
+#ifndef BUSKOMM_SPARVERSION
+			if (BusAuftrag == Rundsenden)
+				BusErgebnis = Ok; 
+				// da Rundsenden nur ein 'Service' für den Empfänger ist, 
+				// ist es okay, wenn keiner 'zuhört'.
+			else
+#endif //ndef BUSKOMM_SPARVERSION			
+				BusErgebnis = KeineAntwort; // wiederholung hat keinen Sinn
 			SET_BIT(NewStat, TWSTO);
 			BusFrei = true;
 			DEBUG_BUSTRANSFER_FERTIG;
 			break;
 
         case TwiEv_MT_DataACK		:
-			BusAuftrag = Fertig;
-			BusErgebnis = Ok; // Zeichen der erfolgreichen Erledigung
-			SET_BIT(NewStat, TWSTO); // weil nur ein Byte zu übertragen ist
-			BusFrei = true;
+#ifndef BUSKOMM_SPARVERSION
+			if (BusAuftrag == Rundsenden && RundsendPufferPos < RundsendMaxDaten)
+				{
+				SendData = RundsendDaten[RundsendPufferPos++];
+#ifdef TWI_DEBUG
+				DebSp(SendData);
+#endif //def TWI_DEBUG
+				TWDR = SendData;
+				}
+			else
+#endif //ndef BUSKOMM_SPARVERSION
+				{
+				BusAuftrag = Fertig;
+				BusErgebnis = Ok; // Zeichen der erfolgreichen Erledigung
+				SET_BIT(NewStat, TWSTO); // weil nur ein Byte zu übertragen ist
+				BusFrei = true;
+				}
 			DEBUG_BUSTRANSFER_FERTIG;
 			break;
 
         case TwiEv_MT_DataNACK		:
-			BusAuftrag = Fertig;
-			BusErgebnis = Ok; // Zeichen der erfolgreichen Erledigung (das vorherige Byte wurde angenommen!)
-			SET_BIT(NewStat, TWSTO); 
-			BusFrei = true;
+			//! \todo Senden Abbrechen
+#ifndef BUSKOMM_SPARVERSION
+			if (BusAuftrag == Rundsenden && RundsendPufferPos < RundsendMaxDaten)
+				{
+				SendData = RundsendDaten[RundsendPufferPos++];
+#ifdef TWI_DEBUG
+				DebSp(SendData);
+#endif //TWI_DEBUG
+				TWDR = SendData;
+				}
+			else
+#endif //ndef BUSKOMM_SPARVERSION
+				{
+				BusAuftrag = Fertig;
+				BusErgebnis = Ok; // Zeichen der erfolgreichen Erledigung (das vorherige Byte wurde angenommen!)
+				SET_BIT(NewStat, TWSTO); 
+				BusFrei = true;
+				}
 			DEBUG_BUSTRANSFER_FERTIG;
 			break;
 
@@ -225,7 +291,7 @@ ISR(TWI_vect)
 			DEBUG_BUSTRANSFER_KOLLISION;
 			break;
 
-		// Master-Receive
+		// Master-Receive (kann keine Rundsendung sein)
 		// --------------
         case TwiEv_MR_AddrACK		:
 			CLR_BIT(NewStat, TWEA); // damit nach erstem Datenbyte NACK gesendet wird
@@ -277,10 +343,13 @@ ISR(TWI_vect)
 		case TwiEv_SR_AddrACK		:
 			wdt_reset();
 			TwiWatchdogCount = 0;
-        	CLR_BIT(NewStat, TWEA); // damit nach erstem Datenbyte NACK gesendet wird 
 			BusFrei = false;
+#ifndef BUSKOMM_SPARVERSION
+			RundsendPufferPos = 0; // muss hier gemacht werden, damit beim TwiEv_SR_Stop nicht RundsendAnzDaten gesetzt wird.
+#endif //ndef BUSKOMM_SPARVERSION
 			DEBUG_BUSTRANSFER_EMPFANGSTART;
 			BusAnrufSubAdresse = (TWDR >> 1) & (BusEigenAdrMehrfach - 1);
+			CLR_BIT(NewStat, TWEA); // damit nach erstem Datenbyte NACK gesendet wird 
 			break;
 
         case TwiEv_SR_DataACK		:
@@ -300,18 +369,67 @@ ISR(TWI_vect)
 			EmpfByteSpeichern(RecData);
 			BusFrei = true;
 			DEBUG_BUSTRANSFER_FERTIG;
-			if (BusAuftrag == Lesen || BusAuftrag == Senden || BusAuftrag == BedSenden)
+			if (BusAuftrag == Lesen || BusAuftrag == Senden || BusAuftrag == BedSenden || BusAuftrag == Rundsenden)
 				SET_BIT(NewStat, TWSTA);
 			break;
 
-        case TwiEv_SR_Stop			:
+        case TwiEv_SR_Stop			: // dies wird auch beim GeneralCall aufgerufen
+			BusFrei = true;
+#ifndef BUSKOMM_SPARVERSION
+			if (RundsendPufferPos > RundsendAnzDaten)
+				RundsendAnzDaten = RundsendPufferPos;
+#endif //ndef BUSKOMM_SPARVERSION
+				
+			DEBUG_BUSTRANSFER_FERTIG;
+			if (BusAuftrag == Lesen || BusAuftrag == Senden || BusAuftrag == BedSenden || BusAuftrag == Rundsenden)
+				SET_BIT(NewStat, TWSTA);
+			break;
+
+#ifndef BUSKOMM_SPARVERSION
+			
+		// Slave-Receive als General call
+		// ------------------------------
+        case TwiEv_SR_GenCallACK_AL	: // after lost arbitration 
+			BusKollisionZaehler++;
+			// kein break
+			
+		case TwiEv_SR_GenCallACK		:
+			wdt_reset();
+			TwiWatchdogCount = 0;
+			BusFrei = false;
+			DEBUG_BUSTRANSFER_EMPFANGSTART;
+			RundsendPufferPos = 0;
+			RundsendAnzDaten = 0;
+			// bei Rundsendungen grundsätzlich kein NACK durch den Empfänger
+			break;
+
+        case TwiEv_SR_DataGcACK		:
+			RecData = TWDR;
+#ifdef TWI_DEBUG
+			DebSp(RecData);
+#endif //TWI_DEBUG
+			if (RundsendPufferPos < RundsendMaxDaten)
+				RundsendDaten[RundsendPufferPos++] = RecData;
+			break;
+
+        case TwiEv_SR_DataGcNACK		:
+			RecData = TWDR;
+#ifdef TWI_DEBUG
+			DebSp(RecData);
+#endif //TWI_DEBUG
+			if (RundsendPufferPos < RundsendMaxDaten)
+				RundsendDaten[RundsendPufferPos++] = RecData;
+			RundsendAnzDaten = RundsendPufferPos; 
+
 			BusFrei = true;
 			DEBUG_BUSTRANSFER_FERTIG;
-			if (BusAuftrag == Lesen || BusAuftrag == Senden || BusAuftrag == BedSenden)
+			if (BusAuftrag == Lesen || BusAuftrag == Senden || BusAuftrag == BedSenden || BusAuftrag == Rundsenden)
 				SET_BIT(NewStat, TWSTA);
 			break;
 
-		// Slave-Transmit
+#endif //ndef BUSKOMM_SPARVERSION
+			
+		// Slave-Transmit (kann kein Rundsenden sein)
 		// --------------
         case TwiEv_ST_AddrACK_AL	:
 			BusKollisionZaehler++;
@@ -333,7 +451,7 @@ ISR(TWI_vect)
         case TwiEv_ST_DataLast 		: // Beendigung durch Slave
 			BusFrei = true;
 			DEBUG_BUSTRANSFER_EMPFANGFERTIG;
-			if (BusAuftrag == Lesen || BusAuftrag == Senden || BusAuftrag == BedSenden)
+			if (BusAuftrag == Lesen || BusAuftrag == Senden || BusAuftrag == BedSenden || BusAuftrag == Rundsenden)
 				SET_BIT(NewStat, TWSTA);
 			break;
 
@@ -388,7 +506,7 @@ void BusSenden(uint8_t Kdo)
 		while (BIT_IS_SET(TWCR, TWSTO))
 			;
 		SET_BIT(TWCR, TWSTA);
-		}
+		} 
 	else
 		DEBUG_BUSTRANSFER_KOLLISION;
 		
@@ -397,14 +515,50 @@ void BusSenden(uint8_t Kdo)
 	DEBUG_BUSTRANSFER_INITEND;
 
 	}
+
 	
+#ifndef BUSKOMM_SPARVERSION
 	
+//! Startet einen "general Call" über TWI
+//---------------------------------------
+//! Die Variablen #RundsendDaten und #RundsendAnzDaten müssen vorher gefüllt werden
+
+void BusRundsenden(void)
+	{
+	DEBUG_BUSTRANSFER_INIT;
+
+	BusWarteFertig();
+
+	uint8_t sreg_alt = SREG;
+	cli();
+	
+	BusAuftrag = Rundsenden;
+	
+	if (BusFrei)
+		{
+		while (BIT_IS_SET(TWCR, TWSTO))
+			;
+		SET_BIT(TWCR, TWSTA);
+		}
+	else
+		DEBUG_BUSTRANSFER_KOLLISION;
+		
+	SREG = sreg_alt; // setzt altes Interrupt-Enable zurück
+
+	DEBUG_BUSTRANSFER_INITEND;
+
+	} // BusRundsenden()
+
+#endif //ndef BUSKOMM_SPARVERSION
+	
+		
 //! Fragt aktuellen Modul-Zustand (Status) eines anderen Moduls ab. 
 // ----------------------------------------------------------------
 //! "Verbiegt" dazu vorübergehend BusVerbPartner.
 //! \param Adr Adresse des abzufragenden Moduls (schon *2)
 //! \return Status des abgefragten Moduls. Bitkombination aus StatBit_*.
 //! \retval -1 falls keine Verbindung zum anderen Modul hergestellt werden konnte.
+
 int16_t GetStatus(uint8_t Adr)
 	// liefert Status >= 0 oder -1 für keine Verbindung
 	{
@@ -443,16 +597,22 @@ int16_t GetStatus(uint8_t Adr)
 //! \todo BusEigenAdrMehrfach prüfen!
 //! \param neu Neue Adresse für TWI-Bus, bereits * 2
 //! \retval true bei erfolgreicher Adress-Umstellung.
+
 bool BusEigenAdressePruefenUndSetzen(uint8_t neu)
 	{
 	if (neu >= BusAdrMin
 		&& neu <= BusAdrMax
 		&& !BIT_IS_SET(neu, 0)
 		&& GetStatus(neu) < 0)
-		{ // TODO BusEigenAdrMehrfach prüfen!
+		{ //! \todo BusEigenAdrMehrfach prüfen!
 		uint8_t SregAlt = SREG;
 		cli();
 		TWAR = neu;
+#ifndef BUSKOMM_SPARVERSION
+		if (RundsendEmpfFreig)
+			SET_BIT(TWAR, TWGCE);
+#endif //ndef BUSKOMM_SPARVERSION
+
 		SET_BIT(TWCR, TWEA);
 		BusEigenAdresse = neu;
 		SREG = SregAlt;
@@ -473,7 +633,8 @@ bool BusEigenAdressePruefenUndSetzen(uint8_t neu)
 
 //! Initialisiert die TWI-Schnittstelle.
 // --------------------------------------
-//! Vorher muss BusEigenAdresse und BusEigenAdrMehrfach gesetzt sein.
+//! Vorher muss #BusEigenAdresse und #BusEigenAdrMehrfach und
+//! (ggf) #RundsendEmpfFreig gesetzt sein.
 //! Funktion prüft NICHT auf Mehrfachverwendung der eigenen Adresse.
 void TwiInit()
 	{
@@ -485,9 +646,24 @@ void TwiInit()
 #define TWI_PSBITS 1
 #define TWI_PRESCALER (1<<(2*TWI_PSBITS))
 
+	BusKollisionZaehler = 0;
+	BusEmpfPufferLesePos = 0;
+	BusEmpfPufferSchreibPos = 0;
+	TwiIsrCount = 0;
+	TwiWatchdogCount = 0;
+ 	BusSendeDaten = 0;
+
 	TWSR = TWI_PSBITS;
 	TWBR = ((F_CPU / BusFrequenz) - 16) / (2 * TWI_PRESCALER);
 	TWAR = BusEigenAdresse & 0xFE;
+
+#ifndef BUSKOMM_SPARVERSION
+	RundsendAnzDaten = 0;
+	RundsendPufferPos = 0;
+	if (RundsendEmpfFreig)
+		SET_BIT(TWAR, TWGCE);
+#endif //ndef BUSKOMM_SPARVERSION
+		
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (1<<TWEN) | (0<<TWIE);
 #ifdef TWAMR
 	TWAMR = (BusEigenAdrMehrfach - 1) << 1; // muss Potenz von 2 sein, Standard = 1
@@ -495,12 +671,6 @@ void TwiInit()
 	if (BusEigenAdrMehrfach != 1)
 		FehlerStop(12);
 #endif //def TWAMR
-	BusKollisionZaehler = 0;
-	BusEmpfPufferLesePos = 0;
-	BusEmpfPufferSchreibPos = 0;
-	TwiIsrCount = 0;
-	TwiWatchdogCount = 0;
- 	BusSendeDaten = 0;
 	}
 
 
@@ -582,7 +752,7 @@ bool GetEmpfByte(uint8_t *Code)
 	}
 	
 
-#ifndef FUER_TW39
+#ifndef BUSKOMM_SPARVERSION
 	
 //! Prüft, ob Empfangspuffer für TWI-Kommandos leer ist.
 //------------------------------------------------------	
@@ -591,5 +761,5 @@ bool EmpfPufferLeer()
 	return BusEmpfPufferLesePos == BusEmpfPufferSchreibPos;
 	}
 	
-#endif //ndef FUER_TW39
+#endif //ndef BUSKOMM_SPARVERSION
 

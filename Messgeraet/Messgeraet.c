@@ -1113,11 +1113,31 @@ int main()
 	StartTimer(&Timer);
 
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
+	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax || (BusEigenAdresse & 0x06) != 0)
+																//    ^^^^ muss durch 4 Teilbar sein, letztes Bit sowieso 0
+		BusEigenAdresse = 80 << 1; // Standardwert
+
 	BusEigenAdrMehrfach = BUS_MEHRFACH_ADR;
 
 	for (uint8_t i = 0 ; i < BUS_MEHRFACH_ADR ; i++)
+		{
 		eeprom_read_string(Kennung[i], Kennung_EE[i]);
+		Kennung[i][KENNUNG_MAXLEN-1] = '\0';
+		}
+	if (Kennung[0][0] == '\377')
+		strcpy_P(Kennung[0], PSTR("\r\ntxp2-mess"));
+	if (Kennung[1][0] == '\377')
+		strcpy_P(Kennung[1], PSTR("\r\ntxp2-pruefsend"));
+	if (Kennung[2][0] == '\377')
+		strcpy_P(Kennung[2], PSTR("\r\ntxp2-bildloch"));
+	if (Kennung[3][0] == '\377')
+		strcpy_P(Kennung[3], PSTR("\r\ntxp2-rueckruf"));
+		
 	eeprom_read_string(Kennwort, Kennwort_EE);
+	if (Kennwort[0] == '\377')
+		strcpy_P(Kennwort, PSTR("kennwort"));
+	else
+		Kennwort[sizeof(Kennwort)-1] = '\0'; // sicherheitshalber
 
 	KommInit();
 

@@ -24,6 +24,7 @@
 #include "BusKomm.h"
 #include "SeriellUmsetz.h"
 #include "FernDialog.h"
+#include "LokalUhr.h"
 
 #include "73K221.h"
 
@@ -98,6 +99,7 @@ uint8_t JustierNeustartPause;
 uint8_t VerbindungsaufbauVerzoegerung;	
 	//!< Verzögerung in 1/10 sek. zwischen letzter Ziffer und Sendung des Kenntons (Originate Mark)
 	//!< beim Aufbau einer normalen TelexPhone-Verbindung.
+	//!< Noch ist der Programmteil, der diesen Wert verwendet, nicht vorhanden.
 
 uint8_t WahlbeginnVerzoegerungFest;
 	//!< Verzögerung in 1/10 sek. zwischen Schleifenschluss und Freigabe der Wahl.
@@ -114,14 +116,24 @@ uint8_t NebenstellenTabelle[10];
 
 #define Hauptanschluss NebenstellenTabelle[0]
 	//!< siehe #NebenstellenTabelle.
-				
+
+// Betriebsdaten
+// =============
+	
 uint8_t AktuellEmpfaenger;
 	//!< aktuell bei kommenden Rufen zu verwendedendes Endgerät. 
 	//!< Hier wird bei GEHENDEN Anrufen auch die Endgeräte-Nummer gespeichert.
 	//!< Bei Flag #KonfigBit_FesterHauptanschluss wird aber möglichst immer der Eintrag #Hauptanschluss verwendet. \n
 	//!< * 2 für I²C-Adressierung ist bei AktuellEmpfaenger bereits enthalten.
 
+// Maximal X Baudot-Zeichen in dem Puffer für das automatische Senden eines Textes bei Verbindungsbeginn (z.B. Uhrzeit)
+#define AUTOSENDMAXBUF 50
 
+uint8_t AutoSendBuf[AUTOSENDMAXBUF];
+	//!< Puffer mit Baudot-Zeichen, die nach Verbindungsaufbau an das eigene Gerät und an die Gegenstelle
+	//!< gesendet werden. Ende der Puffers mit 0xFF markieren.
+
+	
 // ****************************************************************
 // Eeprom
 // ****************************************************************
@@ -899,6 +911,17 @@ void VerbindungKommend()
 	SeriellAus();
 	
 	clr_LEDGELB();
+
+	uint8_t Res;
+	Res = LokalUhrBaudotAusgabe(AutoSendBuf);
+	if (Res > 0)
+		{
+		AutoSendBuf[Res] = TtyCodeWR;
+		AutoSendBuf[Res+1] = TtyCodeZL;
+		AutoSendBuf[Res+2] = 0xFF; // Abschluss-Zeichen
+		}
+	else
+		AutoSendBuf[0] = 0xFF; // Abschluss-Zeichen
 	
 	void VerbindungHergestellt();
 	VerbindungHergestellt();	
@@ -1764,6 +1787,8 @@ static void VerbindungGehend()
 	clr_LEDBLAU();
 	clr_LEDGRUEN();
 	// gelb bleibt an...
+
+	AutoSendBuf[0] = 0xFF;
 	
 	void VerbindungHergestellt();
 	VerbindungHergestellt();	
@@ -1775,31 +1800,48 @@ static void VerbindungGehend()
 //! Endgerät ist ein und Verbindung ist kommend ODER gehend fertig aufgebaut...
 //! Träger wird überwacht und bei Verlust Endgerät ausgeschaltet. Bei Ausschaltung vom
 //! Endgerät wird Träger ausgeschaltet und Modem "legt auf".
+//! Die Variable #AutoSendBuf beachten!
+
 void VerbindungHergestellt()
 	{ 
 	TMsTimer TraegerPruefTimer; // alle 0,02 Sekunden wird Träger geprüft. Bei 50 x nein Verbindungsabbau...
 	TMsTimer PegelWdhTimer;
 	TMsTimer LongDistancePruefTimer;
-	bool AltEmpfMark;
+	bool LetztBusKdoMark;
 	bool PegelSchnellWdh;
 	//uint8_t DiagnoseSpeicherPos = 0;
 	uint8_t TelegrammFehlerZaehler = 0;
 	uint8_t TraegerFehlZaehler = 0;
+	uint8_t AutoSendIdx; // Zeiger auf den AutoSendBuf, nach Abschluss wird der Index auf 0xFF gesetzt.
+	TMsTimer AutoSendDelay;
+	bool AutoSendMark;
+	bool ModSendMark;
+	bool ModSendChange;
 	
 	StartTimer(&PegelWdhTimer);
 	StartTimer(&LongDistancePruefTimer);
 	StartTimer(&TraegerPruefTimer);
+	StartTimer(&AutoSendDelay);
 
-	AltEmpfMark = false;
+	AutoSendMark = true;
+	SerUmSendBitNr = SerUmSendWarte;
+	if (AutoSendBuf[0] == 0xFF)
+		AutoSendIdx = 0xFF;
+	else
+		AutoSendIdx = 0;
+
+	LetztBusKdoMark = false;
 	BusEmpfMark = true;
 	PegelSchnellWdh = false;
+	ModSendMark = true;
+	ModSendChange = false;
 	
 	SET_BIT_Status(StatBit_Verbunden);
 
 	Transmit(true); // Initial-Pegel setzen
 	
 	while (true)
-		{ // LED: rot = schlechter Pegel oder verlorenes Telegramm, gelb = Sende Space, blau = empfange Space
+		{ // LED: rot = schlechter Pegel oder verlorenes Telegramm, gelb/grün = Sende Space, blau = empfange Space
 		uint8_t Code;
 
 		if (GetEmpfByte(&Code))
@@ -1827,11 +1869,41 @@ void VerbindungHergestellt()
 				} // switch Code
 			} // if GetEmpfByte
 			
-		// vom Bus kommandierten Pegel an Modem geben
-		if (BusEmpfMarkwechsel)
+		// Initiale Sendung des Pufferinhalts
+		if (AutoSendIdx != 0xFF)
 			{
-			Transmit(BusEmpfMark);
-			if (BusEmpfMark)
+			if (TimerVal(&AutoSendDelay) < 1000)
+				; // nichts tun, erst nach 1 Sekunde verzögerung
+			else
+				{
+				if (SerUmSendBitNr == SerUmSendWarte)
+					{
+					if (AutoSendIdx < AUTOSENDMAXBUF && AutoSendBuf[AutoSendIdx] != 0xFF)
+						{
+						SerUmSendDaten = AutoSendBuf[AutoSendIdx];
+						AutoSendIdx++;
+						SerUmSendBitNr = SerUmSendStart;
+						}
+					else
+						AutoSendIdx = 0xFF;
+					}
+				SeriellUmsetzung(true, &AutoSendMark);
+				ModSendChange = (AutoSendMark != ModSendMark);
+				ModSendMark = AutoSendMark;
+				} // else Verzögerungszeit ist abgelaufen
+			} // AutoSendBuf noch nicht abgearbeitet
+			
+		else // vom Bus kommandierten Pegel an Modem geben
+			{
+			ModSendChange = BusEmpfMarkwechsel;
+			ModSendMark = BusEmpfMark;
+			BusEmpfMarkwechsel = false;
+			}
+			
+		if (ModSendChange)
+			{
+			Transmit(ModSendMark);
+			if (ModSendMark)
 				{
 				if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
 					clr_LEDGELB();
@@ -1847,14 +1919,15 @@ void VerbindungHergestellt()
 					set_LEDGRUEN();
 				CLR_BIT_Status(StatBit_FsBefEin);
 				}
-			BusEmpfMarkwechsel = false;
+			ModSendChange = false;
 			}
 
 		// vom Modem empfangenen Pegel an Endgerät weitergeben
-		if (ReceiveMark())
+		
+		if ((AutoSendIdx != 0xFF) ? AutoSendMark : ReceiveMark())
 			{
 			clr_LEDBLAU();
-			if (!AltEmpfMark && BusAuftrag == Nichts)
+			if (!LetztBusKdoMark && BusAuftrag == Nichts)
 				{
 				BusSenden(BusKdoMark);
 				SET_BIT_Status(StatBit_FsMeldEin);
@@ -1863,7 +1936,7 @@ void VerbindungHergestellt()
 		else
 			{
 			set_LEDBLAU();
-			if (AltEmpfMark && BusAuftrag == Nichts)
+			if (LetztBusKdoMark && BusAuftrag == Nichts)
 				{
 				BusSenden(BusKdoSpace);
 				CLR_BIT_Status(StatBit_FsMeldEin);
@@ -1873,7 +1946,7 @@ void VerbindungHergestellt()
 		// Wiederholungssendung des Pegels?
 		if (BusAuftrag == Nichts && TimerVal(&PegelWdhTimer) >= (PegelSchnellWdh ? 4 : 652))
 			{
-			BusSenden(AltEmpfMark ? BusKdoMarkWdh : BusKdoSpaceWdh);
+			BusSenden(LetztBusKdoMark ? BusKdoMarkWdh : BusKdoSpaceWdh);
 			}
 			
 		// Gesendete (über I²C) Daten angekommen?
@@ -1884,22 +1957,22 @@ void VerbindungHergestellt()
 				switch (BusSendeDaten)
 					{
 					case BusKdoMark:
-						AltEmpfMark = true;
+						LetztBusKdoMark = true;
 						PegelSchnellWdh = true;
 						break;
 						
 					case BusKdoSpace:
-						AltEmpfMark = false;
+						LetztBusKdoMark = false;
 						PegelSchnellWdh = true;
 						break;
 						
 					case BusKdoMarkWdh:
-						AltEmpfMark = true;
+						LetztBusKdoMark = true;
 						PegelSchnellWdh = false;
 						break;
 						
 					case BusKdoSpaceWdh:
-						AltEmpfMark = false;
+						LetztBusKdoMark = false;
 						PegelSchnellWdh = false;
 						break;
 					} // switch (BusSendeDaten)
@@ -2085,7 +2158,7 @@ static bool AmtswahlAbfrage()
 
 
 //! Abfrage der Nebenstellen-Nummer für ankommende Durchwahlen
-//-----------------------------------------
+//------------------------------------------------------------
 //! \retval true Wenn kein Eingabe-Abbruch erfolgte.	
 static bool DurchwahlenAbfrage()
 	{
@@ -2387,19 +2460,51 @@ int main()
 
 	// Variablen aus EEPROM initialisieren
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
+	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
+		BusEigenAdresse = 110 << 1; // Standardwert "0"
+
 	BusEigenAdrMehrfach = 1;
+	RundsendEmpfFreig = true;
 	
 	KonfigBits = eeprom_read_byte(&KonfigBits_EE);
+	// da es keine falschen Bitwerte gibt, wird auch nichts überprüft.
+	
 	AnnahmeKlingelzeichen = eeprom_read_byte(&AnnahmeKlingelzeichen_EE);
+	if (AnnahmeKlingelzeichen >= 15 || AnnahmeKlingelzeichen == 0)
+		AnnahmeKlingelzeichen = 1;
+		
 	for (uint8_t i = 0 ; i < AnzJustierWahlziffern ; i++)
 		JustierWahlziffern[i] = eeprom_read_byte(&JustierWahlziffern_EE[i]);
+		// da jeder Wert >= 10 das Listenende kennzeichnet, braucht nicht auf
+		// Einhaltung eines Wertebereichs geprüft zu werden.
+		
 	JustierWahlVerzoegerung = eeprom_read_byte(&JustierWahlVerzoegerung_EE);
+	if (JustierWahlVerzoegerung > 99 || JustierWahlVerzoegerung == 0)
+		JustierWahlVerzoegerung = 8;
+	
 	JustierNeustartPause = eeprom_read_byte(&JustierNeustartPause_EE);
+	if (JustierNeustartPause > 99 || JustierNeustartPause == 0)
+		JustierNeustartPause = 12;
+	
 	VerbindungsaufbauVerzoegerung = eeprom_read_byte(&VerbindungsaufbauVerzoegerung_EE); 
+	if (VerbindungsaufbauVerzoegerung > 99 || VerbindungsaufbauVerzoegerung == 0)
+		VerbindungsaufbauVerzoegerung = 60;
+	
 	WahlbeginnVerzoegerungFest = eeprom_read_byte(&WahlbeginnVerzoegerungFest_EE);
-	for (uint8_t i = 0 ; i < 10 ; i++)
-		NebenstellenTabelle[i] = eeprom_read_byte(&NebenstellenTabelle_EE[i]);
+	if (WahlbeginnVerzoegerungFest > 99)
+		WahlbeginnVerzoegerungFest = 0;
 
+	for (uint8_t i = 0 ; i < 10 ; i++)
+		{
+		NebenstellenTabelle[i] = eeprom_read_byte(&NebenstellenTabelle_EE[i]);
+		if (NebenstellenTabelle[i] > 99 || NebenstellenTabelle[i] < 10)
+			NebenstellenTabelle[i] = (i == 0) ? 31 : 0;
+		}
+
+	// sonstige Daten initialisieren
+	AutoSendBuf[0] = 0xFF;
+	LokalUhrInit();
+	
 	// Module initialisieren
 	MsTimerInit();
 	SeriellUmsetzInit();
@@ -2514,6 +2619,17 @@ int main()
 			Grundstellen(false);
 			}
 
+		// Rundsendedaten auswerten:
+		if (RundsendAnzDaten > 0)
+			{
+			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
+				; // ok, schön...
+			else
+				; // keine Ahnung, was hier gesendet wurde, ist aber auch egal...
+				
+			RundsendAnzDaten = 0;
+			}
+		
 		} // Hauptschleife endlos
 	} // main
 	

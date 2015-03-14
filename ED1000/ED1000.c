@@ -1023,8 +1023,13 @@ int main()
 	InitTimer();
 	
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
+	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
+		BusEigenAdresse = 51 << 1; // Standardwert
 	BusEigenAdrMehrfach = 1;
+	
 	KommendSperreWahl = eeprom_read_byte(&KommendSperreWahl_EE);
+	if (KommendSperreWahl > 99)
+		KommendSperreWahl = 0;
 
 	BefehlEinschalten = false;
 	BefehlMark = true;

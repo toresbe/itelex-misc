@@ -992,10 +992,19 @@ int main()
 	MsTimerInit();
 	
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
+	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
+		BusEigenAdresse = 31 << 1; // Standardwert
 	BusEigenAdrMehrfach = 1;
+	
 	MitWaehlscheibe = eeprom_read_byte(&MitWaehlscheibe_EE) != 0;
+	
 	WahlauffordImpulsLaenge = eeprom_read_byte(&WahlauffordImpulsLaenge_EE);
+	if (WahlauffordImpulsLaenge > 100 || WahlauffordImpulsLaenge == 0)
+		WahlauffordImpulsLaenge = 30;
+	
 	KommendSperreWahl = eeprom_read_byte(&KommendSperreWahl_EE);
+	if (KommendSperreWahl > 99)
+		KommendSperreWahl = 0;
 
 	BefehlEinschalten = false;
 	BefehlMark = true;

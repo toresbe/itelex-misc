@@ -93,6 +93,7 @@
 #include "BusKomm.h"
 #include "KonfigDialog.h"
 #include "FifoPuffer.h"
+#include "LokalUhr.h"
 
 #ifndef OHNE_SPEICHER
 #include "SwTwi.h"
@@ -176,11 +177,8 @@ EEMEM uint16_t BeginnErsteMeldung2_EE = 0xEEEE; //!< #BeginnErsteMeldung2, Kopie
 // Uhr
 // ---
 
-uint8_t Jahr; //!< Jahr der mitlaufenden Uhr (nur die letzten zwei Stellen).
-uint8_t Monat; //!< Monat der mitlaufenden Uhr.
-uint8_t Tag; //!< Tag der mitlaufenden Uhr.
-uint8_t Stunde; //!< Stunde der mitlaufenden Uhr.
-uint8_t Minute; //!< Minute der mitlaufenden Uhr.
+uint8_t MinuteLetzeRundsendung; //!< Minute der letzten Rundsendung der Uhrzeit.
+
 
 // Kennung und Kennwort
 
@@ -1344,20 +1342,41 @@ int main()
 	//SET_BIT(TIMSK1, OCIE1B); DoSwTwi wird jetzt direkt aufgerufen
 
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
+	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
+		BusEigenAdresse = 44 << 1; // Standardwert
 	BusEigenAdrMehrfach = 1;
+	RundsendEmpfFreig = true;
 	
 	Jahr = eeprom_read_byte(&Jahr_EE);
 	Monat = eeprom_read_byte(&Monat_EE);
 	Tag = eeprom_read_byte(&Tag_EE);
 	Stunde = eeprom_read_byte(&Stunde_EE[Tag-1]);
 	Minute = eeprom_read_byte(&Minute_EE);
+	if (Jahr >= 100 || Monat > 12 || Tag > 31 || Stunde >= 24 || Minute >= 60)
+		{
+		Jahr = 0;
+		Monat = 1;
+		Tag = 1;
+		Stunde = 0;
+		Minute = 0;
+		}
 
 	UhrAktualisieren();
 	eeprom_read_string(Kennung, Kennung_EE);
+	if (Kennung[0] == '\377')
+		strcpy_P(Kennung, PSTR("\r\ntxp-ab"));
+	else
+		Kennung[sizeof(Kennung)-1] = '\0'; // sicherheitshalber
+		
 	eeprom_read_string(Kennwort, Kennwort_EE);
+	if (Kennwort[0] == '\377')
+		strcpy_P(Kennwort, PSTR("kennwort"));
+	else
+		Kennwort[sizeof(Kennwort)-1] = '\0'; // sicherheitshalber
 
 #ifndef OHNE_SPEICHER
 	BeginnErsteMeldung2 = eeprom_read_word(&BeginnErsteMeldung2_EE);
+	//! \todo Prüfen aif Sinigkeit?
 #endif //ndef OHNE_SPEICHER
 
 	SerIOInit();
@@ -1528,7 +1547,8 @@ int main()
 					BusteilnehmerListen();
 					Aktivieren(true);
 					break;
-										
+						
+// HACK:
 				default:
 					LokalTextAusgabeP(PSTR("\r\nUngültiges Kommando"));
 					HauptmenueAusgeben = true;
@@ -1569,6 +1589,39 @@ int main()
 		eeprom_write_word_noblock(&BeginnErsteMeldung2_EE, BeginnErsteMeldung2);
 #endif //ndef OHNE_SPEICHER
 
+/* Reserve für später: Uhrzeit senden.
+
+		if (Minute != MinuteLetzeRundsendung && BusFrei && (BusAuftrag == Nichts || BusAuftrag == Fertig))
+			{
+			MinuteLetzeRundsendung = Minute;
+			
+			RundsendDaten[0] = 'c';
+			RundsendDaten[1] = 'l';
+			RundsendDaten[2] = 'k';
+			RundsendDaten[3] = Jahr;
+			RundsendDaten[4] = Monat;
+			RundsendDaten[5] = Tag;
+			RundsendDaten[6] = Stunde;
+			RundsendDaten[7] = Minute;
+			RundsendAnzDaten = 8;
+
+			BusRundsenden();
+			}
+
+*/
+
+		// Rundsendedaten auswerten:
+		if (RundsendAnzDaten > 0)
+			{
+			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
+				; // ok, schön...
+			else
+				; // keine Ahnung, was hier gesendet wurde, ist aber auch egal...
+				
+			RundsendAnzDaten = 0;
+			}
+		
+			
 		} // while (1)
 	} // main()
 
