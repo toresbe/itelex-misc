@@ -1121,7 +1121,7 @@ int main()
 
 	for (uint8_t i = 0 ; i < BUS_MEHRFACH_ADR ; i++)
 		{
-		eeprom_read_string(Kennung[i], Kennung_EE[i]);
+		eeprom_read_string(Kennung[i], Kennung_EE[i], sizeof(Kennung[i]));
 		Kennung[i][KENNUNG_MAXLEN-1] = '\0';
 		}
 	if (Kennung[0][0] == '\377')
@@ -1133,7 +1133,7 @@ int main()
 	if (Kennung[3][0] == '\377')
 		strcpy_P(Kennung[3], PSTR("\r\ntxp2-rueckruf"));
 		
-	eeprom_read_string(Kennwort, Kennwort_EE);
+	eeprom_read_string(Kennwort, Kennwort_EE, sizeof(Kennwort));
 	if (Kennwort[0] == '\377')
 		strcpy_P(Kennwort, PSTR("kennwort"));
 	else

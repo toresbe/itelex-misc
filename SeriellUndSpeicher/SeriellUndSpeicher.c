@@ -1362,13 +1362,13 @@ int main()
 		}
 
 	UhrAktualisieren();
-	eeprom_read_string(Kennung, Kennung_EE);
+	eeprom_read_string(Kennung, Kennung_EE, sizeof(Kennung));
 	if (Kennung[0] == '\377')
 		strcpy_P(Kennung, PSTR("\r\ntxp-ab"));
 	else
 		Kennung[sizeof(Kennung)-1] = '\0'; // sicherheitshalber
 		
-	eeprom_read_string(Kennwort, Kennwort_EE);
+	eeprom_read_string(Kennwort, Kennwort_EE, sizeof(Kennwort));
 	if (Kennwort[0] == '\377')
 		strcpy_P(Kennwort, PSTR("kennwort"));
 	else
