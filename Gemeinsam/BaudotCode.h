@@ -5,6 +5,9 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
+// wenn statt Zeichensatz ITA2 der USTTY gelten soll, ist USTTY vorzudefinieren
+
+
 enum { TtyCodeWR = 2 } ; //!< Baudot-Code für Wagenrücklauf.
 enum { TtyCodeZL = 8 } ; //!< Baudot-Code für Zeilenvorschub.
 enum { TtyCodeBuUm = 31 } ; //!< Baudot-Code für Buchstaben-Umschaltung.
@@ -14,7 +17,13 @@ enum { TtyCodeZiPunkt = 7 } ; //!< Baudot-Code für einen Punkt.
 enum { TtyCodeZiDoppelpunkt = 14 } ; //!< Baudot-Code für einen Doppelpunkt.
 enum { TtyCodeLeer = 4 } ; //!< Baudot-Code für Leerzeichen.
 enum { TtyCodeZiWerDa = 18 /* bei Ziffern! */ } ; //!< Baudot-Code für Kennungsgeber-Abfrage.
+
+#ifdef USTTY
+enum { TtyCodeZiKlingel = 20 /* bei Ziffern! */} ; //!< Baudot-Code für Klingelzeichen.
+#else
 enum { TtyCodeZiKlingel = 26 /* bei Ziffern! */} ; //!< Baudot-Code für Klingelzeichen.
+#endif
+
 
 #define CTRL(z) ((z) & 0b00011111)
 

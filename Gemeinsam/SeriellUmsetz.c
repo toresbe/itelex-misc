@@ -41,6 +41,17 @@ void SeriellUmsetzInit()
 	SerUmEmpfPegel = 128;
 	}
 
+
+// falls die Bitlänge (1000 / Baudrate) abweichend sein soll, muss diese als Compiler-Define gesetzt werden
+
+#ifndef BIT_LENGTH
+
+//! Bit-Länge in Millisekunden
+#define BIT_LENGTH 20
+
+#endif
+
+
 	
 //! Zeitgeber für Umsetzung seriell - parallel.	
 TMsTimer SerUmTimerE;
@@ -65,11 +76,11 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 		{
 		case 1: // Ausgabe starten, aber nur, wenn nicht gerade empfangen wird
 			if ((SerUmEmpfBitNr == SerUmEmpfWarte || SerUmEmpfBitNr == SerUmEmpfFertig)
-				&& TimerVal(&SerUmTimerE) >= 50) 
+				&& TimerVal(&SerUmTimerE) >= 3 * BIT_LENGTH) 
 				{
 				StartTimer(&SerUmTimerE);
 					// warum das: Damit am ende des gesendeten Zeichens der Timer bei 
-					// ca. 150 steht und damit größer als 50 ist und nicht etwa 
+					// ca. 150 steht und damit größer als 60 ist und nicht etwa 
 					// 'zufällig' gerade überläuft.
 				*SeriellAusg = false;
 				StartTimer(&SerUmTimerA);
@@ -80,9 +91,9 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 			break;
 
 		case 2 ... 7: // Start- oder Daten-Bit läuft gerade
-			if (TimerVal(&SerUmTimerA) >= 20)
+			if (TimerVal(&SerUmTimerA) >= BIT_LENGTH)
 				{ // Bit beendet
-				DecrementTimer(&SerUmTimerA, 20);
+				DecrementTimer(&SerUmTimerA, BIT_LENGTH);
 				*SeriellAusg = BIT_IS_SET(SerUmSendDaten, 7);
 				SerUmSendDaten <<= 1;
 				SerUmSendBitNr++;
@@ -90,9 +101,9 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 			break;
 
 		case 8: // Stop-Bit läuft gerade
-			if (TimerVal(&SerUmTimerA) >= 30)
+			if (TimerVal(&SerUmTimerA) >= BIT_LENGTH * 3/2)
 				{ // Stopbit beendet
-				DecrementTimer(&SerUmTimerA, 30);
+				DecrementTimer(&SerUmTimerA, BIT_LENGTH * 3/2);
 				SerUmSendBitNr = SerUmSendWarte; // fertig für die nächsten Daten
 				*SeriellAusg = true; //XXX NEU
 				}
@@ -122,7 +133,7 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 			if (SeriellEing // Strom wieder da
 				&& (++SerUmEmpfPegel > 150)) // zu viele 1-Impulse im Startbit --> von vorn
 				SerUmEmpfBitNr = SerUmEmpfWarte; //! \todo Zum debuggen etwas vorsehen.
-			else if (TimerVal(&SerUmTimerE) >= 11) // Startbit gültig, Daten empfangen
+			else if (TimerVal(&SerUmTimerE) > BIT_LENGTH / 2) // Startbit gültig, Daten empfangen
 				{
 				SerUmEmpfBitNr = 2;
 				SerUmEmpfPegel = 128;
@@ -131,7 +142,7 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 			break;
 
 		case 2 ... 7 : // Datenbit oder Stopbits
-			if (TimerVal(&SerUmTimerE) >= 20) // Bit beendet
+			if (TimerVal(&SerUmTimerE) >= BIT_LENGTH) // Bit beendet
 				{
 				if (SerUmEmpfBitNr == 7)
 					{ // es war das Stopbit
@@ -158,7 +169,7 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 					SerUmEmpfPegel = 128;
 					}
 				}
-			else if (TimerVal(&SerUmTimerE) >= 17) // die letzten 3 Milli-Sekunden auswerten
+			else if (TimerVal(&SerUmTimerE) >= BIT_LENGTH - 3) // die letzten 3 Milli-Sekunden auswerten
 				{
 				if (SeriellEing)
 					{

@@ -5,9 +5,13 @@
 // Übersetzer-Tabellen
 // -------------------         0           1         2         3 
 //                             012 345678 90123456789012345678901
+#ifdef USTTY
+PROGMEM char TtyCodeTabBu[] = "#t\ro hnm\nlrgipcvezdbsyfxawj#uqk#";
+PROGMEM char TtyCodeTabZi[] = "#5\r9 #,.\n)4#80:=3+#?%6#/-2'#71(#";
+#else // also ITA2
 PROGMEM char TtyCodeTabBu[] = "#t\ro hnm\nlrgipcvezdbsyfxawj#uqk#";
 PROGMEM char TtyCodeTabZi[] = "#5\r9 #,.\n)4#80:=3+#?'6#/-2%#71(#";
-
+#endif
 
 //! Setzt ASCII-Zeichen in Baudot-Code um. Es erfolgt keine Umschaltung von Buchstaben
 //! auf Ziffern oder umgekehrt.
