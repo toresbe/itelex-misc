@@ -60,12 +60,23 @@
 	
 //! Marker im Code als Identifikation
 
+#ifdef PROGIDZUSATZ
+
+#ifdef V21	
+const PROGMEM char Identifier[] = "___TxP2_V21-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#else
+const PROGMEM char Identifier[] = "___TxP2_ED1000-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#endif 
+
+#else
+
 #ifdef V21	
 const PROGMEM char Identifier[] = "___TxP2_V21___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #else
 const PROGMEM char Identifier[] = "___TxP2_ED1000___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif 
 
+#endif //def PROGIDZUSATZ
 
 // Einstellungen für Timer 1: Sinus-Ausgabe und ADC-Start und Empfangsfilterung
 // ----------------------------------------------------------------------------

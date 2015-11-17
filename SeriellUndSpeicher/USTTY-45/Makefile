@@ -1,11 +1,11 @@
 ###############################################################################
-# Makefile for the project AnalogModem2
+# Makefile for the project SeriellUndSpeicher
 ###############################################################################
 
 ## General Flags
-PROJECT = AnalogModem2
+PROJECT = SeriellUndSpeicher
 MCU = atmega168
-TARGET = AnalogModem2.elf
+TARGET = SeriellUndSpeicher.elf
 CC = avr-gcc
 
 CPP = avr-g++
@@ -15,7 +15,7 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99   -DPLATINE_VERSION=20             -DF_CPU=11059200UL -O2 -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -fgnu89-inline   -DUSTTY -DBIT_LENGTH=22 -DPLATINE_VERSION=13       -DF_CPU=6144000UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -DPROGIDZUSATZ=\"US45\" 
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 
 ## Assembly specific flags
@@ -25,7 +25,7 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 
 ## Linker flags
 LDFLAGS = $(COMMON)
-LDFLAGS +=  -Wl,-Map=AnalogModem2.map
+LDFLAGS +=  -Wl,-Map=SeriellUndSpeicher.map
 
 
 ## Intel Hex file production flags
@@ -37,38 +37,50 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Include Directories
-INCLUDES = -I"D:\Daten\AvrProgs\TxP2\AnalogModem2\..\Gemeinsam" -I"D:\Daten\AvrProgs\TxP2\AnalogModem2\..\..\C-Libs" 
+INCLUDES = -I"D:\Daten\AvrProgs\TxP2\SeriellUndSpeicher\..\Gemeinsam" -I"D:\Daten\AvrProgs\TxP2\SeriellUndSpeicher\..\..\C-Libs" 
 
 ## Objects that must be built in order to link
-OBJECTS = 73K221.o BaudotCode.o SeriellUmsetz.o AnalogModem2.o BusKomm.o MsTimer.o Taste.o FernDialog.o BusKomm2.o LokalUhr.o 
+OBJECTS = SeriellUndSpeicher.o Taste.o TxP2-Endgeraet.o BaudotCode.o BusKomm.o FifoPuffer.o KonfigDialog.o LokalAusgabe.o SeriellUmsetz.o EepromTools.o SwTwi.o MsTimer.o BusKomm2.o LokalUhr.o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
 
 ## Build
-all: $(TARGET) AnalogModem2.hex AnalogModem2.eep AnalogModem2.lss## Compile
-73K221.o: ../73K221.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
-
-BaudotCode.o: ../../Gemeinsam/BaudotCode.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
-
-SeriellUmsetz.o: ../../Gemeinsam/SeriellUmsetz.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
-
-AnalogModem2.o: ../AnalogModem2.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
-
-BusKomm.o: ../../Gemeinsam/BusKomm.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
-
-MsTimer.o: ../../../C-Libs/MsTimer.c
+all: $(TARGET) SeriellUndSpeicher.hex SeriellUndSpeicher.eep SeriellUndSpeicher.lss## Compile
+SeriellUndSpeicher.o: ../SeriellUndSpeicher.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 Taste.o: ../Taste.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-FernDialog.o: ../../Gemeinsam/FernDialog.c
+TxP2-Endgeraet.o: ../../Gemeinsam/TxP2-Endgeraet.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+BaudotCode.o: ../../Gemeinsam/BaudotCode.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+BusKomm.o: ../../Gemeinsam/BusKomm.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+FifoPuffer.o: ../../Gemeinsam/FifoPuffer.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+KonfigDialog.o: ../../Gemeinsam/KonfigDialog.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+LokalAusgabe.o: ../../Gemeinsam/LokalAusgabe.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+SeriellUmsetz.o: ../../Gemeinsam/SeriellUmsetz.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+EepromTools.o: ../../../C-Libs/EepromTools.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+SwTwi.o: ../SwTwi.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+MsTimer.o: ../../../C-Libs/MsTimer.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 BusKomm2.o: ../../Gemeinsam/BusKomm2.c
@@ -93,7 +105,7 @@ $(TARGET): $(OBJECTS)
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) AnalogModem2.elf dep/* AnalogModem2.hex AnalogModem2.eep AnalogModem2.lss AnalogModem2.map
+	-rm -rf $(OBJECTS) SeriellUndSpeicher.elf dep/* SeriellUndSpeicher.hex SeriellUndSpeicher.eep SeriellUndSpeicher.lss SeriellUndSpeicher.map
 
 
 ## Other dependencies

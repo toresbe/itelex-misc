@@ -4,6 +4,9 @@ make -C ED1000/FuerPrototyp
 make -C ED1000/V.21
 make -C FernschrTW39/default
 make -C FernschrTW39/DoppelAusgabe
+make -C FernschrTW39/USTTY-45
 make -C Messgeraet/default
 make -C SeriellUndSpeicher/default
 make -C SeriellUndSpeicher/OhneSpeicher
+make -C SeriellUndSpeicher/USTTY-45
+make -C Wahlbruecke/default

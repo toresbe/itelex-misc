@@ -57,8 +57,13 @@
 	//!< Watchdog abgeschaltet
 
 
+#ifdef PROGIDZUSATZ
+//! Marker im Code als Identifikation
+PROGMEM const char Identifier[] = "___Wahlbruecke-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#else
 //! Marker im Code als Identifikation
 PROGMEM const char Identifier[] = "___Wahlbruecke___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#endif
 
 
 // Eeprom-Speicher

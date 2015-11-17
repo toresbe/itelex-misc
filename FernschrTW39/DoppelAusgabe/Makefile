@@ -6,14 +6,16 @@
 PROJECT = FernschrTW39
 MCU = atmega8
 TARGET = FernschrTW39.elf
-CC = avr-gcc.exe
+CC = avr-gcc
+
+CPP = avr-g++
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99         -DPARALLELAUSGABE    -DFUER_TW39           -fgnu89-inline              -DPLATINE_VERSION=13    -DF_CPU=6144000UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
+CFLAGS += -Wall -gdwarf-2 -std=gnu99         -DPARALLELAUSGABE    -DFUER_TW39           -fgnu89-inline              -DPLATINE_VERSION=13       -DF_CPU=6144000UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -DPROGIDZUSATZ=\"DOPAUS\" 
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 
 ## Assembly specific flags
@@ -27,7 +29,7 @@ LDFLAGS +=  -Wl,-Map=FernschrTW39.map
 
 
 ## Intel Hex file production flags
-HEX_FLASH_FLAGS = -R .eeprom
+HEX_FLASH_FLAGS = -R .eeprom -R .fuse -R .lock -R .signature
 
 HEX_EEPROM_FLAGS = -j .eeprom
 HEX_EEPROM_FLAGS += --set-section-flags=.eeprom="alloc,load"
@@ -44,9 +46,7 @@ OBJECTS = FernschrTW39.o TxP2-Endgeraet.o FifoPuffer.o BaudotCode.o BusKomm.o Ta
 LINKONLYOBJECTS = 
 
 ## Build
-all: $(TARGET) FernschrTW39.hex FernschrTW39.eep FernschrTW39.lss size
-
-## Compile
+all: $(TARGET) FernschrTW39.hex FernschrTW39.eep FernschrTW39.lss## Compile
 FernschrTW39.o: ../FernschrTW39.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
@@ -93,10 +93,6 @@ $(TARGET): $(OBJECTS)
 %.lss: $(TARGET)
 	avr-objdump -h -S $< > $@
 
-size: ${TARGET}
-	@echo
-	@avr-size -C --mcu=${MCU} ${TARGET}
-
 ## Clean target
 .PHONY: clean
 clean:
@@ -104,5 +100,5 @@ clean:
 
 
 ## Other dependencies
--include $(shell mkdir dep 2>/dev/null) $(wildcard dep/*)
+-include $(shell mkdir dep 2>NUL) $(wildcard dep/*)
 

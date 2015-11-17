@@ -42,8 +42,13 @@
 // #define NOWATCHDOG //!< Watchdog abgeschaltet
 
 
+#ifdef PROGIDZUSATZ
+PROGMEM const char Identifier[] = "___TxP2_LeitungAnalog2-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+	//!< Identifier im Programmspeicher.
+#else
 PROGMEM const char Identifier[] = "___TxP2_LeitungAnalog2___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 	//!< Identifier im Programmspeicher.
+#endif
 
 // Konfigurationsdaten
 // ===================
