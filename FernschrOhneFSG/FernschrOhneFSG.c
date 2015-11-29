@@ -308,12 +308,19 @@ static void LokalCodeAusgabeS(uint8_t *codep); // kommt erst später...
 
 static void FsAusschalten()
 	{
+	BreakSignal = false;	
+
+	// falls eben noch geschrieben wurde oder Störungen auf der Leitung waren
+	while (TimerVal(&RuheTimer) < 500)
+		FernschrIO();
+	
 	LokalCodeAusgabeS(AusschaltZeichen);
 
 	// noch eine weitere Sekunde warten
 	while (TimerVal(&RuheTimer) < 1000)
 		FernschrIO();
 	
+	BreakSignal = false;	
 	}
 		
 	
@@ -521,9 +528,15 @@ static bool WahlMitTastatur()
 			{
 			uint8_t i; // index in die "Verbunden"-Zeichenfolge
 
+			BefehlMark = true;
+			MeldungMark = true;
+
+			set_LEDROT(); // HACK
+			
 			i = 0;
 			while (KoEmpfMark()) // sofort abbrechen, wenn Gegenstelle beginnt zu senden.
 				{
+				SeriellUmsetzung(MeldungMark, &BefehlMark);
 				FernschrIO();
 
 				if (SerUmSendBitNr == SerUmSendWarte)			
@@ -534,10 +547,12 @@ static bool WahlMitTastatur()
 					if (SerUmSendDaten > 0x1F)
 						break; // nichts mehr zu senden
 					SerUmSendBitNr = SerUmSendStart;
+					i++;
 					}
-
-				SeriellUmsetzung(MeldungMark, &BefehlMark);
 				}
+
+			clr_LEDROT(); // HACK
+			
 			return true;
 			}
 
@@ -792,6 +807,10 @@ static void KommendSperren()
 	}
 	
 	
+DEFPORTOUT		(FS_AKTIV,	D, 7) 
+// HACK: Zum Test mit der TW39 muss bei angeschlossenem Fernschaltgerät dieses auf Dauer-Ein geschaltet werden.
+
+
 /////////////////////////////////////////////////////////////
 
 //! Schaltet das Modul in einen Modus, der keine kommenden und keine gehenden 
@@ -803,6 +822,9 @@ static void Deaktivieren(bool WegenTimeout)
 // wird nach kurzem Tastendruck aufgerufen
 	{
 	set_LEDBLAU();
+
+	clr_FS_AKTIV(); // HACK
+	
 	Aktivieren(false);
 
 	while (Tastendruck == NichtGedr)
@@ -813,6 +835,8 @@ static void Deaktivieren(bool WegenTimeout)
 	clr_LEDBLAU();
 	clr_LEDROT();
 
+	set_FS_AKTIV(); // HACK
+	
 	if (!WegenTimeout)
 		KommendSperren();
 		
@@ -823,9 +847,6 @@ static void Deaktivieren(bool WegenTimeout)
 
 //! Das Hauptprogramm der Fernschreiber-Schnittstelle.
 //---------------------------------------------------------
-
-DEFPORTOUT		(FS_AKTIV,	D, 7) 
-// HACK: Zum Test mit der TW39 muss bei angeschlossenem Fernschaltgerät dieses auf Dauer-Ein geschaltet werden.
 
 
 int main()
@@ -854,7 +875,6 @@ int main()
 	//init_TASTE2();
 
 	init_FS_AKTIV(); // HACK
-	set_FS_AKTIV(); // HACK
 	
 	set_LEDROT();
 
@@ -863,7 +883,7 @@ int main()
 	
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
-		BusEigenAdresse = 31 << 1; // Standardwert
+		BusEigenAdresse = 35 << 1; // Standardwert
 	BusEigenAdrMehrfach = 1;
 	
 	KommendSperreWahl = eeprom_read_byte(&KommendSperreWahl_EE);
