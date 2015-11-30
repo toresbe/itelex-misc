@@ -1223,6 +1223,9 @@ static void Konfiguration()
 		return;
 		}
 
+	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
+		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
+
 	LokalTextAusgabeP(PSTR("\r\n Datum/Uhrzeit: "));
 	DatumAusgabe();
 	LokalTextAusgabeP(PSTR(" neu:         "));

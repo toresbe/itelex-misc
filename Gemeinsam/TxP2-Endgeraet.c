@@ -909,7 +909,8 @@ static void BusKomm()
 
 	if (BusVerbPartner > 0) // ehem. && FsBetriebsart != FremdKonfig)
 		SendeLebenszeichen();
-	else
+	
+	if (BusVerbPartner == 0 || FsBetriebsart == AusschaltungGe || FsBetriebsart == AusschaltungKo)
 		wdt_reset();
 
 	//HACK LED_AUS(ROT);

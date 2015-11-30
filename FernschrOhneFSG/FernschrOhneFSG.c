@@ -66,16 +66,6 @@ PROGMEM const char Identifier[] = "___TxP2_OhneFSG___" __DATE__ "___" __TIME__ "
 typedef enum { EndeNurBreak, EndeNachNNNN, EndeNach3Plus } TVerbindungsEndeKriterium;
 
 
-// Eeprom-Speicher
-// ---------------
-
-EEMEM uint8_t Platzhalter[4]; //!< Platzhalter, da Anfang des EEPROM gern von Störungen betroffen ist
-EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
-EEMEM uint8_t KommendSperreWahl_EE = 0; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
-EEMEM TVerbindungsEndeKriterium VerbindungsEndeKriterium_EE;
-
-
-
 // Variablen
 // =========
 
@@ -98,7 +88,7 @@ uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankom
 
 char BuZiMode; //!< Marker für Buchstaben-Ziffern-Umschaltung.
 
-enum { MaxCodefolgeLaenge = 30 }; //!< Maximale Länge von #AusschaltZeichen, #Wahlaufforderung, #VerbdindungHergestelltZeichen
+enum { MaxCodefolgeLaenge = 30 }; //!< Maximale Länge von #AusschaltZeichen, #Wahlaufforderung, #VerbindungHergestelltZeichen
 
 uint8_t AusschaltZeichen[MaxCodefolgeLaenge+1]; 
 	//!< Druck-Sequenz als Zeichen für Ende der Verbindung.
@@ -116,13 +106,35 @@ PROGMEM uint8_t WahlaufforderungZeichenDefault[] = { TtyCodeBuUm, TtyCodeBuUm, T
 	//!< Standardwert für #WahlaufforderungZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
 
-	uint8_t VerbdindungHergestelltZeichen[MaxCodefolgeLaenge+1];
+uint8_t VerbindungHergestelltZeichen[MaxCodefolgeLaenge+1];
 	//!< Druck-Sequenz nach Eingang der Verbindungsbestätigung
 	
-PROGMEM uint8_t VerbdindungHergestelltZeichenDefault[] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 
+PROGMEM uint8_t VerbindungHergestelltZeichenDefault[] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 
 													       14, 3, 6, TtyCodeWR, TtyCodeZL, 255 } ; // CON
-	//!< Standardwert für #VerbdindungHergestelltZeichen.
+	//!< Standardwert für #VerbindungHergestelltZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
+	
+	
+// Eeprom-Speicher
+// ---------------
+
+typedef struct 
+	{
+	uint8_t Platzhalter[4]; //!< Platzhalter, da Anfang des EEPROM gern von Störungen betroffen ist
+	uint8_t BusEigenAdresse; //!< Eigene Busadresse auf dem I²C-Bus
+	uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
+	TVerbindungsEndeKriterium VerbindungsEndeKriterium; //!< Wie wird eine Verbindung beendet? 
+	uint8_t AusschaltZeichen[MaxCodefolgeLaenge+1]; 
+	uint8_t WahlaufforderungZeichen[MaxCodefolgeLaenge+1];
+	uint8_t VerbindungHergestelltZeichen[MaxCodefolgeLaenge+1];
+	} TEepromDaten;
+
+
+EEMEM TEepromDaten EEDaten; 
+	// keine Initialisierung, da beim Einlesen der EEDaten eine Prüfung und ggf. Initialisierung mit 
+	// Default-Werten stattfindet.
+
+
 	
 	
 ///////////////////////////////////////////////////////////////////////////////
@@ -543,7 +555,7 @@ static bool WahlMitTastatur()
 					{ // nächstes Zeichen ist dran
 					if (i >= MaxCodefolgeLaenge)
 						break; // nichts mehr zu senden
-					SerUmSendDaten = VerbdindungHergestelltZeichen[i];
+					SerUmSendDaten = VerbindungHergestelltZeichen[i];
 					if (SerUmSendDaten > 0x1F)
 						break; // nichts mehr zu senden
 					SerUmSendBitNr = SerUmSendStart;
@@ -726,6 +738,9 @@ static void Konfiguration()
 	if (!KonfigurationAllgemein())
 		return;
 
+	if (BusEigenAdresse != eeprom_read_byte(&EEDaten.BusEigenAdresse))
+		eeprom_write_byte(&EEDaten.BusEigenAdresse, BusEigenAdresse);
+	
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
 	LokalTextAusgabeP(PSTR("\r\n block incoming calls by: (cur. "));
 	if (KommendSperreWahl != 0)
@@ -737,8 +752,8 @@ static void Konfiguration()
 	if (LokalZahlEingabe(&KommendSperreWahl, 0) == 0)
 		return;
 
-	if (KommendSperreWahl != eeprom_read_byte(&KommendSperreWahl_EE))
-		eeprom_write_byte(&KommendSperreWahl_EE, KommendSperreWahl);
+	if (KommendSperreWahl != eeprom_read_byte(&EEDaten.KommendSperreWahl))
+		eeprom_write_byte(&EEDaten.KommendSperreWahl, KommendSperreWahl);
 
 	LokalTextAusgabeP(OkStrP);
 
@@ -881,19 +896,19 @@ int main()
 	// Timer initialisieren
 	MsTimerInit();
 	
-	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
+	BusEigenAdresse = eeprom_read_byte(&EEDaten.BusEigenAdresse) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
 		BusEigenAdresse = 35 << 1; // Standardwert
 	BusEigenAdrMehrfach = 1;
 	
-	KommendSperreWahl = eeprom_read_byte(&KommendSperreWahl_EE);
+	KommendSperreWahl = eeprom_read_byte(&EEDaten.KommendSperreWahl);
 	if (KommendSperreWahl > 99)
 		KommendSperreWahl = 0;
 
 	//! \todo Zeichenfolgen aus EEPROM holen
 	memcpy_P(AusschaltZeichen, AusschaltZeichenDefault, sizeof(AusschaltZeichenDefault));
 	memcpy_P(WahlaufforderungZeichen, WahlaufforderungZeichenDefault, sizeof(WahlaufforderungZeichenDefault));
-	memcpy_P(VerbdindungHergestelltZeichen, VerbdindungHergestelltZeichenDefault, sizeof(VerbdindungHergestelltZeichenDefault));
+	memcpy_P(VerbindungHergestelltZeichen, VerbindungHergestelltZeichenDefault, sizeof(VerbindungHergestelltZeichenDefault));
 	
 	BefehlMark = true;
 	MeldungMark = true;

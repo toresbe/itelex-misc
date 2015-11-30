@@ -897,6 +897,9 @@ static void Konfiguration()
 	if (!KonfigurationAllgemein())
 		return;
 
+	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
+		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
+	
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
 	LokalTextAusgabeP(PSTR("\r\n kommend-sperre mit wahl: (akt. "));
 	if (KommendSperreWahl != 0)

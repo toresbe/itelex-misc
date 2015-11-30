@@ -212,9 +212,6 @@ extern void LokalZeichenAusgabe(char c);
 // Diese Funktion muss in der Anwendung definiert werden.
 
 
-//! Eigene Adresse des Endgeräts, abgelegt im EEPROM.
-EEMEM extern uint8_t BusEigenAdresse_EE;
-
 
 //! Dialog-Abfrage für die allgemeinen Einstellungen eines Endgeräts.
 //-------------------------------------------------------------------
@@ -248,10 +245,6 @@ bool KonfigurationAllgemein()
 		if (BusEigenAdressePruefenUndSetzen(WahlZuAdresse(Durchwahl, 2)))
 			{
 			LokalTextAusgabeP(OkStrP);
-
-			if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
-				eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
-
 			return true;
 			}
 

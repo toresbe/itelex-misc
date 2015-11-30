@@ -823,6 +823,9 @@ static void Konfiguration()
 	if (!KonfigurationAllgemein())
 		return;
 
+	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
+		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
+	
 	// Wählscheibe vorhanden?
 	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden?      "));
 

@@ -394,7 +394,6 @@ ISR(TWI_vect)
 			// kein break
 			
 		case TwiEv_SR_GenCallACK		:
-			wdt_reset();
 			TwiWatchdogCount = 0;
 			BusFrei = false;
 			DEBUG_BUSTRANSFER_EMPFANGSTART;
