@@ -102,7 +102,7 @@ uint8_t WahlaufforderungZeichen[MaxCodefolgeLaenge+1];
 	//!< Druck-Sequenz als Zeichen jetzt zu wählen
 
 PROGMEM uint8_t WahlaufforderungZeichenDefault[] = { TtyCodeBuUm, TtyCodeBuUm, TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 
-													 6, 10, TtyCodeSPC, TtyCodeSPC, TtyCodeSPC, TtyCodeSPC, TtyCodeSPC, TtyCodeZiUm, 255 } ; // NR _ _ _ _
+													 6, 10, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeZiUm, 255 } ; // NR _ _ _ _ _
 	//!< Standardwert für #WahlaufforderungZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
 
@@ -166,7 +166,7 @@ static void FernschrIO()
 			{ // Schleifenstrom ist ein
 			if (!MeldungMark)
 				{
-				if (TimerVal(&EntprellungTimer) > 5) // mehr als 3 ms Strom --> ein
+				if (TimerVal(&EntprellungTimer) > 3) // mehr als 3 ms Strom --> ein
 					MeldungMark = true;
 				} 
 			else
@@ -898,7 +898,8 @@ int main()
 	
 	BusEigenAdresse = eeprom_read_byte(&EEDaten.BusEigenAdresse) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
-		BusEigenAdresse = 35 << 1; // Standardwert
+		BusEigenAdresse = 35 << 1; // Standardwert 
+		//! \todo Besser BusAdrUngueltig testen
 	BusEigenAdrMehrfach = 1;
 	
 	KommendSperreWahl = eeprom_read_byte(&EEDaten.KommendSperreWahl);
@@ -964,7 +965,7 @@ int main()
 		
 	TWCR = (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (1<<TWEN) | (1<<TWIE);
 
-	while (TimerVal(&Timer) < 1000 + BusEigenAdresse)
+	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
 
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
