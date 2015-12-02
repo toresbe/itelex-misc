@@ -548,27 +548,23 @@ static bool WahlMitTastatur()
 
 			GeSendeMark(true);
 
+			// Im Modul TxP2-Endgerät ist nun der Zustand "Eingeschaltet" bereits erreicht, 
+			// somit läuft die SeriellUmsetzung mit dem "SendePuffer".
+			
 			i = 0;
 			while (true)
 				{
-				if (!KoEmpfMark()) // abbrechen, wenn Gegenstelle beginnt zu senden, aber erst nach vollständigem Zeichen
+				if (!KoEmpfMark())
 					Abbruch = true;
-					
-				SeriellUmsetzung(MeldungMark, &BefehlMark);
-				FernschrIO();
-
-				if (SerUmSendBitNr == SerUmSendWarte)			
+				if (PufferLeer(&SendePuffer) && SerUmSendBitNr == SerUmSendWarte)
 					{ // nächstes Zeichen ist dran
-					if (i >= MaxCodefolgeLaenge)
+					if (i >= MaxCodefolgeLaenge || VerbindungHergestelltZeichen[i] > 0x1F)
 						break; // Auch ohne Ende-Zeichen ist die Zeichenkette jetzt beendet.
 					if (Abbruch)
 						break; // Gegenstelle sendet, daher selbst nicht mehr schreiben.
-					SerUmSendDaten = VerbindungHergestelltZeichen[i];
-					if (SerUmSendDaten > 0x1F)
-						break; // nichts mehr zu senden
-					SerUmSendBitNr = SerUmSendStart;
-					i++;
+					PufferSpeich(&SendePuffer, VerbindungHergestelltZeichen[i++]);
 					}
+				FernschrIO();
 				}
 
 			return true;
