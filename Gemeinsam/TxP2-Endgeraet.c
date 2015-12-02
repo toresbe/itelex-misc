@@ -133,6 +133,14 @@ TPuffer SendePuffer;
 TPuffer EmpfPuffer;
 
 
+//! Wo werden die aus dem #SendePuffer auszugebenden Zeichen gedruckt.
+extern TUmsetzMode SendeUmsetzModus;
+
+//! Welche Seite wird ausgewertet um den #EmpfPuffer zu füllen.
+extern TUmsetzMode EmpfUmsetzModus;
+
+
+
 //! Ist das Endgerät gerade ausgeschaltet?
 bool BetriebsartAusgeschaltet()
 	{
@@ -268,6 +276,9 @@ void KommInit()
 	PufferInit(&SendePuffer);
 	PufferInit(&EmpfPuffer);
 	BusKommSperre = false;
+	
+	SendeUmsetzModus = UmsetzFern;
+	EmpfUmsetzModus = UmsetzFern;
 	}
 	
 
@@ -812,8 +823,23 @@ static void BusKomm()
 				SerUmSendBitNr = SerUmSendStart;
 				}
 
-			SeriellUmsetzung(BusEmpfMark, (bool*) &PegelGehend);
+			bool SerUmSendMark;
+			
+			if (EmpfUmsetzModus == UmsetzLokal)
+				SeriellUmsetzung(PegelGehend, &SerUmSendMark);
+			else if (EmpfUmsetzModus == UmsetzFern)
+				SeriellUmsetzung(BusEmpfMark, &SerUmSendMark);
+			else
+				SeriellUmsetzung(BusEmpfMark && PegelGehend, &SerUmSendMark);
+			
+			if (SendUmsetzModus == UmsetzLokal)
+				
+			else if (SendUmsetzModus == UmsetzFern)
+			else
+			
 
+			
+			
 			if (PegelGehend)
 				SET_BIT_Status(StatBit_FsMeldEin);
 			else
