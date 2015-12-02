@@ -109,7 +109,7 @@ PROGMEM uint8_t WahlaufforderungZeichenDefault[] = { TtyCodeBuUm, TtyCodeBuUm, T
 uint8_t VerbindungHergestelltZeichen[MaxCodefolgeLaenge+1];
 	//!< Druck-Sequenz nach Eingang der Verbindungsbestätigung
 	
-PROGMEM uint8_t VerbindungHergestelltZeichenDefault[] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 
+PROGMEM uint8_t VerbindungHergestelltZeichenDefault[] = { TtyCodeBuUm, TtyCodeBuUm, TtyCodeWR, TtyCodeZL, TtyCodeBuUm, 
 													       14, 3, 6, TtyCodeWR, TtyCodeZL, 255 } ; // CON
 	//!< Standardwert für #VerbindungHergestelltZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
@@ -293,7 +293,7 @@ static bool FsEinschalten()
 	FernschrIO();
 		
 	StartTimer(&AbbruchTimer);
-	while (TimerVal(&RuheTimer) < 2000) //! \todo Konfigurierbar
+	while (TimerVal(&RuheTimer) < 1200) //! \todo Konfigurierbar
 		{
 		FernschrIO(); // Bearbeitet auch #RuheTimer
 		if (MeldungMark)
@@ -320,6 +320,7 @@ static void LokalCodeAusgabeS(uint8_t *codep); // kommt erst später...
 
 static void FsAusschalten()
 	{
+	BefehlMark = true;
 	BreakSignal = false;	
 
 	// falls eben noch geschrieben wurde oder Störungen auf der Leitung waren
@@ -539,22 +540,29 @@ static bool WahlMitTastatur()
 		if (KoEinschalten())
 			{
 			uint8_t i; // index in die "Verbunden"-Zeichenfolge
+			bool Abbruch;
 
 			BefehlMark = true;
 			MeldungMark = true;
+			Abbruch = false;
 
-			set_LEDROT(); // HACK
-			
+			GeSendeMark(true);
+
 			i = 0;
-			while (KoEmpfMark()) // sofort abbrechen, wenn Gegenstelle beginnt zu senden.
+			while (true)
 				{
+				if (!KoEmpfMark()) // abbrechen, wenn Gegenstelle beginnt zu senden, aber erst nach vollständigem Zeichen
+					Abbruch = true;
+					
 				SeriellUmsetzung(MeldungMark, &BefehlMark);
 				FernschrIO();
 
 				if (SerUmSendBitNr == SerUmSendWarte)			
 					{ // nächstes Zeichen ist dran
 					if (i >= MaxCodefolgeLaenge)
-						break; // nichts mehr zu senden
+						break; // Auch ohne Ende-Zeichen ist die Zeichenkette jetzt beendet.
+					if (Abbruch)
+						break; // Gegenstelle sendet, daher selbst nicht mehr schreiben.
 					SerUmSendDaten = VerbindungHergestelltZeichen[i];
 					if (SerUmSendDaten > 0x1F)
 						break; // nichts mehr zu senden
@@ -563,8 +571,6 @@ static bool WahlMitTastatur()
 					}
 				}
 
-			clr_LEDROT(); // HACK
-			
 			return true;
 			}
 
@@ -638,7 +644,8 @@ static void VerbindungGehend()
 			return;
 		}
 
-	VerbindungSteht(true); // automatische Kennungsgeber-Abfrage
+	// HACK VerbindungSteht(true); // automatische Kennungsgeber-Abfrage
+	VerbindungSteht(false); // HACK aufblenden zur Fehlersuche.
 
 	}
 
@@ -661,6 +668,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 	ErsteKennungAbfrage = true;
 
 	GeSendeMark(true); 
+	BefehlMark = true;
 
 	while (true)
 		{
