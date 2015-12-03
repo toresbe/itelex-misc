@@ -19,7 +19,7 @@ extern TPuffer SendePuffer, EmpfPuffer;
 //! Für Seriellumsetzung: Welche Seite der Verbindung wird ausgewertet bzw. beeinflusst.
 typedef enum { UmsetzLokal, UmsetzFern, UmsetzLokalUndFern } TUmsetzModus;
 
-extern TUmsetzMode SendeUmsetzModus, EmpfUmsetzModus;
+extern TUmsetzModus SendeUmsetzModus, EmpfUmsetzModus;
 
 extern void FehlerStop(int Nummer);
 

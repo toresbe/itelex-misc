@@ -40,7 +40,20 @@ static char AusschaltCode; //!< Grund für Abschaltung
 
 static volatile TFsBetriebsart FsBetriebsart; //!< Aktuelle Phase der Verbindung.
 	
-static volatile bool PegelGehend; //!< wird von Schnittstellenprogramm gesetzt (vom Fernschreiber)
+static volatile bool FsEingMark; 
+	//!< wird von Schnittstellenprogramm gesetzt (vom Fernschreiber)
+	//!< Also das von der Tastatur kommende Signal (gehend)
+
+static volatile bool FsAusgMark; 
+	//!< wird an das Schnittstellenprogramm gemeldet (an Fernschreiber)
+	//!< Also das an das Schreibwerk gehende Signal (kommend)
+
+// in BusKomm.h definiert: bool BusEmpfMark	
+	// per TWI-Bus empfangenes Signal (zum Fernschreiber, kommend)
+
+// nur lokal in Funktion BusKomm definiert: bool BusSendMark
+	// per TWI-Bus gesendetes Signal (vom Fernschreiber, gehend)
+
 
 
 // Debug-Speicher
@@ -134,10 +147,10 @@ TPuffer EmpfPuffer;
 
 
 //! Wo werden die aus dem #SendePuffer auszugebenden Zeichen gedruckt.
-extern TUmsetzMode SendeUmsetzModus;
+TUmsetzModus SendeUmsetzModus;
 
 //! Welche Seite wird ausgewertet um den #EmpfPuffer zu füllen.
-extern TUmsetzMode EmpfUmsetzModus;
+TUmsetzModus EmpfUmsetzModus;
 
 
 
@@ -178,8 +191,8 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 			SET_BIT(Status, StatBit_Frei); // kein SET_BIT_Status, weil sonst das Interrupt-Flag wieder gesetzt wird
 			CLR_BIT(Status, StatBit_LeitungKennung); // es ist keine Leitung, löscht auch ggf. StatBit_AngerufenBelegt
 				// StatBit_SpezialGeraetKennung muss vom Hauptprogramm gesetzt werden!
-			PegelGehend = true;
-			BusEmpfMark = true;
+			FsEingMark = true;
+			FsAusgMark = true;
 			BusVerbPartner = 0;
 			break;
 
@@ -202,6 +215,8 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 			CLR_BIT(Status, StatBit_SpezialGeraetKennung); // weil dieses Bit nur bei StatBit_Frei = 1 erlaubt ist
 			SET_BIT(Status, StatBit_AngerufenBelegt);
 			SET_BIT(Status, StatBit_FsBefBetrieb);
+			BusEmpfMark = true; // schon mal vorsorglich.
+			FsAusgMark = true; // schon mal vorsorglich.
 			break;
 
 		case Eingeschaltet:
@@ -219,8 +234,9 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 			PufferInit(&SendePuffer);
 			PufferInit(&EmpfPuffer);
 			SeriellUmsetzInit();
-			PegelGehend = true;
 			BusEmpfMark = true;
+			FsEingMark = true;
+			FsAusgMark = true;
 			break;
 
 		// case FremdKonfig:
@@ -435,7 +451,7 @@ uint8_t LetzteInterneWahl()
 //! \retval true bei Mark.	
 bool KoEmpfMark() // true bei Mark
 	{
-	return BusEmpfMark;
+	return FsAusgMark;
 	}
 	
 	
@@ -445,7 +461,7 @@ bool KoEmpfMark() // true bei Mark
 //! \param Mark true bei Mark.	
 void GeSendeMark(bool Mark)
 	{
-	PegelGehend = Mark;
+	FsEingMark = Mark;
 	}
 
 
@@ -823,37 +839,45 @@ static void BusKomm()
 				SerUmSendBitNr = SerUmSendStart;
 				}
 
-			bool SerUmSendMark;
+			bool SerUmSendMark, BusSendMark;
 			
 			if (EmpfUmsetzModus == UmsetzLokal)
-				SeriellUmsetzung(PegelGehend, &SerUmSendMark);
+				SeriellUmsetzung(FsEingMark, &SerUmSendMark);
 			else if (EmpfUmsetzModus == UmsetzFern)
 				SeriellUmsetzung(BusEmpfMark, &SerUmSendMark);
 			else
-				SeriellUmsetzung(BusEmpfMark && PegelGehend, &SerUmSendMark);
-			
-			if (SendUmsetzModus == UmsetzLokal)
-				
-			else if (SendUmsetzModus == UmsetzFern)
-			else
-			
-
-			
-			
-			if (PegelGehend)
-				SET_BIT_Status(StatBit_FsMeldEin);
-			else
-				CLR_BIT_Status(StatBit_FsMeldEin);
+				SeriellUmsetzung(BusEmpfMark && FsEingMark, &SerUmSendMark);
 
 			if (SerUmEmpfBitNr == SerUmEmpfFertig)
 				{
 				PufferSpeich(&EmpfPuffer, SerUmEmpfDaten);
 				SerUmEmpfBitNr = SerUmEmpfWarte;
 				}
+			
+			FsAusgMark = BusEmpfMark; // wird vielleicht gleich wieder überschrieben.
+			BusSendMark = FsEingMark;
+			
+			if (SerUmSendBitNr != SerUmSendWarte)
+				{
+				if (SendeUmsetzModus == UmsetzLokal)
+					FsAusgMark = SerUmSendMark;
+				else if (SendeUmsetzModus == UmsetzFern)
+					BusSendMark = SerUmSendMark;
+				else
+					{
+					FsAusgMark = SerUmSendMark;
+					BusSendMark = SerUmSendMark;
+					}
+				}
+
+			if (BusSendMark)
+				SET_BIT_Status(StatBit_FsMeldEin);
+			else
+				CLR_BIT_Status(StatBit_FsMeldEin);
 
 			if (BusFrei && BusAuftrag == Nichts)
 				{ // überhaupt fähig zu senden
-				if (PegelGehend)
+				if (BusSendMark)
 					{ // Mark
 					if (GesendeterPegelStatus == Space1 || GesendeterPegelStatus == Space2)
 						BusSenden(BusKdoMark);
