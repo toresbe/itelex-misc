@@ -109,8 +109,7 @@ PROGMEM uint8_t WahlaufforderungZeichenDefault[] = { TtyCodeBuUm, TtyCodeBuUm, T
 uint8_t VerbindungHergestelltZeichen[MaxCodefolgeLaenge+1];
 	//!< Druck-Sequenz nach Eingang der Verbindungsbestätigung
 	
-PROGMEM uint8_t VerbindungHergestelltZeichenDefault[] = { TtyCodeBuUm, TtyCodeBuUm, TtyCodeWR, TtyCodeZL, TtyCodeBuUm, 
-													       14, 3, 6, TtyCodeWR, TtyCodeZL, 255 } ; // CON
+PROGMEM uint8_t VerbindungHergestelltZeichenDefault[] = { TtyCodeBuUm, TtyCodeLeer, 14, 3, 6, TtyCodeWR, TtyCodeZL, 255 } ; // CON
 	//!< Standardwert für #VerbindungHergestelltZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
 	
@@ -551,6 +550,9 @@ static bool WahlMitTastatur()
 			// Im Modul TxP2-Endgerät ist nun der Zustand "Eingeschaltet" bereits erreicht, 
 			// somit läuft die SeriellUmsetzung mit dem "SendePuffer".
 			
+			SendeUmsetzModus = UmsetzLokal;
+			EmpfUmsetzModus = UmsetzLokal;
+			
 			i = 0;
 			while (true)
 				{
@@ -666,12 +668,15 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 	GeSendeMark(true); 
 	BefehlMark = true;
 
+	SendeUmsetzModus = UmsetzLokal; // nochmal prüfen
+	EmpfUmsetzModus = UmsetzLokal;
+	
 	while (true)
 		{
 		FernschrIO();
 		TastePruefen();
 
-		if (BreakSignal || KoAusschalten())
+		if (BreakSignal || KoAusschalten() || Tastendruck != NichtGedr) // HACK Tastendruck wegen fehlender Break-Taste
 			{
 			BreakSignal = false;
 			FsAusschalten();
@@ -689,8 +694,10 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		// 'sinnvolle' Zeichen gesendet hat. Falls ja, braucht der Kennungsgeber nicht mehr abgefragt zu werden.
 		while (!PufferLeer(&EmpfPuffer))
 			{
-			if (PufferAusg(&EmpfPuffer) != TtyCodeBuUm)
+			uint8_t code = PufferAusg(&EmpfPuffer);
+			if (code != TtyCodeBuUm)
 				AutoKennungAbfrage = false;
+			bset_LEDROT(code == TtyCodeZiKlingel); // HACK
 			}
 
 		// Kennungsgeber alle 5 Sekunden abfragen, bis Gegenantwort kam...
