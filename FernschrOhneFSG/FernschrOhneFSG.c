@@ -502,8 +502,11 @@ static bool WahlMitTastatur()
 	// -------------------------------------------
 	EsWurdeGewaehlt = false;
 	Falschziffern = 0;
-	BuZiMode = '\0';
+	BuZiMode = ZiMode; // Annehmen, dass die Ziffern-Ebene aktiv ist.
 
+	SendeUmsetzModus = UmsetzLokal;
+	EmpfUmsetzModus = UmsetzFern; // Vorbereitend für den Zustand nach Verbindungsaufbau
+	
 	while (true)
 		{
 		FernschrIO();
@@ -551,16 +554,26 @@ static bool WahlMitTastatur()
 			// somit läuft die SeriellUmsetzung mit dem "SendePuffer".
 			
 			SendeUmsetzModus = UmsetzLokal;
-			EmpfUmsetzModus = UmsetzLokal;
+			EmpfUmsetzModus = UmsetzFern;
+			
+			// ganz brutal:
+			//SeriellUmsetzInit(); // ggf noch Puffer leeren?
 			
 			i = 0;
 			while (true)
 				{
-				if (!KoEmpfMark())
-					Abbruch = true;
+				/*if (!PufferLeer(&EmpfPuffer))
+					{
+					if (PufferAusg(&EmpfPuffer) != TtyCodeBuUm) 
+						// Buchstaben-Umschaltung wird ignoriert, da dies auch ein 
+						// Störimpuls gewesen sein kann.
+						Abbruch = true;
+					} */
+				
+				set_LEDROT();
 				if (PufferLeer(&SendePuffer) && SerUmSendBitNr == SerUmSendWarte)
 					{ // nächstes Zeichen ist dran
-					if (i >= MaxCodefolgeLaenge || VerbindungHergestelltZeichen[i] > 0x1F)
+					if (i >= MaxCodefolgeLaenge) // || VerbindungHergestelltZeichen[i] > 0x1F)
 						break; // Auch ohne Ende-Zeichen ist die Zeichenkette jetzt beendet.
 					if (Abbruch)
 						break; // Gegenstelle sendet, daher selbst nicht mehr schreiben.
@@ -569,10 +582,12 @@ static bool WahlMitTastatur()
 				FernschrIO();
 				}
 
+			clr_LEDROT();
+			
 			return true;
 			}
 
-		if (TimerVal(&RuheTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 15 / 45 Sekunden nicht gewählt
+		if (TimerVal(&RuheTimer) > (EsWurdeGewaehlt ? 30000 : 15000)) // 15 / 30 Sekunden nicht gewählt
 			{ 
 			// GeAusschalten() und FsAusschalten() macht die aufrufende Routine
 			return false;
@@ -668,8 +683,8 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 	GeSendeMark(true); 
 	BefehlMark = true;
 
-	SendeUmsetzModus = UmsetzLokal; // nochmal prüfen
-	EmpfUmsetzModus = UmsetzLokal;
+	SendeUmsetzModus = UmsetzFern; // Für Sendung des "WerDa"
+	EmpfUmsetzModus = UmsetzFern; // Für Empfang von "Antworten"
 	
 	while (true)
 		{
@@ -697,7 +712,9 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			uint8_t code = PufferAusg(&EmpfPuffer);
 			if (code != TtyCodeBuUm)
 				AutoKennungAbfrage = false;
-			bset_LEDROT(code == TtyCodeZiKlingel); // HACK
+			//bset_LEDROT(code == TtyCodeZiKlingel); // HACK
+			
+			//! \todo Kennungsausgabe starten
 			}
 
 		// Kennungsgeber alle 5 Sekunden abfragen, bis Gegenantwort kam...

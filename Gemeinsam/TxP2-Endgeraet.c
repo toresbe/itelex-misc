@@ -884,7 +884,7 @@ static void BusKomm()
 					else if (GesendeterPegelStatus == Mark1)
 						BusSenden(BusKdoMarkWdh);
 #ifdef WIEDERHOLUNGSSENDUNGEN
-					else if (TimerVal(&PegelWdhTimer)) // mind. alle 0,4 Sek senden
+					else if (TimerVal(&PegelWdhTimer) > 400) // mind. alle 0,4 Sek senden
 						BusSenden(BusKdoMarkWdh);
 #endif //WIEDERHOLUNGSSENDUNGEN
 					} // Mark
