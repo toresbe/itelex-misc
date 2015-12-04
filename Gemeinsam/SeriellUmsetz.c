@@ -61,6 +61,21 @@ TMsTimer SerUmTimerE;
 TMsTimer SerUmTimerA;
 	
 
+static void EmpfPegelBearbeiten(bool SeriellEing)
+	{
+	if (SeriellEing)
+		{
+		if (SerUmEmpfPegel < 255)
+			SerUmEmpfPegel++;
+		}
+	else
+		{
+		if (SerUmEmpfPegel > 0)
+			SerUmEmpfPegel--;
+		}
+	}
+
+
 //! Durchführung der Seriell - Parallel - Umsetzung und umgekehrt.
 // ----------------------------------------------------------------
 //! Funktion ist zyklisch aufzurufen, um die Umsetzung durchzuführen.
@@ -74,15 +89,11 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 	// ------------
 	switch (SerUmSendBitNr)
 		{
-		case 1: // Ausgabe starten, aber nur, wenn nicht gerade empfangen wird
+		case SerUmSendStart: // Ausgabe starten, aber nur, wenn nicht gerade empfangen wird
 			if ((SerUmEmpfBitNr == SerUmEmpfWarte || SerUmEmpfBitNr == SerUmEmpfFertig)
 				&& TimerVal(&SerUmTimerE) >= 3 * BIT_LENGTH) 
 				{
-				StartTimer(&SerUmTimerE);
-					// warum das: Damit am ende des gesendeten Zeichens der Timer bei 
-					// ca. 150 steht und damit größer als 60 ist und nicht etwa 
-					// 'zufällig' gerade überläuft.
-				*SeriellAusg = false;
+				*SeriellAusg = false; // Dies ist das Start-Bit
 				StartTimer(&SerUmTimerA);
 				SerUmSendBitNr = 2;
 				SerUmSendDaten <<= 3; // Bit 7 wird zuerst gesendet
@@ -103,7 +114,7 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 		case 8: // Stop-Bit läuft gerade
 			if (TimerVal(&SerUmTimerA) >= BIT_LENGTH * 3/2)
 				{ // Stopbit beendet
-				DecrementTimer(&SerUmTimerA, BIT_LENGTH * 3/2);
+				StartTimer(&SerUmTimerA);
 				SerUmSendBitNr = SerUmSendWarte; // fertig für die nächsten Daten
 				*SeriellAusg = true; //XXX NEU
 				}
@@ -116,9 +127,14 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 	
 	switch (SerUmEmpfBitNr)
 		{
-		case 0: // warte auf Start-Bit
-		case 8: // letzer Empfang fertig, aber nicht ausgewertet, neues Zeichen überschreibt...
-			// HACK: TODO warum SendBitNr == 0 ???::: if (!SeriellEing && SerUmSendBitNr == 0) // Pausenschritt
+		case SerUmEmpfFertig: // letzer Empfang fertig, aber nicht ausgewertet, neues Zeichen überschreibt...
+			if (TimerVal(&SerUmTimerE) <= 2)
+				break;
+			//! 2 ms warten, damit das auswertende Programm die Chance hat, den Empfang zu verwenden.
+			
+			// absichtlich kein break!
+			
+		case SerUmEmpfWarte: // warte auf Start-Bit
 			if (!SeriellEing) // Pausenschritt
 				{
 				StartTimer(&SerUmTimerE);
@@ -130,26 +146,57 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 			break;
 
 		case 1: // im Start-Bit
-			if (SeriellEing // Strom wieder da
-				&& (++SerUmEmpfPegel > 150)) // zu viele 1-Impulse im Startbit --> von vorn
+			EmpfPegelBearbeiten(SeriellEing);
+			if (SerUmEmpfPegel > 150)) // zu viele 1-Impulse im Startbit --> von vorn
 				SerUmEmpfBitNr = SerUmEmpfWarte; //! \todo Zum debuggen etwas vorsehen.
-			else if (TimerVal(&SerUmTimerE) > BIT_LENGTH / 2) // Startbit gültig, Daten empfangen
-				{
-				SerUmEmpfBitNr = 2;
-				SerUmEmpfPegel = 128;
-				StartTimer(&SerUmTimerE);
-				}
+			else if (TimerVal(&SerUmTimerE) > BIT_LENGTH / 2) 
+				// Wir sind in der Mitte des Startbits...
+				if (SerUmEmpfPegel < 128) // Startbit gültig, Daten empfangen
+					{
+					SerUmEmpfBitNr = 2;
+					SerUmEmpfPegel = 128;
+					DecrementTimer(&SerUmTimerE, BIT_LENGTH / 2 - 2);
+						// da in der Mitte des Startbits der Timer neu gestartet wird, werden die 
+						// Datenbits auch in der Mitte abgetastet. Da 4 ms abgetastet werden
+						// soll der Beginn auf Bit-Mitte - 2 ms liegen.
+					}
+				else // Startbit nicht gültig, von vorne...
+					{
+					SerUmEmpfBitNr = SerUmEmpfWarte;
+					}
+					
 			break;
 
-		case 2 ... 7 : // Datenbit oder Stopbits
+		case 2 ... 6 : // Datenbit
+			if (TimerVal(&SerUmTimerE) < BIT_LENGTH - 4) 
+				break; // nur die letzten 4 Milli-Sekunden auswerten
+			EmpfPegelBearbeiten(SeriellEing);
 			if (TimerVal(&SerUmTimerE) >= BIT_LENGTH) // Bit beendet
+				{
+				SerUmEmpfDaten <<= 1;
+				if (SerUmEmpfPegel >= 128)
+					SerUmEmpfDaten |= 1;
+				SerUmEmpfBitNr++;
+				DecrementTimer(&SerUmTimerE, BIT_LENGTH);
+				SerUmEmpfPegel = 128;
+				}
+			break;
+			
+		case 7: // Stopbit
+			if (TimerVal(&SerUmTimerE) < BIT_LENGTH - 4) 
+				// Bei den Datenbits wurden 4 ms in der Bit-Mitte abgetastet, also 8 ms vom 
+				// Anfang beginnend. Beim Stop-Bit wird das genauso gemacht, da bleiben dann 
+				// aber nach Ende des Abtast-Bereichs noch 28 ms übrig.
+				break;
+			EmpfPegelBearbeiten(SeriellEing);
+			if (TimerVal(&SerUmTimerE) >= BIT_LENGTH * 3/4) // die Hälfte des 3/4 Bit beendet
 				{
 				if (SerUmEmpfBitNr == 7)
 					{ // es war das Stopbit
 					if (SeriellEing) // Strom wieder da
 						{
 						SerUmEmpfFehler = (SerUmEmpfPegel < 128); 
-						SerUmEmpfBitNr++;
+						SerUmEmpfBitNr = SerUmEmpfFertig;
 						StartTimer(&SerUmTimerE); 
 							// wird noch mal gestartet, damit beim Umsetzen für die Ausgabe
 							// noch der beginn des nächsten ggf. im Empfang laufenden Zeichens 
@@ -165,21 +212,8 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 					if (SerUmEmpfPegel >= 128)
 						SerUmEmpfDaten |= 1;
 					SerUmEmpfBitNr++;
-					StartTimer(&SerUmTimerE);
+					DecrementTimer(&SerUmTimerE, BIT_LENGTH);
 					SerUmEmpfPegel = 128;
-					}
-				}
-			else if (TimerVal(&SerUmTimerE) >= BIT_LENGTH - 3) // die letzten 3 Milli-Sekunden auswerten
-				{
-				if (SeriellEing)
-					{
-					if (SerUmEmpfPegel < 255)
-						SerUmEmpfPegel++;
-					}
-				else
-					{
-					if (SerUmEmpfPegel > 0)
-						SerUmEmpfPegel--;
 					}
 				}
 			break;
