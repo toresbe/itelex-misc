@@ -579,6 +579,9 @@ static bool WahlMitTastatur()
 						break; // Gegenstelle sendet, daher selbst nicht mehr schreiben.
 					PufferSpeich(&SendePuffer, VerbindungHergestelltZeichen[i++]);
 					}
+				BefehlMark = KoEmpfMark(); 
+					// aufgrund der leufenden Umsetzung ist hier jetzt 
+					// das Bitefolge von VerbindungHergestelltZeichen gemeldet.
 				FernschrIO();
 				}
 

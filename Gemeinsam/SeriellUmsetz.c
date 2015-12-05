@@ -150,6 +150,7 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 			if (SerUmEmpfPegel > 150) // zu viele 1-Impulse im Startbit --> von vorn
 				SerUmEmpfBitNr = SerUmEmpfWarte; //! \todo Zum debuggen etwas vorsehen.
 			else if (TimerVal(&SerUmTimerE) > BIT_LENGTH / 2) 
+				{
 				// Wir sind in der Mitte des Startbits...
 				if (SerUmEmpfPegel < 128) // Startbit gültig, Daten empfangen
 					{
@@ -164,7 +165,7 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 					{
 					SerUmEmpfBitNr = SerUmEmpfWarte;
 					}
-					
+				}	
 			break;
 
 		case 2 ... 6 : // Datenbit
