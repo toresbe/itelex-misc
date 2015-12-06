@@ -96,27 +96,31 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 				*SeriellAusg = false; // Dies ist das Start-Bit
 				StartTimer(&SerUmTimerA);
 				SerUmSendBitNr = 2;
-				SerUmSendDaten <<= 3; // Bit 7 wird zuerst gesendet
-				SerUmSendDaten |= ~0xF8; // damit als letztes eine 1 gesendet wird
+				SerUmSendDaten &= 0x1F;
+				SerUmSendDaten <<= 2; // Bit 7 wird zuerst gesendet, dies ist das Startbit
+				SerUmSendDaten |= 3; // damit als letztes eine 1 gesendet wird
+					// Bildlich: 76543210 <-- Bit-Nr
+					//           ---DDDDD <-- zu sendende Datenbits for dem 'Start'
+					//           0DDDDD11 <-- zu sendende Bits nach dem 'Start'
 				}
 			break;
 
 		case 2 ... 7: // Start- oder Daten-Bit läuft gerade
+			*SeriellAusg = BIT_IS_SET(SerUmSendDaten, 7);
 			if (TimerVal(&SerUmTimerA) >= BIT_LENGTH)
 				{ // Bit beendet
 				DecrementTimer(&SerUmTimerA, BIT_LENGTH);
-				*SeriellAusg = BIT_IS_SET(SerUmSendDaten, 7);
 				SerUmSendDaten <<= 1;
 				SerUmSendBitNr++;
 				}
 			break;
 
 		case 8: // Stop-Bit läuft gerade
+			*SeriellAusg = true;
 			if (TimerVal(&SerUmTimerA) >= BIT_LENGTH * 3/2)
 				{ // Stopbit beendet
 				StartTimer(&SerUmTimerA);
 				SerUmSendBitNr = SerUmSendWarte; // fertig für die nächsten Daten
-				*SeriellAusg = true; //XXX NEU
 				}
 			break;
 
