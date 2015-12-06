@@ -845,8 +845,10 @@ static void BusKomm()
 				SeriellUmsetzung(FsEingMark, &SerUmSendMark);
 			else if (EmpfUmsetzModus == UmsetzFern)
 				SeriellUmsetzung(BusEmpfMark, &SerUmSendMark);
-			else
+			else if (EmpfUmsetzModus == UmsetzLokalUndFern)
 				SeriellUmsetzung(BusEmpfMark && FsEingMark, &SerUmSendMark);
+			else
+				SeriellUmsetzung(true, &SerUmSendMark);
 
 			if (SerUmEmpfBitNr == SerUmEmpfFertig)
 				{
@@ -863,11 +865,15 @@ static void BusKomm()
 					FsAusgMark = SerUmSendMark;
 				else if (SendeUmsetzModus == UmsetzFern)
 					BusSendMark = SerUmSendMark;
-				else
+				else if (SendeUmsetzModus == UmsetzLokalUndFern)
 					{
 					FsAusgMark = SerUmSendMark;
 					BusSendMark = SerUmSendMark;
 					}
+				else
+					; 
+					// die oben entsprechend BusEmpfMark oder FsEingMark
+					// gesetzten Zustände bleiben erhalten
 				}
 
 			if (BusSendMark)

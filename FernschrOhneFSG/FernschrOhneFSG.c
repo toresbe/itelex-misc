@@ -325,7 +325,7 @@ static void FsAusschalten()
 	// falls eben noch geschrieben wurde oder Störungen auf der Leitung waren
 	while (TimerVal(&RuheTimer) < 500)
 		FernschrIO();
-	
+
 	LokalCodeAusgabeS(AusschaltZeichen);
 
 	// noch eine weitere Sekunde warten
@@ -347,6 +347,7 @@ char LokalZeichenLesen()
 	{
 	char c;
 
+	EmpfUmsetzModus = UmsetzLokal; // sicherheitshalber
 	while (true)
 		{
 		FernschrIO();
@@ -373,6 +374,7 @@ char LokalZeichenLesen()
 
 static void LokalCodeAusgabe(uint8_t code)
 	{
+	SendeUmsetzModus = UmsetzLokal; // sicherheitshalber
 	SerUmSendDaten = code;
 	SerUmSendBitNr = SerUmSendStart;
 	while (SerUmSendBitNr != SerUmSendWarte)
@@ -392,7 +394,7 @@ static void LokalCodeAusgabe(uint8_t code)
 static void LokalCodeAusgabeS(uint8_t *codep)
 	{
 	uint8_t i;
-	
+
 	for (i = 0 ; i < MaxCodefolgeLaenge ; i++)
 		{
 		if (codep[i] > 0x1F)
@@ -562,18 +564,18 @@ static bool WahlMitTastatur()
 			i = 0;
 			while (true)
 				{
-				/*if (!PufferLeer(&EmpfPuffer))
+				if (!PufferLeer(&EmpfPuffer))
 					{
 					if (PufferAusg(&EmpfPuffer) != TtyCodeBuUm) 
 						// Buchstaben-Umschaltung wird ignoriert, da dies auch ein 
 						// Störimpuls gewesen sein kann.
 						Abbruch = true;
-					} */
+					}
 				
 				set_LEDROT();
 				if (PufferLeer(&SendePuffer) && SerUmSendBitNr == SerUmSendWarte)
 					{ // nächstes Zeichen ist dran
-					if (i >= MaxCodefolgeLaenge) // || VerbindungHergestelltZeichen[i] > 0x1F)
+					if (i >= MaxCodefolgeLaenge || VerbindungHergestelltZeichen[i] > 0x1F)
 						break; // Auch ohne Ende-Zeichen ist die Zeichenkette jetzt beendet.
 					if (Abbruch)
 						break; // Gegenstelle sendet, daher selbst nicht mehr schreiben.
