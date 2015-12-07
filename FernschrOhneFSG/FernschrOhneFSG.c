@@ -101,7 +101,7 @@ PROGMEM uint8_t AusschaltZeichenDefault[] = { TtyCodeBuUm, TtyCodeBuUm, TtyCodeB
 uint8_t WahlaufforderungZeichen[MaxCodefolgeLaenge+1];
 	//!< Druck-Sequenz als Zeichen jetzt zu wählen
 
-PROGMEM uint8_t WahlaufforderungZeichenDefault[] = { TtyCodeBuUm, TtyCodeBuUm, TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 
+PROGMEM uint8_t WahlaufforderungZeichenDefault[] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 
 													 6, 10, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeZiUm, 255 } ; // NR _ _ _ _ _
 	//!< Standardwert für #WahlaufforderungZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
@@ -113,6 +113,9 @@ PROGMEM uint8_t VerbindungHergestelltZeichenDefault[] = { TtyCodeBuUm, TtyCodeLe
 	//!< Standardwert für #VerbindungHergestelltZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
 	
+uint8_t EigeneKennung[MaxCodefolgeLaenge+1] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, TtyCodeZiUm, 30, 26, 16, TtyCodeBuUm, TtyCodeLeer, 19, 9, 28, 19, TtyCodeBuUm, 255 }
+	//!< Text des eigenen Kennungsgeber-Simulators
+	
 	
 // Eeprom-Speicher
 // ---------------
@@ -120,6 +123,7 @@ PROGMEM uint8_t VerbindungHergestelltZeichenDefault[] = { TtyCodeBuUm, TtyCodeLe
 typedef struct 
 	{
 	uint8_t Platzhalter[4]; //!< Platzhalter, da Anfang des EEPROM gern von Störungen betroffen ist
+	uint8_t KonfigVersion; //!< Falls strukturelle Änderungen mal erforderlich sind, können diese hiermit berücksichtigt werden.
 	uint8_t BusEigenAdresse; //!< Eigene Busadresse auf dem I²C-Bus
 	uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 	TVerbindungsEndeKriterium VerbindungsEndeKriterium; //!< Wie wird eine Verbindung beendet? 
@@ -364,7 +368,7 @@ char LokalZeichenLesen()
 		}
 	}
 
-
+	
 /////////////////////////////////////////////////////////////
 
 //! Gibt ein Zeichen am angeschlossenen Fs aus.
@@ -436,6 +440,116 @@ void LokalZeichenAusgabe(char c)
 		}
 	}
 			
+		
+///////////////////////////////////////////////////////////////
+
+//! Dialog-Abfrage für einen Text der als 5-Bit-Code abgespeichert wird.
+//----------------------------------------------------------------------
+//! Abschluss nur mit WR oder ZL.
+//! WR, ZL oder Leerzeichen am Anfang wird ignoriert. 
+//! nur Leerzeichen und WR oder ZL = löschen
+//! . (Punkt) als einziges Zeichen vor WR oder ZL = alten Wert behalten.
+//! \param[out] s Puffer des eingegebenen Textes.
+//! \param[in] maxbuchst Anzahl erlaubter Zeichen bei der Eingabe, auch Puffergröße.
+//! \retval 0 abbruch
+//! \retval 1 unverändert
+//! \retval 2 eingabe erfolgt
+//! \todo mal nach KonfigDialog verschieben, da aber LokalZeichenLesen nicht verwendet werden kann, muss eine größere Umstellung gemacht werden.
+
+/*
+uint8_t LokalCodefolgeEingabe(uint8_t* s, uint8_t maxbuchst)
+	{
+	uint8_t Pos = 0; 
+	char ErstesZeichen = 255; // Zeichen für noch nicht belegt.
+	char BuZiMode = '\0';
+
+	EmpfUmsetzModus = UmsetzLokal; // sicherheitshalber
+
+	while (true)
+		{ // Schleifendurchlauf einmal je Taste
+		uint8_t code;
+		
+		while (true)
+			{
+			FernschrIO();
+			SeriellUmsetzung(MeldungMark, &BefehlMark);
+			if (SerUmEmpfBitNr == SerUmEmpfFertig)
+				{
+				code = SerUmEmpfDaten;
+				SerUmEmpfBitNr = SerUmEmpfWarte;
+				break;
+				}
+			if (BreakSignal)
+				{
+				if (Pos > 0)
+					s[Pos] = '\0';
+				return 0;
+				}
+			}
+
+		switch (code)
+			{
+			case TtyCodeWR:
+			case TtyCodeZL:
+				if (Pos == 0)
+					if (ErstesZeichen == 255)
+						break; // CR oder LF am Anfang ignorieren
+					else
+						if (ErstesZeichen == TtyCodeZiPunkt)
+							return 1; // keine Änderung
+						else if (ErstesZeichen == TtyCodeLeer)
+							{
+							s[0] = 255;
+							return 2;
+							}
+						else
+							{
+							s[0] = ErstesZeichen;
+							s[1] = '\0';
+							return 2;
+							}
+				else // Pos > 0
+					{
+					s[Pos] = '\0';
+					return 2;
+					}
+
+			case '#':
+				// ungültig
+				break;
+
+			case ' ':
+				if (Pos == 0)
+					{
+					ErstesZeichen = ' ';
+					break; // hier abbrechen, sonst weiter wie bei Buchstaben...
+					}
+
+			default:
+				if (Zeichen >= ' ' && Pos < maxbuchst)
+					{
+					if (Pos == 0)
+						if (ErstesZeichen == '\0') 
+							// erstes eingegebenes Zeichen
+							ErstesZeichen = Zeichen;
+						else if (ErstesZeichen == ' ')
+							s[Pos++] = Zeichen;
+						else
+							{
+							s[Pos++] = ErstesZeichen;
+							s[Pos++] = Zeichen;
+							}
+					else
+						s[Pos++] = Zeichen;
+					}
+				break;
+					
+			} // switch Zeichen
+		} // while true
+	} // LokalTextEingabe
+
+/**/
+
 		
 static void VerbindungSteht(bool AutoKennungAbfrage);
 
@@ -679,17 +793,22 @@ static void VerbindungGehend()
 
 static void VerbindungSteht(bool AutoKennungAbfrage)
 	{
-	TMsTimer KennungAbfrageTimer;
-	bool ErsteKennungAbfrage;
+	TMsTimer KennungAbfrageTimer; // für die Kennungsgeber-Abfrage nach einem gehenden (aktiven) Verbindungsaufbau
+	bool ErsteKennungAbfrage; // für die Kennungsgeber-Abfrage nach einem gehenden (aktiven) Verbindungsaufbau
+	uint8_t KennungAusgabePhase; 
+		// für die Simulation eines eingebauten Kennungsgebers:
+		// 0 = Grundstellung / Buchstaben-Ebene, 1 = Ziffern-Ebene, 2 = letztes Zeichen war WerDa, warte noch Schreibpause ab.
 	
 	StartTimer(&KennungAbfrageTimer);
 	ErsteKennungAbfrage = true;
+	
+	KennungAusgabePhase = 0;
 
 	GeSendeMark(true); 
 	BefehlMark = true;
 
 	SendeUmsetzModus = UmsetzFern; // Für Sendung des "WerDa"
-	EmpfUmsetzModus = UmsetzFern; // Für Empfang von "Antworten"
+	EmpfUmsetzModus = UmsetzLokalUndFern; // Für Empfang von "Antworten" 
 	
 	while (true)
 		{
@@ -699,6 +818,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		if (BreakSignal || KoAusschalten() || Tastendruck != NichtGedr) // HACK Tastendruck wegen fehlender Break-Taste
 			{
 			BreakSignal = false;
+			Tastendruck = NichtGedr;
 			FsAusschalten();
 			GeAusschalten();
 			return;
@@ -706,22 +826,31 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 		BefehlMark = KoEmpfMark();
 	
-		if (SerUmSendBitNr <= SerUmSendStart) // Start oder Warten...
+		// HACK: dies 'if' sollte nicht mehr erforderlich sein nach der Umstellung in 
+		// HACK: TxP2-Endgeraet.c...: if (SerUmSendBitNr <= SerUmSendStart) // Start oder Warten...
 			GeSendeMark(MeldungMark); // Nur Fs-Pegel direkt auf Bus, wenn nicht seriell gesendet wird...
 			
-		// Der Empfangspuffer wird im Regelbetrieb nicht benutzt, da die Bitwechsel direkt an das Endgeraet
-		// gesendet werden. Die empfangenen Zeichen werden daher nur ausgewertet, ob die Gegenstelle schon
-		// 'sinnvolle' Zeichen gesendet hat. Falls ja, braucht der Kennungsgeber nicht mehr abgefragt zu werden.
+		// Auswertung des Empfangspuffers: 
+		// a) Jedes Zeichen außer Buchstaben-Umschaltung beendet die Abfrage des 'fernen' Kennungsgebers.
+		// b) Internen Kennungsgeber-'Simulator' ansteuern
 		while (!PufferLeer(&EmpfPuffer))
 			{
 			uint8_t code = PufferAusg(&EmpfPuffer);
-			if (code != TtyCodeBuUm)
-				AutoKennungAbfrage = false;
-			//bset_LEDROT(code == TtyCodeZiKlingel); // HACK
-			
-			//! \todo Kennungsausgabe starten
+			if (code == TtyCodeBuUm)
+				KennungAusgabePhase = 0; // Aufgabe b)
+			else
+				{
+				AutoKennungAbfrage = false; // Aufgabe a)
+				if (code == TtyCodeZiUm)
+					KennungAusgabePhase = 1;
+				else if (code == TtyCodeZiWerDa && KennungAusgabePhase == 1)
+					KennungAusgabePhase = 2;
+				else if (KennungAusgabePhase == 2)
+					KennungAusgabePhase = 1; 
+						// jedes andere Zeichen schaltet 'anstehende' Kennungsausgabe wieder ab.
+				}
 			}
-
+			
 		// Kennungsgeber alle 5 Sekunden abfragen, bis Gegenantwort kam...
 		if (AutoKennungAbfrage 
 			&& TimerVal(&KennungAbfrageTimer) >= (ErsteKennungAbfrage ? 500 : 5000))
@@ -737,7 +866,20 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		// löschen
 		if (TimerVal(&KennungAbfrageTimer) > 1000 && !MeldungMark)
 			AutoKennungAbfrage = false;
-			
+
+		// Kennungsgeber-Simulator bearbeiten:
+		if (!MeldungMark) 
+			KennungAusgabePhase = 0; 
+				// sobald selbst geschrieben wird wird Kennungsgeber-Ausgabe wieder in Grundstellung
+				// gesetzt.
+				
+		if (KennungAusgabePhase == 2 && TimerVal(&RuheTimer) > 800)
+			{
+			for (uint8_t i = 0 ; i < MaxCodefolgeLaenge && EigeneKennung[i] <= 0x1F; i++)
+				PufferSpeich(&SendePuffer, EigeneKennung[i]);
+				KennungAusgabePhase = 0;
+			}
+		
 		// Test:
 		// bset_LEDROT(AutoKennungAbfrage);
 		
