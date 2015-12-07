@@ -113,7 +113,7 @@ PROGMEM uint8_t VerbindungHergestelltZeichenDefault[] = { TtyCodeBuUm, TtyCodeLe
 	//!< Standardwert für #VerbindungHergestelltZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
 	
-uint8_t EigeneKennung[MaxCodefolgeLaenge+1] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, TtyCodeZiUm, 30, 26, 16, TtyCodeBuUm, TtyCodeLeer, 19, 9, 28, 19, TtyCodeBuUm, 255 }
+uint8_t EigeneKennung[MaxCodefolgeLaenge+1] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, TtyCodeZiUm, 30, 26, 16, TtyCodeBuUm, TtyCodeLeer, 19, 9, 28, 19, TtyCodeBuUm, 255 };
 	//!< Text des eigenen Kennungsgeber-Simulators
 	
 	
@@ -843,7 +843,8 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 				AutoKennungAbfrage = false; // Aufgabe a)
 				if (code == TtyCodeZiUm)
 					KennungAusgabePhase = 1;
-				else if (code == TtyCodeZiWerDa && KennungAusgabePhase == 1)
+				// HACK else if (code == TtyCodeZiWerDa && KennungAusgabePhase == 1)
+				else if (code == TtyCodeZiKlingel && KennungAusgabePhase == 1)
 					KennungAusgabePhase = 2;
 				else if (KennungAusgabePhase == 2)
 					KennungAusgabePhase = 1; 
@@ -1013,8 +1014,6 @@ static void Deaktivieren(bool WegenTimeout)
 	{
 	set_LEDBLAU();
 
-	clr_FS_AKTIV(); // HACK
-	
 	Aktivieren(false);
 
 	while (Tastendruck == NichtGedr)
@@ -1025,8 +1024,6 @@ static void Deaktivieren(bool WegenTimeout)
 	clr_LEDBLAU();
 	clr_LEDROT();
 
-	set_FS_AKTIV(); // HACK
-	
 	if (!WegenTimeout)
 		KommendSperren();
 		
