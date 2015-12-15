@@ -102,7 +102,7 @@ uint8_t WahlaufforderungZeichen[MaxCodefolgeLaenge+1];
 	//!< Druck-Sequenz als Zeichen jetzt zu wählen
 
 PROGMEM uint8_t WahlaufforderungZeichenDefault[] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 
-													 6, 10, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeZiUm, 255 } ; // NR _ _ _ _ _
+													 11, 24, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeZiUm, 255 } ; // GA _ _ _ _ _
 	//!< Standardwert für #WahlaufforderungZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
 
@@ -672,40 +672,33 @@ static bool WahlMitTastatur()
 			SendeUmsetzModus = UmsetzLokal;
 			EmpfUmsetzModus = UmsetzFern;
 			
-			// ganz brutal:
-			//SeriellUmsetzInit(); // ggf noch Puffer leeren?
-			
 			i = 0;
 			while (true)
 				{
 				if (!PufferLeer(&EmpfPuffer))
-					{
-					if (PufferAusg(&EmpfPuffer) != TtyCodeBuUm) 
-						// Buchstaben-Umschaltung wird ignoriert, da dies auch ein 
-						// Störimpuls gewesen sein kann.
-						Abbruch = true;
-						//! \todo Zeichen wieder lokal ausgeben.
-Prüfen, ob es genügt das Zeichen in den Puffer zu schreiben, so dass es wieder ausgegeben wird.
-Achtung: SendeUmsetzModus Umschaltung prüfen...
-					}
+					Abbruch = true; 
+					// es wurde ein sinnvolles Zeichen von der Gegenstelle gesendet, da kommen bestimmt noch mehr.
 				
 				set_LEDROT();
-				if (PufferLeer(&SendePuffer) && SerUmSendBitNr == SerUmSendWarte)
-					{ // nächstes Zeichen ist dran
-				
-PROBLEM: solange Empfangen wird wird auch ein im Puffer stehendes Zeichen nicht gesendet.
-Lösung: Abbruch auch wenn Puffer nicht leer. 
-					if (i >= MaxCodefolgeLaenge || VerbindungHergestelltZeichen[i] > 0x1F)
-						break; // Auch ohne Ende-Zeichen ist die Zeichenkette jetzt beendet.
+				if (SerUmSendBitNr == SerUmSendWarte)
+					{
 					if (Abbruch)
+						{
+						PufferInit(&SendePuffer); // löscht noch ggf. vorhandene Zeichen im Puffer
 						break; // Gegenstelle sendet, daher selbst nicht mehr schreiben.
-					PufferSpeich(&SendePuffer, VerbindungHergestelltZeichen[i++]);
+						}
+					else if (PufferLeer(&SendePuffer))
+						{ // nächstes Zeichen ist dran
+						if (i >= MaxCodefolgeLaenge || VerbindungHergestelltZeichen[i] > 0x1F)
+							break; // nichts mehr zu senden
+						else
+							PufferSpeich(&SendePuffer, VerbindungHergestelltZeichen[i++]);
+						}
 					}
-					
-				BefehlMark = KoEmpfMark(); 
 				
+				BefehlMark = KoEmpfMark(); 
 					// aufgrund der laufenden Umsetzung wird hier jetzt 
-					// das Bitefolge von VerbindungHergestelltZeichen gemeldet.
+					// das Bitefolge von VerbindungHergestelltZeichen an den Fs weitergegeben.
 				FernschrIO();
 				}
 

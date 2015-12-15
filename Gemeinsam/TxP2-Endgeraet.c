@@ -644,9 +644,9 @@ void GeAusschalten()
 	else
 		{ // aktiv ausschalten
 		BusSenden(BusKdoSchluss);
-		WarteSchlussQuittung(3000);
+		WarteSchlussQuittung(3000); //! \todo Umstellen auf BetriebsartWechsel(AusschaltungGe);
 		}
-	BetriebsartWechsel(Ausgeschaltet);
+	BetriebsartWechsel(Ausgeschaltet); //! \todo kommt dann in den if-teil
 	BusKommSperre = false;
 	}
 
@@ -917,6 +917,8 @@ static void BusKomm()
 			break;
 			
 		case AusschaltungGe:
+			// Empfang von BusQuittSchluss wird oben bearbeitet.
+			//! \todo Timeout
 			break;
 			
 		} // switch Betriebsart
