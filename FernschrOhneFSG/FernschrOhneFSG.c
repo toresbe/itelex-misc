@@ -684,19 +684,27 @@ static bool WahlMitTastatur()
 						// Buchstaben-Umschaltung wird ignoriert, da dies auch ein 
 						// Störimpuls gewesen sein kann.
 						Abbruch = true;
+						//! \todo Zeichen wieder lokal ausgeben.
+Prüfen, ob es genügt das Zeichen in den Puffer zu schreiben, so dass es wieder ausgegeben wird.
+Achtung: SendeUmsetzModus Umschaltung prüfen...
 					}
 				
 				set_LEDROT();
 				if (PufferLeer(&SendePuffer) && SerUmSendBitNr == SerUmSendWarte)
 					{ // nächstes Zeichen ist dran
+				
+PROBLEM: solange Empfangen wird wird auch ein im Puffer stehendes Zeichen nicht gesendet.
+Lösung: Abbruch auch wenn Puffer nicht leer. 
 					if (i >= MaxCodefolgeLaenge || VerbindungHergestelltZeichen[i] > 0x1F)
 						break; // Auch ohne Ende-Zeichen ist die Zeichenkette jetzt beendet.
 					if (Abbruch)
 						break; // Gegenstelle sendet, daher selbst nicht mehr schreiben.
 					PufferSpeich(&SendePuffer, VerbindungHergestelltZeichen[i++]);
 					}
+					
 				BefehlMark = KoEmpfMark(); 
-					// aufgrund der leufenden Umsetzung ist hier jetzt 
+				
+					// aufgrund der laufenden Umsetzung wird hier jetzt 
 					// das Bitefolge von VerbindungHergestelltZeichen gemeldet.
 				FernschrIO();
 				}
