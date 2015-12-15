@@ -113,7 +113,7 @@ PROGMEM uint8_t VerbindungHergestelltZeichenDefault[] = { TtyCodeBuUm, TtyCodeLe
 	//!< Standardwert für #VerbindungHergestelltZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
 	
-uint8_t EigeneKennung[MaxCodefolgeLaenge+1] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, TtyCodeZiUm, 30, 26, 16, TtyCodeBuUm, TtyCodeLeer, 19, 9, 28, 19, TtyCodeBuUm, 255 };
+uint8_t EigeneKennung[MaxCodefolgeLaenge+1] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, TtyCodeZiUm, 29, 25, 16, TtyCodeBuUm, TtyCodeLeer, 19, 9, 28, 19, TtyCodeBuUm, 255 };
 	//!< Text des eigenen Kennungsgeber-Simulators
 	
 	
@@ -155,7 +155,8 @@ static void FernschrIO()
 		clr_LEDBLAU();
 		set_FS_AUSG();
 		
-		if (get_FS_EING())
+		// if (get_FS_EING())
+		if (get_FS_EING() || !get_TASTE()) // HACK Taste simuliert Schleifen-Unterbrechung
 			{ // Schleifenstrom ist aus (negierter Eingang)
 			if (MeldungMark)
 				{ // noch wird aber 'Mark' gemeldet
@@ -235,7 +236,7 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
-			if (get_TASTE())
+			if (get_TASTE()) //! \todo umgekehrte Tastenpolarität prüfen
 				{ // Taste nicht gedrückt
 				if (TasteZ > 0)
 					{
@@ -332,8 +333,8 @@ static void FsAusschalten()
 
 	LokalCodeAusgabeS(AusschaltZeichen);
 
-	// noch eine weitere Sekunde warten
-	while (TimerVal(&RuheTimer) < 1000)
+	// noch eine weitere 1/4 Sekunde warten
+	while (TimerVal(&RuheTimer) < 250)
 		FernschrIO();
 	
 	BreakSignal = false;	
@@ -383,7 +384,7 @@ static void LokalCodeAusgabe(uint8_t code)
 	SerUmSendBitNr = SerUmSendStart;
 	while (SerUmSendBitNr != SerUmSendWarte)
 		{
-		SeriellUmsetzung(MeldungMark, &BefehlMark);
+		SeriellUmsetzung(true, &BefehlMark); // Empfagspegel wird ignoriert
 		FernschrIO();
 		}
 	}
@@ -814,12 +815,10 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 	while (true)
 		{
 		FernschrIO();
-		TastePruefen();
 
-		if (BreakSignal || KoAusschalten() || Tastendruck != NichtGedr) // HACK Tastendruck wegen fehlender Break-Taste
+		if (BreakSignal || KoAusschalten())
 			{
 			BreakSignal = false;
-			Tastendruck = NichtGedr;
 			FsAusschalten();
 			GeAusschalten();
 			return;
@@ -1203,11 +1202,13 @@ int main()
 		if (!MeldungMark)
 			{
 			VerbindungGehend();
+			Tastendruck = NichtGedr; // falls die Taste als Break-Ersatz benutzt wurde.
 			}
 			
 		if (KoEinschalten())
 			{
 			VerbindungKommend();
+			Tastendruck = NichtGedr; // falls die Taste als Break-Ersatz benutzt wurde.
 			}
 		
 		} // while (1)
