@@ -892,6 +892,50 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 	}
 
 
+	
+/////////////////////////////////////////////////////////////
+
+//! Eingabe einer Zeichenfolge (Einfach)
+// ---------------------------
+//! \returns  false bei Abbruch
+
+static bool KonfigTextEingabeA(PGM_P Prompt, uint8_t* CodeBuf, uint8_t MaxCodes)
+	{
+	char EingabePuffer[40]; // Speichert Text-Eingaben in ASCII
+	uint8_t p; // in EingabePuffer
+	uint8_t cp; // in CodeBuf
+	uint8_t mode; // Buchstaben oder Ziffern
+	uint8_t c1, c2; // Code-Zeichen
+	
+	EingabePuffer[sizeof(EingabePuffer)-1] = '\0';
+	
+	LokalTextAusgabeP(Prompt);
+	switch (LokalTextEingabe(EingabePuffer, sizeof(EingabePuffer)-1))
+		{ 
+		case 0: 
+			return false;
+		case 1:
+			return true;
+		case 2:
+			mode = 0;
+			cp = 0;
+			for (p = 0 ; p < sizeof(EingabePuffer) && EingabePuffer[p] != '\0' && cp < MaxCodes ; p++)
+				{
+				if (ZeichenZuCode(EingabePuffer[p], &mode, &c1, &c2))
+					{
+					// c1 ist auf jeden fall gültig
+					CodeBuf[cp++] = c1;
+					if (cp < MaxCodes && c2 != 255)
+						CodeBuf[cp++] = c2;
+					}
+				}
+		
+			return true;
+		}
+	
+	return false; // kann eigentlich nicht sein
+	}
+
 /////////////////////////////////////////////////////////////
 
 //! Behandelt die Selbstkonfiguration des Moduls.
@@ -933,8 +977,8 @@ static void Konfiguration()
 
 	LokalTextAusgabeP(OkStrP);
 
-	//! \todo Zeichenfolgen for Signalisierung editierbar machen. Aber welches Ende-Zeichen?
-	
+	//! \todo Auswahl "komplexe Eingabe"
+
 	// weitere Eingaben
 
 	// Ende-Kennung druckt FsAusschalten()
@@ -1199,7 +1243,8 @@ int main()
 			Deaktivieren(false);
 			}
 
-		if (!MeldungMark)
+		//if (!MeldungMark)
+		if (get_FS_EING()) // HACK damit Taste hier nicht wirkt.
 			{
 			VerbindungGehend();
 			Tastendruck = NichtGedr; // falls die Taste als Break-Ersatz benutzt wurde.
