@@ -629,6 +629,7 @@ bool GeSendePufferLeer()
 //! 2. Als Ausschaltwunsch des eigenen Geräts. 
 //! In beiden Situationen kehrt die Funktion erst nach beidseitig 
 //! durchgeführter Ausschaltung zurück.
+//! \todo nach Umstellung nicht mehr.
 
 void GeAusschalten()
 	{

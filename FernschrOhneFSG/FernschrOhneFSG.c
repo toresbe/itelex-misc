@@ -130,6 +130,7 @@ typedef struct
 	uint8_t AusschaltZeichen[MaxCodefolgeLaenge+1]; 
 	uint8_t WahlaufforderungZeichen[MaxCodefolgeLaenge+1];
 	uint8_t VerbindungHergestelltZeichen[MaxCodefolgeLaenge+1];
+	uint8_t EigeneKennung[MaxCodefolgeLaenge+1];
 	} TEepromDaten;
 
 
@@ -137,8 +138,6 @@ EEMEM TEepromDaten EEDaten;
 	// keine Initialisierung, da beim Einlesen der EEDaten eine Prüfung und ggf. Initialisierung mit 
 	// Default-Werten stattfindet.
 
-
-	
 	
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -448,30 +447,31 @@ void LokalZeichenAusgabe(char c)
 //----------------------------------------------------------------------
 //! Abschluss nur mit WR oder ZL.
 //! WR, ZL oder Leerzeichen am Anfang wird ignoriert. 
-//! nur Leerzeichen und WR oder ZL = löschen
-//! . (Punkt) als einziges Zeichen vor WR oder ZL = alten Wert behalten.
-//! \param[out] s Puffer des eingegebenen Textes.
-//! \param[in] maxbuchst Anzahl erlaubter Zeichen bei der Eingabe, auch Puffergröße.
+//! neuer Text muss durch druckbare Begrenzungszeichen eingeschlossen werden. z.B. xhallox für hallo
+//! . (Punkt) als einziges Zeichen = alten Wert behalten.
+//! \param[out] buf Puffer des eingegebenen Textes.
+//! \param[in] maxcodes Anzahl erlaubter codes bei der Eingabe, auch Puffergröße.
 //! \retval 0 abbruch
 //! \retval 1 unverändert
 //! \retval 2 eingabe erfolgt
 //! \todo mal nach KonfigDialog verschieben, da aber LokalZeichenLesen nicht verwendet werden kann, muss eine größere Umstellung gemacht werden.
 
-/*
-uint8_t LokalCodefolgeEingabe(uint8_t* s, uint8_t maxbuchst)
+
+uint8_t LokalCodefolgeEingabe(PGM_P Prompt, uint8_t* buf, uint8_t maxcodes)
 	{
 	uint8_t Pos = 0; 
-	char ErstesZeichen = 255; // Zeichen für noch nicht belegt.
-	char BuZiMode = '\0';
+	char TrennZeichen = '\0'; // Zeichen für noch nicht belegt.
 
-	EmpfUmsetzModus = UmsetzLokal; // sicherheitshalber
-
+	if (Prompt != NULL)
+		LokalTextAusgabeP(Prompt);
+	
 	while (true)
 		{ // Schleifendurchlauf einmal je Taste
 		uint8_t code;
+		char zeichen; 
 		
 		while (true)
-			{
+			{ // Schleifendurchlauf bis ein Zeichen eingegeben oder Abbruch
 			FernschrIO();
 			SeriellUmsetzung(MeldungMark, &BefehlMark);
 			if (SerUmEmpfBitNr == SerUmEmpfFertig)
@@ -483,73 +483,46 @@ uint8_t LokalCodefolgeEingabe(uint8_t* s, uint8_t maxbuchst)
 			if (BreakSignal)
 				{
 				if (Pos > 0)
-					s[Pos] = '\0';
-				return 0;
+					{
+					if (Pos < maxcodes-1)
+						buf[Pos] = 255;
+					return 2;
+					}
+				else
+					return 0;
 				}
 			}
 
-		switch (code)
-			{
-			case TtyCodeWR:
-			case TtyCodeZL:
-				if (Pos == 0)
-					if (ErstesZeichen == 255)
-						break; // CR oder LF am Anfang ignorieren
-					else
-						if (ErstesZeichen == TtyCodeZiPunkt)
-							return 1; // keine Änderung
-						else if (ErstesZeichen == TtyCodeLeer)
-							{
-							s[0] = 255;
-							return 2;
-							}
-						else
-							{
-							s[0] = ErstesZeichen;
-							s[1] = '\0';
-							return 2;
-							}
-				else // Pos > 0
-					{
-					s[Pos] = '\0';
-					return 2;
-					}
+		zeichen = CodeZuZeichen(code, &BuZiMode);
+		
+		if (TrennZeichen != '\0')
+			{ // Zeichenfolge wurde bereits begonnen.
+			if (zeichen == TrennZeichen)
+				{
+				if (Pos < maxcodes-1)
+					buf[Pos] = 255;
+				LokalTextAusgabeP(OkStrP);
+				return 2;
+				}
+			else
+				{
+				if (Pos < maxcodes-1)
+					buf[Pos++] = code;
+				}
+			} // if TrennZeichen != '\0'
+		else // TrennZeichen == '\0'
+			{ // Trennzeichen wurde noch nicht wirksam eingegebenen
+			if (zeichen == '.')
+				{ // vorhandenen Wert beibehalten
+				LokalTextAusgabeP(OkStrP);
+				return 1;
+				}
+			else if (zeichen == '#' || zeichen <= ' ') // nicht ungültig und kein Leerzeichen
+				TrennZeichen = zeichen;
+			} // else Trennzeichen == '\0'
 
-			case '#':
-				// ungültig
-				break;
-
-			case ' ':
-				if (Pos == 0)
-					{
-					ErstesZeichen = ' ';
-					break; // hier abbrechen, sonst weiter wie bei Buchstaben...
-					}
-
-			default:
-				if (Zeichen >= ' ' && Pos < maxbuchst)
-					{
-					if (Pos == 0)
-						if (ErstesZeichen == '\0') 
-							// erstes eingegebenes Zeichen
-							ErstesZeichen = Zeichen;
-						else if (ErstesZeichen == ' ')
-							s[Pos++] = Zeichen;
-						else
-							{
-							s[Pos++] = ErstesZeichen;
-							s[Pos++] = Zeichen;
-							}
-					else
-						s[Pos++] = Zeichen;
-					}
-				break;
-					
-			} // switch Zeichen
 		} // while true
-	} // LokalTextEingabe
-
-/**/
+	} // LokalCodefolgeEingabe
 
 		
 static void VerbindungSteht(bool AutoKennungAbfrage);
@@ -899,6 +872,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 // ---------------------------
 //! \returns  false bei Abbruch
 
+/* Zurückgestellt, da das Ergänzen der notwendigen Codes vor und nach der Texteingabe mittel aufwändig ist
 static bool KonfigTextEingabeA(PGM_P Prompt, uint8_t* CodeBuf, uint8_t MaxCodes)
 	{
 	char EingabePuffer[40]; // Speichert Text-Eingaben in ASCII
@@ -935,6 +909,7 @@ static bool KonfigTextEingabeA(PGM_P Prompt, uint8_t* CodeBuf, uint8_t MaxCodes)
 	
 	return false; // kann eigentlich nicht sein
 	}
+*/
 
 /////////////////////////////////////////////////////////////
 
@@ -944,6 +919,8 @@ static bool KonfigTextEingabeA(PGM_P Prompt, uint8_t* CodeBuf, uint8_t MaxCodes)
 
 static void Konfiguration()
 	{
+	uint8_t Res;
+	
 	SeriellUmsetzInit();
 	BuZiMode = '\0';
 	Aktivieren(false);
@@ -974,15 +951,35 @@ static void Konfiguration()
 
 	if (KommendSperreWahl != eeprom_read_byte(&EEDaten.KommendSperreWahl))
 		eeprom_write_byte(&EEDaten.KommendSperreWahl, KommendSperreWahl);
-
+	
 	LokalTextAusgabeP(OkStrP);
 
-	//! \todo Auswahl "komplexe Eingabe"
-
-	// weitere Eingaben
-
+	Res = LokalCodefolgeEingabe(PSTR("\r\n automatik answerback:      "), EigeneKennung, MaxCodefolgeLaenge);
+	if (Res == 2)
+		eeprom_write_block(EEDaten.EigeneKennung, EigeneKennung, sizeof(EEDaten.EigeneKennung));
+	if (Res == 0 || BreakSignal)
+		return;
+	
+	Res = LokalCodefolgeEingabe(PSTR("\r\n prompt to dial:      "), WahlaufforderungZeichen, MaxCodefolgeLaenge);
+	if (Res == 2)
+		eeprom_write_block(EEDaten.WahlaufforderungZeichen, WahlaufforderungZeichen, sizeof(EEDaten.WahlaufforderungZeichen));
+	if (Res == 0 || BreakSignal)
+		return;
+	
+	Res = LokalCodefolgeEingabe(PSTR("\r\n connection confirmation:      "), VerbindungHergestelltZeichen, MaxCodefolgeLaenge);
+	if (Res == 2)
+		eeprom_write_block(EEDaten.VerbindungHergestelltZeichen, VerbindungHergestelltZeichen, sizeof(EEDaten.VerbindungHergestelltZeichen));
+	if (Res == 0 || BreakSignal)
+		return;
+	
+	Res = LokalCodefolgeEingabe(PSTR("\r\n connection closed sign:      "), AusschaltZeichen, MaxCodefolgeLaenge);
+	if (Res == 2)
+		eeprom_write_block(EEDaten.AusschaltZeichen, AusschaltZeichen, sizeof(EEDaten.AusschaltZeichen));
+	if (Res == 0 || BreakSignal)
+		return;
+	
 	// Ende-Kennung druckt FsAusschalten()
-	}
+	} // Konfiguration()
 
 
 /////////////////////////////////////////////////////////////
@@ -993,6 +990,7 @@ static void Konfiguration()
 
 static void KonfigurationEnde()
 	{
+	BreakSignal = false;
 	FsAusschalten();
 	Aktivieren(true);
 	clr_LEDROT();
@@ -1122,10 +1120,17 @@ int main()
 	if (KommendSperreWahl > 99)
 		KommendSperreWahl = 0;
 
-	//! \todo Zeichenfolgen aus EEPROM holen
+	eeprom_read_block(AusschaltZeichen, EEDaten.AusschaltZeichen, sizeof(AusschaltZeichen));
+	eeprom_read_block(WahlaufforderungZeichen, EEDaten.WahlaufforderungZeichen, sizeof(WahlaufforderungZeichen));
+	eeprom_read_block(VerbindungHergestelltZeichen, EEDaten.VerbindungHergestelltZeichen, sizeof(VerbindungHergestelltZeichen));
+	eeprom_read_block(EigeneKennung, EEDaten.EigeneKennung, sizeof(EigeneKennung));
+
+	if (false) // TODO Zeichenfolgen ungültig...
+	{
 	memcpy_P(AusschaltZeichen, AusschaltZeichenDefault, sizeof(AusschaltZeichenDefault));
 	memcpy_P(WahlaufforderungZeichen, WahlaufforderungZeichenDefault, sizeof(WahlaufforderungZeichenDefault));
 	memcpy_P(VerbindungHergestelltZeichen, VerbindungHergestelltZeichenDefault, sizeof(VerbindungHergestelltZeichenDefault));
+	}
 	
 	BefehlMark = true;
 	MeldungMark = true;
