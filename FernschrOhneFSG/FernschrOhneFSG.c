@@ -154,7 +154,7 @@ static void FernschrIO()
 		clr_LEDBLAU();
 		set_FS_AUSG();
 		
-		// if (get_FS_EING())
+		//if (get_FS_EING())
 		if (get_FS_EING() || !get_TASTE()) // HACK Taste simuliert Schleifen-Unterbrechung
 			{ // Schleifenstrom ist aus (negierter Eingang)
 			if (MeldungMark)
@@ -293,6 +293,7 @@ static bool FsEinschalten()
 	while (TimerVal(&AnlaufTimer) < 20)
 		FernschrIO();
 	BefehlMark = true;
+	BreakSignal = false;
 	FernschrIO();
 		
 	StartTimer(&AbbruchTimer);
@@ -517,7 +518,7 @@ uint8_t LokalCodefolgeEingabe(PGM_P Prompt, uint8_t* buf, uint8_t maxcodes)
 				LokalTextAusgabeP(OkStrP);
 				return 1;
 				}
-			else if (zeichen == '#' || zeichen <= ' ') // nicht ungültig und kein Leerzeichen
+			else if (zeichen != '#' && zeichen > ' ') // nicht ungültig und kein Leerzeichen
 				TrennZeichen = zeichen;
 			} // else Trennzeichen == '\0'
 
@@ -1237,15 +1238,16 @@ int main()
 
 		if (Tastendruck == Lang)
 			{
-			Tastendruck = NichtGedr;
 			Konfiguration();
 			KonfigurationEnde();
+			Tastendruck = NichtGedr;
 			}
 
 		if (Tastendruck == Kurz)
 			{
-			Tastendruck = NichtGedr;
 			Deaktivieren(false);
+			BreakSignal = false;
+			Tastendruck = NichtGedr;
 			}
 
 		//if (!MeldungMark)
