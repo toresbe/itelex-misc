@@ -1,6 +1,6 @@
 //================================================================
 // Fernschreiber-Schnittstelle Einfachstrom ohne Fernschaltgerät für TxP2-System
-//	für ATmega8 auf Platine FernschrTW39
+//	für ATmega168 auf Platine FernschrTW39
 //================================================================
 // Fernschreiber muss über einen Zeitschalter (Motorschalter) verfügen.
 // Tastaturwahl, nach drücken der ersten Taste wird eine Wahlaufforderung in form von "ga" gesendet. 
@@ -66,6 +66,11 @@ PROGMEM const char Identifier[] = "___TxP2_OhneFSG___" __DATE__ "___" __TIME__ "
 typedef enum { EndeNurBreak, EndeNachNNNN, EndeNach3Plus } TVerbindungsEndeKriterium;
 
 
+enum { CodefolgeEndeMarke = 0x5A } ;
+	//!< Markierung des Endes einer Codefolge. Wert wurde abweichend von 255 gewählt, um uninitialisiertes EEPROM zu erkennen.
+
+
+
 // Variablen
 // =========
 
@@ -88,13 +93,13 @@ uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankom
 
 char BuZiMode; //!< Marker für Buchstaben-Ziffern-Umschaltung.
 
-enum { MaxCodefolgeLaenge = 30 }; //!< Maximale Länge von #AusschaltZeichen, #Wahlaufforderung, #VerbindungHergestelltZeichen
+enum { MaxCodefolgeLaenge = 30 }; //!< Maximale Länge von #AusschaltZeichen, #Wahlaufforderung, #VerbindungHergestelltZeichen, #EigeneKennung
 
 uint8_t AusschaltZeichen[MaxCodefolgeLaenge+1]; 
 	//!< Druck-Sequenz als Zeichen für Ende der Verbindung.
 	//!< Irgendwas > 0x1F (also mehr als 5 Bit) markiert Sequenz-Ende.
 
-PROGMEM uint8_t AusschaltZeichenDefault[] = { TtyCodeBuUm, TtyCodeBuUm, TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 6, 6, 6, 6, TtyCodeWR, TtyCodeZL, TtyCodeZL, 255 } ; // NNNN
+PROGMEM uint8_t AusschaltZeichenDefault[] = { TtyCodeBuUm, TtyCodeBuUm, TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 6, 6, 6, 6, TtyCodeWR, TtyCodeZL, TtyCodeZL } ; // NNNN
 	//!< Standardwert für #AusschaltZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
 	
@@ -102,20 +107,20 @@ uint8_t WahlaufforderungZeichen[MaxCodefolgeLaenge+1];
 	//!< Druck-Sequenz als Zeichen jetzt zu wählen
 
 PROGMEM uint8_t WahlaufforderungZeichenDefault[] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 
-													 11, 24, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeZiUm, 255 } ; // GA _ _ _ _ _
+													 11, 24, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeZiUm } ; // GA _ _ _ _ _
 	//!< Standardwert für #WahlaufforderungZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
 
 uint8_t VerbindungHergestelltZeichen[MaxCodefolgeLaenge+1];
 	//!< Druck-Sequenz nach Eingang der Verbindungsbestätigung
 	
-PROGMEM uint8_t VerbindungHergestelltZeichenDefault[] = { TtyCodeBuUm, TtyCodeLeer, 14, 3, 6, TtyCodeWR, TtyCodeZL, 255 } ; // CON
+PROGMEM uint8_t VerbindungHergestelltZeichenDefault[] = { TtyCodeBuUm, TtyCodeLeer, 14, 3, 6, TtyCodeWR, TtyCodeZL } ; // CON
 	//!< Standardwert für #VerbindungHergestelltZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
 	
-uint8_t EigeneKennung[MaxCodefolgeLaenge+1] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, TtyCodeZiUm, 29, 25, 16, TtyCodeBuUm, TtyCodeLeer, 19, 9, 28, 19, TtyCodeBuUm, 255 };
+uint8_t EigeneKennung[MaxCodefolgeLaenge+1];
 	//!< Text des eigenen Kennungsgeber-Simulators
-	
+
 	
 // Eeprom-Speicher
 // ---------------
@@ -486,7 +491,7 @@ uint8_t LokalCodefolgeEingabe(PGM_P Prompt, uint8_t* buf, uint8_t maxcodes)
 				if (Pos > 0)
 					{
 					if (Pos < maxcodes-1)
-						buf[Pos] = 255;
+						buf[Pos] = CodefolgeEndeMarke;
 					return 2;
 					}
 				else
@@ -501,7 +506,7 @@ uint8_t LokalCodefolgeEingabe(PGM_P Prompt, uint8_t* buf, uint8_t maxcodes)
 			if (zeichen == TrennZeichen)
 				{
 				if (Pos < maxcodes-1)
-					buf[Pos] = 255;
+					buf[Pos] = CodefolgeEndeMarke;
 				LokalTextAusgabeP(OkStrP);
 				return 2;
 				}
@@ -734,19 +739,6 @@ static void VerbindungGehend()
 				
 			return;
 
-/*
-		case GeEinschSofortEin:
-			TW39Einschalten();
-			break; // ist jetzt Verbunden
-
-		case GeEinschFremdKonfig:
-			TW39Einschalten();
-// passt nicht mehr...			LeitungsSstKonfigurationsDialog();
-			TW39Ausschalten();
-			GeAusschalten();
-			return; // keine normale Verbindung
-*/
-
 		default:
 			FehlerStop(15); // TODO
 			return;
@@ -783,7 +775,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 	GeSendeMark(true); 
 	BefehlMark = true;
 
-	SendeUmsetzModus = UmsetzFern; // Für Sendung des "WerDa"
+	SendeUmsetzModus = UmsetzLokalUndFern; // Für Sendung des "WerDa"
 	EmpfUmsetzModus = UmsetzLokalUndFern; // Für Empfang von "Antworten" 
 	
 	while (true)
@@ -937,7 +929,7 @@ static void Konfiguration()
 		return;
 
 	if (BusEigenAdresse != eeprom_read_byte(&EEDaten.BusEigenAdresse))
-		eeprom_write_byte(&EEDaten.BusEigenAdresse, BusEigenAdresse);
+		eeprom_update_byte(&EEDaten.BusEigenAdresse, BusEigenAdresse);
 	
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
 	LokalTextAusgabeP(PSTR("\r\n block incoming calls by: (cur. "));
@@ -951,31 +943,31 @@ static void Konfiguration()
 		return;
 
 	if (KommendSperreWahl != eeprom_read_byte(&EEDaten.KommendSperreWahl))
-		eeprom_write_byte(&EEDaten.KommendSperreWahl, KommendSperreWahl);
+		eeprom_update_byte(&EEDaten.KommendSperreWahl, KommendSperreWahl);
 	
 	LokalTextAusgabeP(OkStrP);
 
 	Res = LokalCodefolgeEingabe(PSTR("\r\n automatik answerback:      "), EigeneKennung, MaxCodefolgeLaenge);
 	if (Res == 2)
-		eeprom_write_block(EEDaten.EigeneKennung, EigeneKennung, sizeof(EEDaten.EigeneKennung));
+		eeprom_update_block(EigeneKennung, EEDaten.EigeneKennung, sizeof(EEDaten.EigeneKennung));
 	if (Res == 0 || BreakSignal)
 		return;
 	
 	Res = LokalCodefolgeEingabe(PSTR("\r\n prompt to dial:      "), WahlaufforderungZeichen, MaxCodefolgeLaenge);
 	if (Res == 2)
-		eeprom_write_block(EEDaten.WahlaufforderungZeichen, WahlaufforderungZeichen, sizeof(EEDaten.WahlaufforderungZeichen));
+		eeprom_update_block(WahlaufforderungZeichen, EEDaten.WahlaufforderungZeichen, sizeof(EEDaten.WahlaufforderungZeichen));
 	if (Res == 0 || BreakSignal)
 		return;
 	
 	Res = LokalCodefolgeEingabe(PSTR("\r\n connection confirmation:      "), VerbindungHergestelltZeichen, MaxCodefolgeLaenge);
 	if (Res == 2)
-		eeprom_write_block(EEDaten.VerbindungHergestelltZeichen, VerbindungHergestelltZeichen, sizeof(EEDaten.VerbindungHergestelltZeichen));
+		eeprom_update_block(VerbindungHergestelltZeichen, EEDaten.VerbindungHergestelltZeichen, sizeof(EEDaten.VerbindungHergestelltZeichen));
 	if (Res == 0 || BreakSignal)
 		return;
 	
 	Res = LokalCodefolgeEingabe(PSTR("\r\n connection closed sign:      "), AusschaltZeichen, MaxCodefolgeLaenge);
 	if (Res == 2)
-		eeprom_write_block(EEDaten.AusschaltZeichen, AusschaltZeichen, sizeof(EEDaten.AusschaltZeichen));
+		eeprom_update_block(AusschaltZeichen, EEDaten.AusschaltZeichen, sizeof(EEDaten.AusschaltZeichen));
 	if (Res == 0 || BreakSignal)
 		return;
 	
@@ -1072,6 +1064,31 @@ static void Deaktivieren(bool WegenTimeout)
 		
 	} // Deaktivieren
 
+	
+/////////////////////////////////////////////////////////////
+
+//! Liest aus dem EEPROM einen Datenblock als Codefolge, prüft ob dieser Block
+//! korrekt ist (nur Werte von 0 bis 31 und CodefolgeEndeMarke) und initialisiert
+//! ggf. ungültige Codefolgen
+//------------------------------------------------------------
+
+void CodefolgeLadenPruefenInitialisieren(uint8_t* cf, uint8_t size, uint8_t* cf_eep, uint8_t* cf_default, uint8_t def_size)
+	{
+	eeprom_read_block(cf, cf_eep, size);
+	
+	for (uint8_t i = 0 ; i < size ; i++)
+		{
+		if (cf[i] == CodefolgeEndeMarke) 
+			break; // alles ist schön
+		else if (cf[i] > 31)
+			{
+			memcpy_P(cf, cf_default, def_size);
+			cf[def_size] = CodefolgeEndeMarke;
+			return;
+			}
+		}
+	} // CodefolgeLadenPruefenInitialisieren()
+
 
 /////////////////////////////////////////////////////////////
 
@@ -1121,17 +1138,13 @@ int main()
 	if (KommendSperreWahl > 99)
 		KommendSperreWahl = 0;
 
-	eeprom_read_block(AusschaltZeichen, EEDaten.AusschaltZeichen, sizeof(AusschaltZeichen));
-	eeprom_read_block(WahlaufforderungZeichen, EEDaten.WahlaufforderungZeichen, sizeof(WahlaufforderungZeichen));
-	eeprom_read_block(VerbindungHergestelltZeichen, EEDaten.VerbindungHergestelltZeichen, sizeof(VerbindungHergestelltZeichen));
-	eeprom_read_block(EigeneKennung, EEDaten.EigeneKennung, sizeof(EigeneKennung));
-
-	if (false) // TODO Zeichenfolgen ungültig...
-	{
-	memcpy_P(AusschaltZeichen, AusschaltZeichenDefault, sizeof(AusschaltZeichenDefault));
-	memcpy_P(WahlaufforderungZeichen, WahlaufforderungZeichenDefault, sizeof(WahlaufforderungZeichenDefault));
-	memcpy_P(VerbindungHergestelltZeichen, VerbindungHergestelltZeichenDefault, sizeof(VerbindungHergestelltZeichenDefault));
-	}
+	CodefolgeLadenPruefenInitialisieren(AusschaltZeichen, sizeof(AusschaltZeichen), EEDaten.AusschaltZeichen, 
+										AusschaltZeichenDefault, sizeof(AusschaltZeichenDefault));
+	CodefolgeLadenPruefenInitialisieren(WahlaufforderungZeichen, sizeof(WahlaufforderungZeichen), EEDaten.WahlaufforderungZeichen, 
+										WahlaufforderungZeichenDefault, sizeof(WahlaufforderungZeichenDefault));
+	CodefolgeLadenPruefenInitialisieren(VerbindungHergestelltZeichen, sizeof(VerbindungHergestelltZeichen), EEDaten.VerbindungHergestelltZeichen, 
+										VerbindungHergestelltZeichenDefault, sizeof(VerbindungHergestelltZeichenDefault));
+	CodefolgeLadenPruefenInitialisieren(EigeneKennung, sizeof(EigeneKennung), EEDaten.EigeneKennung, NULL, 0);
 	
 	BefehlMark = true;
 	MeldungMark = true;
