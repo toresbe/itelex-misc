@@ -139,9 +139,7 @@ typedef struct
 	} TEepromDaten;
 
 
-EEMEM TEepromDaten EEDaten; 
-	// keine Initialisierung, da beim Einlesen der EEDaten eine Prüfung und ggf. Initialisierung mit 
-	// Default-Werten stattfindet.
+EEMEM TEepromDaten EEDaten = { { 0 }, 1, 33, 0, EndeNurBreak, { 255 }, { 255 }, { 255 }, { 255 } } ;
 
 	
 ///////////////////////////////////////////////////////////////////////////////
