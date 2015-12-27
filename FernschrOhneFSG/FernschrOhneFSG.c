@@ -150,16 +150,15 @@ EEMEM TEepromDaten EEDaten = { { 0 }, 1, 33, 0, EndeNurBreak, { 255 }, { 255 }, 
 //! setzt MeldungMark und BreakSignal entsprechend FS_EING,
 //! steuert die Status-LEDs.
 
-static void FernschrIO()
+static void FernschrIO(bool TasteMachtBreak)
 	{
 	if (BefehlMark)
 		{
 		clr_LEDBLAU();
 		set_FS_AUSG();
 		
-		//if (get_FS_EING())
-		if (get_FS_EING() || !get_TASTE()) // HACK Taste simuliert Schleifen-Unterbrechung
-			{ // Schleifenstrom ist aus (negierter Eingang)
+		if (get_FS_EING() || (TasteMachtBreak && !get_TASTE()))
+			{ // Schleifenstrom ist aus (negierter Eingang) ODER bei aktivierter Taste ist diese gedrückt.
 			if (MeldungMark)
 				{ // noch wird aber 'Mark' gemeldet
 				if (TimerVal(&EntprellungTimer) > 3) // mindestens 3 ms konstant Space --> Space melden
@@ -199,13 +198,13 @@ static void FernschrIO()
 		StartTimer(&RuheTimer);
 		StartTimer(&AusschaltungTimer);
 		}
-	
+		
 	if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
 		bset_LEDGELB(!MeldungMark);
 	else // !BIT_IS_SET(Status, StatBit_AngerufenBelegt))
 		bset_LEDGRUEN(!MeldungMark);
 
-	} // FernschrIO
+	} // FernschrIO()
 	
 	
 
@@ -294,15 +293,15 @@ static bool FsEinschalten()
 	BefehlMark = false;
 	StartTimer(&AnlaufTimer);
 	while (TimerVal(&AnlaufTimer) < 20)
-		FernschrIO();
+		FernschrIO(false);
 	BefehlMark = true;
 	BreakSignal = false;
-	FernschrIO();
+	FernschrIO(false);
 		
 	StartTimer(&AbbruchTimer);
 	while (TimerVal(&RuheTimer) < 1200) //! \todo Konfigurierbar
 		{
-		FernschrIO(); // Bearbeitet auch #RuheTimer
+		FernschrIO(false); // Bearbeitet auch #RuheTimer
 		if (MeldungMark)
 			StartTimer(&AbbruchTimer); // bei Dauer-Space: kein Gerät angeschlossenen
 		
@@ -332,13 +331,13 @@ static void FsAusschalten()
 
 	// falls eben noch geschrieben wurde oder Störungen auf der Leitung waren
 	while (TimerVal(&RuheTimer) < 500)
-		FernschrIO();
+		FernschrIO(false);
 
 	LokalCodeAusgabeS(AusschaltZeichen);
 
 	// noch eine weitere 1/4 Sekunde warten
 	while (TimerVal(&RuheTimer) < 250)
-		FernschrIO();
+		FernschrIO(false);
 	
 	BreakSignal = false;	
 	}
@@ -358,7 +357,7 @@ char LokalZeichenLesen()
 	EmpfUmsetzModus = UmsetzLokal; // sicherheitshalber
 	while (true)
 		{
-		FernschrIO();
+		FernschrIO(true);
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
 			{
@@ -388,7 +387,7 @@ static void LokalCodeAusgabe(uint8_t code)
 	while (SerUmSendBitNr != SerUmSendWarte)
 		{
 		SeriellUmsetzung(true, &BefehlMark); // Empfagspegel wird ignoriert
-		FernschrIO();
+		FernschrIO(true);
 		}
 	}
 
@@ -476,7 +475,7 @@ uint8_t LokalCodefolgeEingabe(PGM_P Prompt, uint8_t* buf, uint8_t maxcodes)
 		
 		while (true)
 			{ // Schleifendurchlauf bis ein Zeichen eingegeben oder Abbruch
-			FernschrIO();
+			FernschrIO(true);
 			SeriellUmsetzung(MeldungMark, &BefehlMark);
 			if (SerUmEmpfBitNr == SerUmEmpfFertig)
 				{
@@ -544,7 +543,7 @@ static void Deaktivieren(bool WegenTimeout);
 
 static void VerbindungKommend()
 	{
-	FernschrIO();
+	FernschrIO(false);
 
 	set_LEDGRUEN();
 	set_LEDROT();
@@ -603,7 +602,7 @@ static bool WahlMitTastatur()
 	
 	while (true)
 		{
-		FernschrIO();
+		FernschrIO(true);
 		
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
@@ -677,7 +676,7 @@ static bool WahlMitTastatur()
 				BefehlMark = KoEmpfMark(); 
 					// aufgrund der laufenden Umsetzung wird hier jetzt 
 					// das Bitefolge von VerbindungHergestelltZeichen an den Fs weitergegeben.
-				FernschrIO();
+				FernschrIO(true);
 				}
 
 			clr_LEDROT();
@@ -719,6 +718,7 @@ static void VerbindungGehend()
 		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
 		case GeEinschFehler:
 			clr_LEDGELB();
+			
 			return; 
 
 		case GeEinschWahl:
@@ -728,6 +728,7 @@ static void VerbindungGehend()
 				
 			GeAusschalten();
 			FsAusschalten();
+			BreakSignal = false;
 			
 			clr_LEDGELB();
 
@@ -775,24 +776,16 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 	SendeUmsetzModus = UmsetzLokalUndFern; // Für Sendung des "WerDa"
 	EmpfUmsetzModus = UmsetzLokalUndFern; // Für Empfang von "Antworten" 
-	
-	while (true)
-		{
-		FernschrIO();
 
-		if (BreakSignal || KoAusschalten())
-			{
-			BreakSignal = false;
-			FsAusschalten();
-			GeAusschalten();
-			return;
-			}
+	FernschrIO(true);
+	
+	do
+		{
+		FernschrIO(true);
 
 		BefehlMark = KoEmpfMark();
 	
-		// HACK: dies 'if' sollte nicht mehr erforderlich sein nach der Umstellung in 
-		// HACK: TxP2-Endgeraet.c...: if (SerUmSendBitNr <= SerUmSendStart) // Start oder Warten...
-			GeSendeMark(MeldungMark); // Nur Fs-Pegel direkt auf Bus, wenn nicht seriell gesendet wird...
+		GeSendeMark(MeldungMark); 
 			
 		// Auswertung des Empfangspuffers: 
 		// a) Jedes Zeichen außer Buchstaben-Umschaltung beendet die Abfrage des 'fernen' Kennungsgebers.
@@ -851,8 +844,12 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		//! \todo: Getippte Zeichen auswerten auf Ende-Zeichenfolge
 		//---------------------------------------------------------
 		
-		}
+		} while (!BreakSignal && !KoAusschalten());
 
+	FsAusschalten();
+	GeAusschalten();
+	BreakSignal = false;
+		
 	}
 
 
@@ -1011,7 +1008,7 @@ static void KommendSperren()
 			break;
 			}
 			
-		FernschrIO();
+		FernschrIO(false);
 		
 		if (!MeldungMark) // Taste am Fernschreiber gedrückt --> raus aus der Sperre
 			break;
@@ -1150,7 +1147,7 @@ int main()
 
 	KommInit();
 
-	FernschrIO();
+	FernschrIO(false);
 	
 	TMsTimer Timer;
 	StartTimer(&Timer);
@@ -1245,10 +1242,11 @@ int main()
 		clr_LEDBLAU();
 
 		TastePruefen();
-		FernschrIO();
+		FernschrIO(false);
 
 		if (Tastendruck == Lang)
 			{
+			Tastendruck = NichtGedr;
 			Konfiguration();
 			KonfigurationEnde();
 			Tastendruck = NichtGedr;
@@ -1256,13 +1254,13 @@ int main()
 
 		if (Tastendruck == Kurz)
 			{
+			Tastendruck = NichtGedr;
 			Deaktivieren(false);
 			BreakSignal = false;
 			Tastendruck = NichtGedr;
 			}
 
-		//if (!MeldungMark)
-		if (get_FS_EING()) // HACK damit Taste hier nicht wirkt.
+		if (!MeldungMark)
 			{
 			VerbindungGehend();
 			Tastendruck = NichtGedr; // falls die Taste als Break-Ersatz benutzt wurde.
