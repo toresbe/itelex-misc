@@ -13,7 +13,6 @@
 //! Bestätigungsmeldung. weil's häufig benutzt wird.
 PROGMEM char OkStrP[] = " ok. ";
 
-
 extern char LokalZeichenLesen();
 // Diese Funktion muss in der Anwendung definiert werden.
 
@@ -225,10 +224,17 @@ bool KonfigurationAllgemein()
 		{ // solange Durchwahl abfragen, bis gültige Eingabe erfolgt
 		uint8_t ZifferAnz;
 		uint8_t Durchwahl = AdresseZuWahl(BusEigenAdresse, &ZifferAnz);
-		
+
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("\r\n current local number: "));
+		LokalZahlAusgabe(Durchwahl, ZifferAnz);
+		LokalTextAusgabeP(PSTR(" new:     "));
+#else
 		LokalTextAusgabeP(PSTR("\r\n durchwahl aktuell: "));
 		LokalZahlAusgabe(Durchwahl, ZifferAnz);
 		LokalTextAusgabeP(PSTR(" neu:     "));
+#endif
+		
 		if (LokalZahlEingabe(&Durchwahl, 0) == 0)
 			return false;
 
@@ -238,7 +244,11 @@ bool KonfigurationAllgemein()
 			// erreicht, dass bei (Bsp.) 8 Adressen die Basisadresse 8, 16, 24, ...
 			// ist
 
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("\r\n checking "));
+#else
 		LokalTextAusgabeP(PSTR("\r\n pruefe "));
+#endif
 		LokalZahlAusgabe(Durchwahl, 2);
 		LokalZeichenAusgabe(' ');	
 
@@ -248,7 +258,11 @@ bool KonfigurationAllgemein()
 			return true;
 			}
 
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR(" already used or invalid, choose different."));
+#else
 		LokalTextAusgabeP(PSTR(" schon vergeben oder ungueltig, andere waehlen!"));
+#endif
 		}
 	}
 

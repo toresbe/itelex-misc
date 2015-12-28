@@ -363,7 +363,11 @@ bool TextAusgabeFern(PGM_P s)
 
 bool BoolAusgabeFern(bool b)
 	{
+#ifdef SPRACHE_EN
+	return TextAusgabeFern(b ? PSTR(" yes ") : PSTR(" no "));
+#else
 	return TextAusgabeFern(b ? PSTR(" ja ") : PSTR(" nein "));
+#endif
 	}
 	
 	
@@ -387,9 +391,13 @@ bool ZahlAusgabeFern(uint8_t n, uint8_t Ziffern)
 
 	
 PROGMEM const char CrLf[] = "\r\n ";
+#ifdef SPRACHE_EN
 PROGMEM const char IstText[] = ": ist = ";
 PROGMEM const char NeuText[] = "  neu =   ";
-	
+#else
+PROGMEM const char IstText[] = ": is = ";
+PROGMEM const char NeuText[] = "  new =   ";
+#endif	
 	
 //! Führt eine vollständige Zahlen-Abfrage durch.
 //----------------------------------------------------------------
