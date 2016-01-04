@@ -942,7 +942,7 @@ static void Konfiguration()
 	
 	LokalTextAusgabeP(OkStrP);
 
-	Res = LokalCodefolgeEingabe(PSTR("\r\n automatik answerback:      "), EigeneKennung, MaxCodefolgeLaenge);
+	Res = LokalCodefolgeEingabe(PSTR("\r\n simulated answerback:      "), EigeneKennung, MaxCodefolgeLaenge);
 	if (Res == 2)
 		eeprom_update_block(EigeneKennung, EEDaten.EigeneKennung, sizeof(EEDaten.EigeneKennung));
 	if (Res == 0 || BreakSignal)
