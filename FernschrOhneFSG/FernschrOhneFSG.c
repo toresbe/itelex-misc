@@ -551,7 +551,7 @@ static void VerbindungKommend()
 	if (!FsEinschalten())
 		{ // Timeout...
 		clr_LEDGRUEN();
-		GeAusschalten(); // TODO wird von SeriellUndSpezial nicht quittiert!
+		GeAusschalten(true);
 		Deaktivieren(true);
 		return;
 		}
@@ -560,7 +560,7 @@ static void VerbindungKommend()
 	
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
-		GeAusschalten();
+		GeAusschalten(true);
 		FsAusschalten();
 		}
 	else
@@ -726,7 +726,7 @@ static void VerbindungGehend()
 				// Einschalten macht WahlMitTastatur()
 				break; // ist jetzt verbunden
 				
-			GeAusschalten();
+			GeAusschalten(true);
 			FsAusschalten();
 			BreakSignal = false;
 			
@@ -779,7 +779,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 	FernschrIO(true);
 	
-	do
+	while (true)
 		{
 		FernschrIO(true);
 
@@ -844,13 +844,26 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		//! \todo: Getippte Zeichen auswerten auf Ende-Zeichenfolge
 		//---------------------------------------------------------
 		
-		} while (!BreakSignal && !KoAusschalten());
+		if (BreakSignal)
+			{
+			GeAusschalten(false);
+			FsAusschalten();
+			while (!KoAusschalten())
+				FernschrIO(false);
+			BreakSignal = false;
+			return;
+			}
 
-	FsAusschalten();
-	GeAusschalten();
-	BreakSignal = false;
+		if (KoAusschalten())
+			{
+			FsAusschalten();
+			GeAusschalten(false); // da braucht auf nichts mehr gewartet zu werden
+			return;
+			}
 		
-	}
+		} // while true
+		
+	} // VerbindungSteht()
 
 
 	

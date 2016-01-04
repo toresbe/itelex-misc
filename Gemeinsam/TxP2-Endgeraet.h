@@ -44,7 +44,7 @@ extern bool GeSendeZeichen(char c);
 extern bool GeSendePufferVoll();
 extern bool GeSendePufferLeer();
 extern bool KoAusschalten();
-extern void GeAusschalten();
+extern void GeAusschalten(bool WarteQuitt);
 
 extern void Aktivieren(bool Aktiv);
 	// Standard-Zustand ist Aktiv. Umschaltung nur im ausgeschalteten Zustand

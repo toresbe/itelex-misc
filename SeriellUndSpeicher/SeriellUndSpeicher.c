@@ -643,7 +643,7 @@ static void VerbindungKommend()
 #ifndef OHNE_SPEICHER
 		AufzeichnungAbbruch();
 #endif //ndef OHNE_SPEICHER
-		GeAusschalten();
+		GeAusschalten(true);
 		}
 	else
 		{
@@ -689,16 +689,14 @@ static void VerbindungGehend()
 
 					else if (c == CTRL('s'))
 						{ // Abbruch durch Bediener
-						GeAusschalten();
-						return;
-						}
-
+						GeAusschalten(false);
+						} // auf die Quittung wird dann in dieser Schleife gewartet...
 					}
 
 				if (KoAusschalten())
 					{
+					GeAusschalten(false); // zu warten ist nicht mehr nötig.
 					LokalTextAusgabeP(PSTR("\r\nAbbruch"));
-					GeAusschalten();
 					return;
 					}
 
@@ -1129,7 +1127,7 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 				AufzeichnungEnde();
 #endif //ndef OHNE_SPEICHER
 
-			GeAusschalten();
+			GeAusschalten(true);
 			if (SeriellEin)
 				LokalTextAusgabeP(PSTR("\r\nGetrennt\r\n"));
 			return;
@@ -1158,7 +1156,7 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 				if (AufzeichnungEin)
 					AufzeichnungEnde();
 #endif //ndef OHNE_SPEICHER
-				GeAusschalten();
+				GeAusschalten(true);
 				if (SeriellEin)
 					LokalTextAusgabeP(PSTR("\r\nBeendet\r\n"));
 				return;

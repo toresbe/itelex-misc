@@ -138,6 +138,9 @@ static volatile enum { WahlGesperrt,  	//!< Wählen zur Zeit nicht erlaubt.
 //! Zeitgeber für die Sendung von BusKdoMarkWdh und BusKdoSpaceWdh.					   
 static TMsTimer PegelWdhTimer;
 
+//! Bei selbst initiierter Ausschaltung wird nur begrenzt auf die Bestätigung der Ausschaltung gewartet.
+static TMsTimer AusschaltQuittTimer;
+
 //! Puffert an die Gegenstelle zu sendende a) Wahlziffern und b) Baudot-Codes.
 TPuffer SendePuffer;
 
@@ -621,17 +624,26 @@ bool GeSendePufferLeer()
 #endif //def FUER_TW39
 
 
+///////////////////////////////////////////////////////////////////////////
+
+
+static void BusKomm(); // wird gleich benötigt...
+
+
+///////////////////////////////////////////////////////////////////////////
+
 //! Bewirkt den Verbindungsabbau.
 //---------------------------------
 //! Funktion ist in zwei Situationen aufzurufen:
 //! 1. Als Bestätigung der Ausschaltung, wenn von der Gegenstelle diese
 //! angefordert wurde (dann war KoAusschalten() true).
 //! 2. Als Ausschaltwunsch des eigenen Geräts. 
-//! In beiden Situationen kehrt die Funktion erst nach beidseitig 
+//! Die Funktion kehrt sofort zurück, außer Parameter WarteQuitt ist wahr.
+//! Im Fall 2. kann mit KoAusschalten() abgefragt werden, ob die 
+//! Ausschaltung erfolgreich vollzogen wurde.
 //! durchgeführter Ausschaltung zurück.
-//! \todo nach Umstellung nicht mehr.
 
-void GeAusschalten()
+void GeAusschalten(bool WarteQuitt)
 	{
 	if (FsBetriebsart == Ausgeschaltet)
 		return;
@@ -641,20 +653,26 @@ void GeAusschalten()
 		{ // nur noch quittieren
 		BusSenden(BusQuittSchluss);
 		BusWarteFertig();
+		BetriebsartWechsel(Ausgeschaltet); 
 		}
 	else
 		{ // aktiv ausschalten
-		BusSenden(BusKdoSchluss);
-		WarteSchlussQuittung(3000); //! \todo Umstellen auf BetriebsartWechsel(AusschaltungGe);
+		BusSenden(BusKdoSchluss); 
+		BetriebsartWechsel(AusschaltungGe);
+		StartTimer(&AusschaltQuittTimer);
 		}
-	BetriebsartWechsel(Ausgeschaltet); //! \todo kommt dann in den if-teil
 	BusKommSperre = false;
+	
+	while (FsBetriebsart == AusschaltungGe && WarteQuitt)
+		BusKomm(); // Wartet auf Quittung oder Timeout.
+	
 	}
 
 
 //! Abfrage, ob ein Verbindungsabbau gewünscht wird.
 //--------------------------------------------------
-//! \retval true wenn die Gegenstelle einen Verbindungsabbau angefordert hat.
+//! \retval true wenn die Gegenstelle einen Verbindungsabbau angefordert hat
+//! oder der Verbindungsabbau erfolgreich vollzogen ist.
 
 bool KoAusschalten()
 	{
@@ -919,7 +937,8 @@ static void BusKomm()
 			
 		case AusschaltungGe:
 			// Empfang von BusQuittSchluss wird oben bearbeitet.
-			//! \todo Timeout
+			if (TimerVal(&AusschaltQuittTimer) > 4000) // nach 4 Sekunden wird auch ohne Quittung ausgeschaltet.
+				BetriebsartWechsel(Ausgeschaltet);
 			break;
 			
 		} // switch Betriebsart

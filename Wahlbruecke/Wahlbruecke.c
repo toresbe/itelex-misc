@@ -377,6 +377,8 @@ static void VerbindungKommend()
 		{ // Timeout...
 		clr_LEDGRUEN();
 		GeAusschalten(); // TODO wird von SeriellUndSpezial nicht quittiert!
+		while (!KoAusschalten())
+			TW39IO(); // wartet auf Quittung der Ausschaltung
 		Deaktivieren(true);
 		return;
 		}
@@ -386,6 +388,8 @@ static void VerbindungKommend()
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
 		GeAusschalten();
+		while (!KoAusschalten())
+			TW39IO(); // wartet auf Quittung der Ausschaltung
 		TW39Ausschalten();
 		}
 	else
@@ -409,6 +413,8 @@ static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 		TW39Ausschalten();
 	while (MeldungEingeschaltet)
 		TW39IO();
+	while (!KoAusschalten())
+		TW39IO(); // wartet auf Quittung der Ausschaltung
 	clr_LEDROT();
 	Aktivieren(true);
 	}
@@ -547,6 +553,8 @@ static void VerbindungGehend()
 
 			GeAusschalten();
 			TW39Ausschalten();
+			while (!KoAusschalten())
+				TW39IO(); // wartet auf Quittung der Ausschaltung
 			
 			return;
 
@@ -597,7 +605,16 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		TW39IO();
 		TastePruefen();
 
-		if (!MeldungEingeschaltet || KoAusschalten())
+		if (!MeldungEingeschaltet)
+			{
+			GeAusschalten();
+			TW39Ausschalten();
+			while (!KoAusschalten())
+				TW39IO(); // wartet auf Quittung der Ausschaltung
+			return;
+			}
+
+		if (KoAusschalten())
 			{
 			TW39Ausschalten();
 			GeAusschalten();

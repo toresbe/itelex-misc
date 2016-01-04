@@ -1002,7 +1002,7 @@ static void VerbindungKommend()
 	
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
-		GeAusschalten();
+		GeAusschalten(true);
 		}
 	else
 		{
@@ -1033,7 +1033,7 @@ static void VerbindungKommend()
 		}
 
 	// folgender Punkt wird nur bei ungültiger Anwahlnummer erreicht...
-	GeAusschalten();
+	GeAusschalten(true);
 		
 	}
 	
