@@ -316,7 +316,7 @@ static void TW39Ausschalten()
 //---------------------------------------------
 //! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
 
-void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ )
+__attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ ) 
 	// Fehler-Codes: 
 	// 1: Bus-Empfang trotz Sperre
 	// 2: General Call ohne entsprechende Freigabe
@@ -974,7 +974,7 @@ static void Deaktivieren(bool WegenTimeout)
 //! Das Hauptprogramm der TW39-Fernschreiber-Schnittstelle.
 //---------------------------------------------------------
 
-int main()
+__attribute__ ((noreturn)) int main()
 	{
 #ifndef NOWATCHDOG
 	wdt_enable(WDTO_2S);
@@ -1123,8 +1123,6 @@ int main()
 		clr_LEDGELB();
 		clr_LEDGRUEN();
 		clr_LEDBLAU();
-
-
 
 		TastePruefen();
 		TW39IO();

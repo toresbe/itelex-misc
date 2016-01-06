@@ -985,8 +985,14 @@ static void BusKomm()
 		BusAuftrag = Nichts;
 		}
 
-	if (BusVerbPartner > 0) // ehem. && FsBetriebsart != FremdKonfig)
-		SendeLebenszeichen();
+	if (BusVerbPartner > 0 
+		&& BusFrei 
+		&& (BusAuftrag == Nichts || BusAuftrag == Fertig) 
+		&& TimerVal(&PegelWdhTimer) > 785) // mind. alle 0,785 Sek senden
+		{
+		BusSenden(BusLebenszeichen);
+		StartTimer(&PegelWdhTimer);
+		}
 	
 	if (BusVerbPartner == 0 || FsBetriebsart == AusschaltungGe || FsBetriebsart == AusschaltungKo)
 		wdt_reset();

@@ -43,8 +43,10 @@ void LokalZifferAusgabe(uint8_t i)
 	{
 	if (i <= 9)
 		LokalZeichenAusgabe('0' + i);
+#ifndef FUER_TW39
 	else
 		LokalZeichenAusgabe('a' + i - 10);
+#endif
 	}
 
 

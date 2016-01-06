@@ -59,8 +59,14 @@
 	//!< Watchdog abgeschaltet
 
 
+#ifdef PROGIDZUSATZ
+//! Marker im Code als Identifikation
+PROGMEM const char Identifier[] = "___TxP2_OhneFSG-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#else
 //! Marker im Code als Identifikation
 PROGMEM const char Identifier[] = "___TxP2_OhneFSG___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#endif
+
 
 
 typedef enum { EndeNurBreak, EndeNachNNNN, EndeNach3Plus } TVerbindungsEndeKriterium;
