@@ -40,7 +40,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 INCLUDES = -I"D:\Daten\AvrProgs\TxP2\ED1000\..\Gemeinsam" -I"D:\Daten\AvrProgs\TxP2\ED1000\..\..\C-Libs" 
 
 ## Objects that must be built in order to link
-OBJECTS = ED1000.o MsTimer.o Taste.o BusKomm.o BaudotCode.o KonfigDialog.o SeriellUmsetz.o TxP2-Endgeraet.o LokalAusgabe.o FifoPuffer.o BusKomm2.o 
+OBJECTS = ED1000.o MsTimer.o Taste.o BusKomm.o BaudotCode.o KonfigDialog.o SeriellUmsetz.o TxP2-Endgeraet.o LokalAusgabe.o FifoPuffer.o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -75,9 +75,6 @@ LokalAusgabe.o: ../../Gemeinsam/LokalAusgabe.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 FifoPuffer.o: ../../Gemeinsam/FifoPuffer.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
-
-BusKomm2.o: ../../Gemeinsam/BusKomm2.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link

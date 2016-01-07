@@ -631,7 +631,7 @@ static void VerbindungKommend()
 	if (!ED1000Einschalten())
 		{ // Timeout...
 		clr_LEDGRUEN();
-		GeAusschalten(); // TODO wird von SeriellUndSpezial nicht quittiert!
+		GeAusschalten(true); // TODO wird von SeriellUndSpezial nicht quittiert!
 		Deaktivieren(true);
 		return;
 		}
@@ -640,8 +640,8 @@ static void VerbindungKommend()
 	
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
-		GeAusschalten();
-		ED1000Ausschalten();
+		GeAusschalten(true);
+		ED1000Ausschalten(true);
 		}
 	else
 		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
@@ -658,7 +658,7 @@ static void VerbindungKommend()
 static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	{
 	set_LEDROT();
-	GeAusschalten();
+	GeAusschalten(true);
 	Aktivieren(false);
 	if (Abschaltimpuls)
 		ED1000Ausschalten();
@@ -773,8 +773,9 @@ static void VerbindungGehend()
 				// Einschalten ist nicht erforderlich, da schon eingeschaltet ist...
 				break; // ist jetzt verbunden
 
-			GeAusschalten();
+			GeAusschalten(true);
 			ED1000Ausschalten();
+
 			
 			if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
 				{
@@ -831,12 +832,22 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		ED1000IO();
 		TastePruefen();
 
-		if (!MeldungEingeschaltet || KoAusschalten())
+		if (!MeldungEingeschaltet)
 			{
+			GeAusschalten(false);
 			ED1000Ausschalten();
-			GeAusschalten();
+			while (!KoAusschalten())
+				ED1000IO();
 			return;
 			}
+
+		if (KoAusschalten())
+			{
+			ED1000Ausschalten();
+			GeAusschalten(false);
+			return;
+			}
+
 
 		BefehlMark = KoEmpfMark();
 	

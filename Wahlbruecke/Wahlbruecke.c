@@ -376,7 +376,7 @@ static void VerbindungKommend()
 	if (!TW39Einschalten())
 		{ // Timeout...
 		clr_LEDGRUEN();
-		GeAusschalten(); // TODO wird von SeriellUndSpezial nicht quittiert!
+		GeAusschalten(true); // TODO wird von SeriellUndSpezial nicht quittiert!
 		while (!KoAusschalten())
 			TW39IO(); // wartet auf Quittung der Ausschaltung
 		Deaktivieren(true);
@@ -387,7 +387,7 @@ static void VerbindungKommend()
 	
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
-		GeAusschalten();
+		GeAusschalten(true);
 		while (!KoAusschalten())
 			TW39IO(); // wartet auf Quittung der Ausschaltung
 		TW39Ausschalten();
@@ -407,7 +407,7 @@ static void VerbindungKommend()
 static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	{
 	set_LEDROT();
-	GeAusschalten();
+	GeAusschalten(true);
 	Aktivieren(false);
 	if (Abschaltimpuls)
 		TW39Ausschalten();
@@ -551,7 +551,7 @@ static void VerbindungGehend()
 				// Einschalten ist nicht erforderlich, da schon eingeschaltet ist...
 				break; // ist jetzt verbunden
 
-			GeAusschalten();
+			GeAusschalten(true);
 			TW39Ausschalten();
 			while (!KoAusschalten())
 				TW39IO(); // wartet auf Quittung der Ausschaltung
@@ -607,7 +607,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 		if (!MeldungEingeschaltet)
 			{
-			GeAusschalten();
+			GeAusschalten(false);
 			TW39Ausschalten();
 			while (!KoAusschalten())
 				TW39IO(); // wartet auf Quittung der Ausschaltung
@@ -617,7 +617,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		if (KoAusschalten())
 			{
 			TW39Ausschalten();
-			GeAusschalten();
+			GeAusschalten(false);
 			return;
 			}
 

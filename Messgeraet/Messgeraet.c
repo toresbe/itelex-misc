@@ -400,7 +400,7 @@ static bool VerbindungIgnoriereErsteZweiSekunden(uint8_t SubAddr)
 
 		if (KoAusschalten())
 			{
-			GeAusschalten();
+			GeAusschalten(false);
 			return false;
 			}
 		LEDAktualisieren();
@@ -497,7 +497,7 @@ static void VerbindungMessgeraet()
 				
 		if (KoAusschalten())
 			{
-			GeAusschalten();
+			GeAusschalten(false);
 			break;
 			}
 
@@ -523,7 +523,7 @@ static void VerbindungRueckruf()
 
 		if (KoAusschalten())
 			{
-			GeAusschalten();
+			GeAusschalten(false);
 			return;
 			}
 		LEDAktualisieren();
@@ -560,7 +560,7 @@ static void VerbindungRueckruf()
 
 		if (KoAusschalten())
 			{
-			GeAusschalten();
+			GeAusschalten(false);
 			return;
 			}
 		LEDAktualisieren();
@@ -584,7 +584,7 @@ static void VerbindungRueckruf()
 		if (KoAusschalten())
 			{
 			Puffer[PufferPos] = 255;
-			GeAusschalten();
+			GeAusschalten(false);
 			break;
 			}
 		LEDAktualisieren();
@@ -652,7 +652,7 @@ static void VerbindungRueckruf()
 		LEDAktualisieren();
 		} // while true
 		
-	GeAusschalten();
+	GeAusschalten(true);
 	
 	} // VerbindungRueckruf
 
@@ -767,7 +767,7 @@ static void VerbindungBildlocher()
 
 		if (KoAusschalten())
 			{
-			GeAusschalten();
+			GeAusschalten(false);
 			break;
 			}
 
@@ -960,7 +960,7 @@ static void VerbindungTestsender()
 			{
 			if (KoAusschalten())
 				{
-				GeAusschalten();
+				GeAusschalten(false);
 				return;
 				}
 			}
@@ -971,7 +971,7 @@ static void VerbindungTestsender()
 			; // ignorieren
 		else if (c == 'e')
 			{
-			GeAusschalten();
+			GeAusschalten(true);
 			return;
 			}
 		else
