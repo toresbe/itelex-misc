@@ -769,7 +769,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		if (KoAusschalten())
 			{
 			TW39Ausschalten();
-			GeAusschalten(false);
+			GeAusschalten(false); // da braucht auf nichts mehr gewartet zu werden
 			return;
 			}
 

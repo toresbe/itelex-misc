@@ -853,17 +853,17 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		if (BreakSignal)
 			{
 			GeAusschalten(false);
-			FsAusschalten();
 			while (!KoAusschalten())
 				FernschrIO(false);
+			FsAusschalten();
 			BreakSignal = false;
 			return;
 			}
 
 		if (KoAusschalten())
 			{
-			FsAusschalten();
 			GeAusschalten(false); // da braucht auf nichts mehr gewartet zu werden
+			FsAusschalten();
 			return;
 			}
 		

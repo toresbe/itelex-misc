@@ -261,7 +261,7 @@ static void VerbindungHellschreiber()
 
 		if (KoAusschalten())
 			{
-			GeAusschalten();
+			GeAusschalten(false); // da braucht auf nichts mehr gewartet zu werden
 			break;
 			}
 
@@ -288,7 +288,7 @@ static void VerbindungKommend()
 	
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
-		GeAusschalten();
+		GeAusschalten(true);
 		}
 	else
 		{
