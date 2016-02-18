@@ -4,7 +4,7 @@
 //================================================================
 // Fernschreiber muss über einen Zeitschalter (Motorschalter) verfügen.
 // Tastaturwahl, nach drücken der ersten Taste wird eine Wahlaufforderung in form von "ga" gesendet. 
-// Verbindungsende wahlweise durch "break"-Signal, durch NNNN oder durch +++
+// Verbindungsende wahlweise durch "break"-Signal, durch NNNN oder durch +++ [future]
 
 #include <avr/io.h>
 #include <avr/pgmspace.h>
@@ -321,7 +321,7 @@ static bool FsEinschalten()
 
 static void LokalCodeAusgabe(uint8_t code); // kommt erst später...
 
-static void LokalCodeAusgabeS(uint8_t *codep); // kommt erst später...
+static void LokalCodeAusgabeS(uint8_t *codep, bool StopIfCalled); // kommt erst später...
 
 
 //////////////////////////////////////////////////////////////////
@@ -339,7 +339,7 @@ static void FsAusschalten()
 	while (TimerVal(&RuheTimer) < 500)
 		FernschrIO(false);
 
-	LokalCodeAusgabeS(AusschaltZeichen);
+	LokalCodeAusgabeS(AusschaltZeichen, true);
 
 	// noch eine weitere 1/4 Sekunde warten
 	while (TimerVal(&RuheTimer) < 250)
@@ -404,14 +404,21 @@ static void LokalCodeAusgabe(uint8_t code)
 //--------------------------------------------------
 //! \param code Zeichen im Baudot-Code
 
-static void LokalCodeAusgabeS(uint8_t *codep)
+static void LokalCodeAusgabeS(uint8_t *codep, bool StopIfCalled)
 	{
+	static uint8_t CRLFCode[] = {TtyCodeWR, TtyCodeZL, 255};
 	uint8_t i;
 
 	for (i = 0 ; i < MaxCodefolgeLaenge ; i++)
 		{
 		if (codep[i] > 0x1F)
 			break;
+		if (StopIfCalled && KoEinschalten())
+			{
+			codep = CRLFCode;
+			i = 0;
+			StopIfCalled = false; // to prevent reset of codep after print of first character
+			}
 		LokalCodeAusgabe(codep[i]);
 		}
 	}
@@ -595,7 +602,7 @@ static bool WahlMitTastatur()
 		
 	// Wahlaufforderung ausgeben
 	// -------------------------
-	LokalCodeAusgabeS(WahlaufforderungZeichen);
+	LokalCodeAusgabeS(WahlaufforderungZeichen, false);
 		
 	// Wahlziffern entgegennehmen, Break bricht ab
 	// -------------------------------------------
