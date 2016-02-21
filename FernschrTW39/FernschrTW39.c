@@ -339,7 +339,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
-			if (get_TASTE())
+			if (get_TASTE()) //! \todo umgekehrte Tastenpolarität prüfen
 				{ // Taste nicht gedrückt
 				if (TasteZ > 0)
 					{
@@ -390,6 +390,7 @@ char LokalZeichenLesen()
 	{
 	char c;
 
+	EmpfUmsetzModus = UmsetzLokal; // sicherheitshalber
 	while (true)
 		{
 		TW39IO();
@@ -416,6 +417,7 @@ char LokalZeichenLesen()
 
 static void LokalCodeAusgabe(uint8_t code)
 	{
+	SendeUmsetzModus = UmsetzLokal; // sicherheitshalber
 	SerUmSendDaten = code;
 	SerUmSendBitNr = SerUmSendStart;
 	while (SerUmSendBitNr != SerUmSendWarte)
@@ -866,12 +868,26 @@ static void Konfiguration()
 		}
 
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
-	LokalTextAusgabeP(PSTR("\r\n kommend-sperre mit wahl: (akt. "));
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n block incoming calls by: (cur. "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n kommende anrufe sperren mit: (akt. "));
+#endif //def SPRACHE_EN
+
 	if (KommendSperreWahl != 0)
 		LokalZahlAusgabe(KommendSperreWahl, 2);
 	else
-		LokalTextAusgabeP(PSTR("nein"));
-	LokalTextAusgabeP(PSTR(") neu (0 = nein):     "));
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("off"));
+#else
+		LokalTextAusgabeP(PSTR("aus"));
+#endif //def SPRACHE_EN
+
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(") new (0 = off):     "));
+#else
+	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
+#endif //def SPRACHE_EN
 
 	if (LokalZahlEingabe(&KommendSperreWahl, 0) == 0)
 		return;
@@ -1002,7 +1018,6 @@ __attribute__ ((noreturn)) int main()
 	//init_TASTE2();
 
 	set_LEDROT();
-	
 
 	// Timer initialisieren
 	MsTimerInit();
@@ -1077,7 +1092,7 @@ __attribute__ ((noreturn)) int main()
 		
 	TWCR = (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (1<<TWEN) | (1<<TWIE);
 
-	while (TimerVal(&Timer) < 1000 + BusEigenAdresse)
+	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
 
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);

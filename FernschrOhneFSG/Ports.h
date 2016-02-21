@@ -18,7 +18,7 @@
 //   10: B7 	Quarz
 //   11: D5  	frei
 //   12: D6   	Eingang FS Eingang: Low = Strom ein
-//   13: D7   	frei
+//   13: D7   	Ausgabe FS Motor: High = Maschine ein
 //   14: B0  	Ausgabe FS Daten: High = Strom ein = Mark
 //   15: B1  	frei
 //   16: B2  	frei
@@ -56,6 +56,7 @@ DEFPORTOUT		(LEDGRUEN, 	D, 3)
 DEFPORTOUT		(LEDBLAU, 	D, 4)
 
 DEFPORTOUT		(FS_AUSG,	B, 0) // Schleifenschluﬂ-Ausgabe
+DEFPORTOUT		(FS_AKTIV,	D, 7) // Einschaltung (Ausgabe, Optionaler Motor-Schalter
 DEFPORTINPULL	(FS_EING, 	D, 6) // Strom-Einlesung
 
 #else

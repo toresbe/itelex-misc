@@ -296,6 +296,7 @@ static bool FsEinschalten()
 	TMsTimer AnlaufTimer;
 	TMsTimer AbbruchTimer;
 	
+	set_FS_AKTIV(); // optionalen Motorschalter einschalten
 	BefehlMark = false;
 	StartTimer(&AnlaufTimer);
 	while (TimerVal(&AnlaufTimer) < 20)
@@ -341,6 +342,8 @@ static void FsAusschalten()
 
 	LokalCodeAusgabeS(AusschaltZeichen, true);
 
+	clr_FS_AKTIV(); // optionalen Motorschalter ausschalten
+	
 	// noch eine weitere 1/4 Sekunde warten
 	while (TimerVal(&RuheTimer) < 250)
 		FernschrIO(false);
@@ -943,8 +946,13 @@ static void Konfiguration()
 	if (!FsEinschalten())
 		return;
 	
+#ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n configuration FsOFsg version " SVNVERSION " date " __DATE__));
+#else
+	LokalTextAusgabeP(PSTR("\r\n konfiguration FsOFsg version " SVNVERSION " datum " __DATE__));
+#endif //def SPRACHE_EN
 
+	
 	// Durchwahl...
 	if (!KonfigurationAllgemein())
 		return;
@@ -953,12 +961,26 @@ static void Konfiguration()
 		eeprom_update_byte(&EEDaten.BusEigenAdresse, BusEigenAdresse);
 	
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
+#ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n block incoming calls by: (cur. "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n kommende anrufe sperren mit: (akt. "));
+#endif //def SPRACHE_EN
+
 	if (KommendSperreWahl != 0)
 		LokalZahlAusgabe(KommendSperreWahl, 2);
 	else
-		LokalTextAusgabeP(PSTR("no"));
-	LokalTextAusgabeP(PSTR(") new (0 = no):     "));
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("off"));
+#else
+		LokalTextAusgabeP(PSTR("aus"));
+#endif //def SPRACHE_EN
+
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(") new (0 = off):     "));
+#else
+	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
+#endif //def SPRACHE_EN
 
 	if (LokalZahlEingabe(&KommendSperreWahl, 0) == 0)
 		return;
@@ -968,25 +990,41 @@ static void Konfiguration()
 	
 	LokalTextAusgabeP(OkStrP);
 
-	Res = LokalCodefolgeEingabe(PSTR("\r\n simulated answerback:      "), EigeneKennung, MaxCodefolgeLaenge);
+#ifdef SPRACHE_EN
+	Res = LokalCodefolgeEingabe(PSTR("\r\n software answerback:      "), EigeneKennung, MaxCodefolgeLaenge);
+#else
+	Res = LokalCodefolgeEingabe(PSTR("\r\n software kennungsgeber:      "), EigeneKennung, MaxCodefolgeLaenge);
+#endif //def SPRACHE_EN
 	if (Res == 2)
 		eeprom_update_block(EigeneKennung, EEDaten.EigeneKennung, sizeof(EEDaten.EigeneKennung));
 	if (Res == 0 || BreakSignal)
 		return;
 	
+#ifdef SPRACHE_EN
 	Res = LokalCodefolgeEingabe(PSTR("\r\n prompt to dial:      "), WahlaufforderungZeichen, MaxCodefolgeLaenge);
+#else
+	Res = LokalCodefolgeEingabe(PSTR("\r\n wahlaufforderung:      "), WahlaufforderungZeichen, MaxCodefolgeLaenge);
+#endif //def SPRACHE_EN
 	if (Res == 2)
 		eeprom_update_block(WahlaufforderungZeichen, EEDaten.WahlaufforderungZeichen, sizeof(EEDaten.WahlaufforderungZeichen));
 	if (Res == 0 || BreakSignal)
 		return;
 	
+#ifdef SPRACHE_EN
 	Res = LokalCodefolgeEingabe(PSTR("\r\n connection confirmation:      "), VerbindungHergestelltZeichen, MaxCodefolgeLaenge);
+#else
+	Res = LokalCodefolgeEingabe(PSTR("\r\n verbindungsbestaetigung:      "), VerbindungHergestelltZeichen, MaxCodefolgeLaenge);
+#endif //def SPRACHE_EN
 	if (Res == 2)
 		eeprom_update_block(VerbindungHergestelltZeichen, EEDaten.VerbindungHergestelltZeichen, sizeof(EEDaten.VerbindungHergestelltZeichen));
 	if (Res == 0 || BreakSignal)
 		return;
 	
+#ifdef SPRACHE_EN
 	Res = LokalCodefolgeEingabe(PSTR("\r\n connection closed sign:      "), AusschaltZeichen, MaxCodefolgeLaenge);
+#else
+	Res = LokalCodefolgeEingabe(PSTR("\r\n meldung verbindungsabbau:      "), AusschaltZeichen, MaxCodefolgeLaenge);
+#endif //def SPRACHE_EN
 	if (Res == 2)
 		eeprom_update_block(AusschaltZeichen, EEDaten.AusschaltZeichen, sizeof(EEDaten.AusschaltZeichen));
 	if (Res == 0 || BreakSignal)
@@ -1054,10 +1092,6 @@ static void KommendSperren()
 	}
 	
 	
-DEFPORTOUT		(FS_AKTIV,	D, 7) 
-// HACK: Zum Test mit der TW39 muss bei angeschlossenem Fernschaltgerät dieses auf Dauer-Ein geschaltet werden.
-
-
 /////////////////////////////////////////////////////////////
 
 //! Schaltet das Modul in einen Modus, der keine kommenden und keine gehenden 
@@ -1134,6 +1168,7 @@ int main()
 	init_LEDGRUEN();
 	init_LEDBLAU();
 	init_FS_AUSG();
+	init_FS_AKTIV();
 	init_FS_EING(); 
 #ifdef PARALLELAUSGABE
 	init_FS2_AUSG();
@@ -1142,8 +1177,6 @@ int main()
 	init_TASTE();
 	//init_TASTE2();
 
-	init_FS_AKTIV(); // HACK
-	
 	set_LEDROT();
 
 	// Timer initialisieren
