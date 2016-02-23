@@ -816,8 +816,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 				AutoKennungAbfrage = false; // Aufgabe a)
 				if (code == TtyCodeZiUm)
 					KennungAusgabePhase = 1;
-				// HACK else if (code == TtyCodeZiWerDa && KennungAusgabePhase == 1)
-				else if (code == TtyCodeZiKlingel && KennungAusgabePhase == 1)
+				else if (code == TtyCodeZiWerDa && KennungAusgabePhase == 1)
 					KennungAusgabePhase = 2;
 				else if (KennungAusgabePhase == 2)
 					KennungAusgabePhase = 1; 
