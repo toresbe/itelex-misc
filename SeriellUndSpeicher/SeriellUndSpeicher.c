@@ -628,7 +628,11 @@ static void VerbindungKommend()
 	
 	if (SeriellEin)
 		{
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("\r\nIncall\r\n"));
+#else
 		LokalTextAusgabeP(PSTR("\r\nAnruf\r\n"));
+#endif
 		SerSendFlush();
 		}
 
@@ -639,7 +643,11 @@ static void VerbindungKommend()
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
 		if (SeriellEin)
-			LokalTextAusgabeP(PSTR("\r\nFehler\r\n"));
+#ifdef SPRACHE_EN		
+			LokalTextAusgabeP(PSTR("\r\nError\r\n"));
+#else			
+		    LokalTextAusgabeP(PSTR("\r\nFehler\r\n"));
+#endif			
 #ifndef OHNE_SPEICHER
 		AufzeichnungAbbruch();
 #endif //ndef OHNE_SPEICHER
@@ -672,7 +680,11 @@ static void VerbindungGehend()
 			return; 
 
 		case GeEinschWahl:
+#ifdef SPRACHE_EN		
+			LokalTextAusgabeP(PSTR("\r\nDial: "));
+#else			
 			LokalTextAusgabeP(PSTR("\r\nWählen: "));
+#endif			
 			SerSendFlush();
 			while (!KoEinschalten())
 				{
@@ -697,7 +709,11 @@ static void VerbindungGehend()
 
 				if (KoAusschalten())
 					{
+#ifdef SPRACHE_EN					
+					LokalTextAusgabeP(PSTR("\r\nAbort"));
+#else
 					LokalTextAusgabeP(PSTR("\r\nAbbruch"));
+#endif					
 					GeAusschalten();
 					return;
 					}
@@ -718,8 +734,11 @@ static void VerbindungGehend()
 			FehlerStop(13); 
 			return;
 		}
-
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\nConnected\r\n"));
+#else	
 	LokalTextAusgabeP(PSTR("\r\nVerbunden\r\n"));
+#endif	
 
 	VerbindungSteht(true, false);
 
@@ -850,17 +869,26 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 
 	LokalTextAusgabeP(PSTR("\r\nEndeLetzte: "));
 	LokalZahlAusgabe16(EndeLetzteMeldung, 0);
-	LokalTextAusgabeP(PSTR("   Nach Start: "));
+    LokalTextAusgabeP(PSTR("   Nach Start: "));
 	LokalZahlAusgabe16(WiedergabeAdresse, 0);
 	LokalTextAusgabeP(PSTR("\r\n"));
+
 #endif //DEBUG_OUT
 
+#ifdef SPRACHE_EN
+	(*FnTextPAusg)(PSTR("\r\nstart printout...\r\n"));
+#else	
 	(*FnTextPAusg)(PSTR("\r\nStarte Wiedergabe...\r\n"));
+#endif
 	(*FnAusgFlush)();
 
 	if (!WiedergabeNaechsteMeldung()) 
 		{
+#ifdef SPRACHE_EN			
+		(*FnTextPAusg)(PSTR("\r\nno unread messages\r\n"));
+#else
 		(*FnTextPAusg)(PSTR("\r\nkeine ungelesenen Meldungen\r\n"));
+#endif		
 		WiedergabeEnde();
 		return;
 		}
@@ -887,9 +915,17 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 				LokalZahlAusgabe16(WiedergabeAdresse, 0);
 				LokalTextAusgabeP(PSTR("\r\n"));
 #endif //DEBUG_OUT
+#ifdef SPRACHE_EN
+				(*FnTextPAusg)(PSTR("\r\n--- end of message ---"));
+#else		
 				(*FnTextPAusg)(PSTR("\r\n--- Ende Meldung ---"));
+#endif				
 				(*FnAusgFlush)();
+#ifdef SPRACHE_EN				
+				(*FnTextPAusg)(PSTR("\r\nDelete, Next, End?   "));
+#else	
 				(*FnTextPAusg)(PSTR("\r\nLoeschen, Naechste, Ende?   "));
+#endif				
 				(*FnAusgFlush)();
 				break;
 				}
@@ -950,9 +986,15 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 			// nur das erste Zeichen auswerten...
 			switch (z)
 				{
+#ifdef SPRACHE_EN				
+				case 'd':
+				case '''': // falls BU-ZI-Umschaltung nicht wirkte...
+					(*FnTextPAusg)(PSTR("...deleting..."));
+#else
 				case 'l':
 				case ')': // falls BU-ZI-Umschaltung nicht wirkte...
 					(*FnTextPAusg)(PSTR("...Loesche..."));
+#endif					
 					(*FnAusgFlush)();
 					WiedergabeLoescheAktuelleMeldung(); // springt auch automatisch zur nächsten
 					Verstanden = true;
@@ -961,20 +1003,33 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 
 				case 'n' :
 				case ',': // falls BU-ZI-Umschaltung nicht wirkte...
+#ifdef SPRACHE_EN				
+					(*FnTextPAusg)(PSTR("...next..."));
+#else
 					(*FnTextPAusg)(PSTR("...Naechste..."));
+#endif					
 					(*FnAusgFlush)();
 					Verstanden = true;
 					SpringeNaechste = true;
 					break;
 
-				case 'w' :
+#ifdef SPRACHE_EN				
+				case 'w' : // wiederholen
 				case '2': // falls BU-ZI-Umschaltung nicht wirkte...
+#else
+				case 'r' : // repeat
+				case '4': // falls BU-ZI-Umschaltung nicht wirkte...
+#endif					
 					Verstanden = true;
 					break;
 	
 				case 'e' :
 				case '3': // falls BU-ZI-Umschaltung nicht wirkte...
+#ifdef SPRACHE_EN				
+					(*FnTextPAusg)(PSTR("...abort"));
+#else
 					(*FnTextPAusg)(PSTR("...Abbruch"));
+#endif					
 					(*FnAusgFlush)();
 					Beenden = true;
 					Verstanden = true;
@@ -1008,8 +1063,11 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 #endif //DEBUG_OUT
 
 	if (!Beenden)
+#ifdef SPRACHE_EN		
+		(*FnTextPAusg)(PSTR("\r\n--- no more messages ---\r\n"));
+#else
 		(*FnTextPAusg)(PSTR("\r\n--- keine weiteren Meldungen ---\r\n"));
-
+#endif		
 	WiedergabeEnde();
 	}
 	
@@ -1131,7 +1189,11 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 
 			GeAusschalten();
 			if (SeriellEin)
+#ifdef SPRACHE_EN				
+				LokalTextAusgabeP(PSTR("\r\nDisconnected\r\n"));
+#else
 				LokalTextAusgabeP(PSTR("\r\nGetrennt\r\n"));
+#endif			
 			return;
 			}
 
@@ -1160,7 +1222,11 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 #endif //ndef OHNE_SPEICHER
 				GeAusschalten();
 				if (SeriellEin)
+#ifdef SPRACHE_EN					
+					LokalTextAusgabeP(PSTR("\r\nDisconnected\r\n"));
+#else
 					LokalTextAusgabeP(PSTR("\r\nBeendet\r\n"));
+#endif					
 				return;
 				}
 			else
@@ -1214,7 +1280,11 @@ static void Konfiguration()
 	DebugBufP = DebugBuf;
 #endif //!TWI_DEBUG
 
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n config telex serial version " SVNVERSION " date " __DATE__));
+#else
 	LokalTextAusgabeP(PSTR("\r\n konfiguration seriell+speicher version " SVNVERSION " datum " __DATE__));
+#endif	
 
 	if (!KonfigurationAllgemein())
 		{
@@ -1226,9 +1296,18 @@ static void Konfiguration()
 	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
 		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
 
+#ifdef SPRACHE_EN	
+	LokalTextAusgabeP(PSTR("\r\n date/time: "));
+#else
 	LokalTextAusgabeP(PSTR("\r\n Datum/Uhrzeit: "));
+#endif
+	
 	DatumAusgabe();
+#ifdef SPRACHE_EN	
+	LokalTextAusgabeP(PSTR(" new:         "));
+#else
 	LokalTextAusgabeP(PSTR(" neu:         "));
+#endif	
 	if (LokalZahlEingabe(&Tag, 0) == 0
 		|| LokalZahlEingabe(&Monat, 0) == 0
 		|| LokalZahlEingabe(&Jahr, 0) == 0
@@ -1238,17 +1317,37 @@ static void Konfiguration()
 	Timer1OvfC = 0;
 	TCNT1 = 0;
 
+#ifdef SPRACHE_EN	
+	LokalTextAusgabeP(PSTR("\r\n answerback: "));
+#else
 	LokalTextAusgabeP(PSTR("\r\n Kennung: "));
+#endif	
 	LokalTextAusgabe(Kennung + 2); // CR + LF weglassen
+#ifdef SPRACHE_EN	
+	LokalTextAusgabeP(PSTR(" new:         "));
+#else
 	LokalTextAusgabeP(PSTR(" neu:         "));
+#endif	
 	LokalTextEingabe(Kennung + 2, KENNUNG_MAXLEN - 3); // erste 2 Zeichen für CRLF reserviert
-	
+
+#ifdef SPRACHE_EN	
+	LokalTextAusgabeP(PSTR("\r\n password: "));
+#else
 	LokalTextAusgabeP(PSTR("\r\n Kennwort: "));
+#endif	
 	LokalTextAusgabe(Kennwort);
+#ifdef SPRACHE_EN	
+	LokalTextAusgabeP(PSTR(" new:         "));
+#else
 	LokalTextAusgabeP(PSTR(" neu:         "));
+#endif	
 	LokalTextEingabe(Kennwort, KENNWORT_MAXLEN - 1);
-	
+
+#ifdef SPRACHE_EN	
+	LokalTextAusgabeP(PSTR("\r\n config complete+++   \r\n"));
+#else
 	LokalTextAusgabeP(PSTR("\r\n fertig+++   \r\n"));
+#endif	
 
 	Aktivieren(true);
 	LED_AUS(ROT);
@@ -1475,16 +1574,28 @@ int main()
 				SerSendFlush();
 				DatumAusgabe();
 				SerSendFlush();
+#ifdef SPRACHE_EN				
+				LokalTextAusgabeP(PSTR("\r\nCtrl-A: dial/connect"));
+#else
 				LokalTextAusgabeP(PSTR("\r\nCtrl-A: Anwahl"));
+#endif				
 				SerSendFlush();
+#ifdef SPRACHE_EN				
+				LokalTextAusgabeP(PSTR(", Ctrl-K: config"));
+#else
 				LokalTextAusgabeP(PSTR(", Ctrl-K: Konfiguration"));
+#endif				
 #ifdef BUSDEBUG_DIALOG
 				SerSendFlush();
 				LokalTextAusgabeP(PSTR(", Ctrl-D: Debug"));
 #endif
 #ifndef OHNE_SPEICHER
 				SerSendFlush();
+#ifdef SPRACHE_EN				
+				LokalTextAusgabeP(PSTR(", Ctrl-Q: read messages"));
+#else
 				LokalTextAusgabeP(PSTR(", Ctrl-Q: AB-Wiedergabe"));
+#endif				
 #endif //ndef OHNE_SPEICHER
 				SerSendFlush();
 				LokalTextAusgabeP(PSTR(" --> "));
@@ -1512,7 +1623,11 @@ int main()
 					if (BusEigenAdresse != BusAdrUngueltig)
 						VerbindungGehend();
 					else
+#ifdef SPRACHE_EN						
+						LokalTextAusgabeP(PSTR(" Error: not configured"));
+#else
 						LokalTextAusgabeP(PSTR(" Fehler: nicht konfiguriert."));
+#endif						
 					HauptmenueAusgeben = true;
 					break;
 				
@@ -1558,7 +1673,11 @@ int main()
 						
 // HACK:
 				default:
+#ifdef SPRACHE_EN				
+					LokalTextAusgabeP(PSTR("\r\ninvalid command"));
+#else
 					LokalTextAusgabeP(PSTR("\r\nUngültiges Kommando"));
+#endif					
 					HauptmenueAusgeben = true;
 					break;
 				}
