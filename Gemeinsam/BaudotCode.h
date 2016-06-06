@@ -27,8 +27,9 @@ enum { TtyCodeZiKlingel = 26 /* bei Ziffern! */} ; //!< Baudot-Code für Klingelz
 
 #define CTRL(z) ((z) & 0b00011111)
 
-enum { CodeChrBuUm = CTRL('b') } ; //!< Hilfs-ASCII-Code für Buchstaben-Umschaltung.
-enum { CodeChrZiUm = CTRL('z') } ; //!< Hilfs-ASCII-Code für Ziffern-Umschaltung.
+enum { CodeChrBuUm = '\016' } ; //!< Hilfs-ASCII-Code für Buchstaben-Umschaltung. SO = shift out
+enum { CodeChrZiUm = '\017' } ; //!< Hilfs-ASCII-Code für Ziffern-Umschaltung. SI = shift in
+			//	 	   ^^^ oktal!
 enum { CodeChrKlingel = CTRL('k') } ; //!< Hilfs-ASCII-Code für Klingelzeichen.
 enum { CodeChrWerDa = CTRL('w') } ; //!< Hilfs-ASCII-Code für Kennungsgeber-Abfrage.
 

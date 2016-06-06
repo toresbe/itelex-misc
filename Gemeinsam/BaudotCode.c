@@ -3,15 +3,17 @@
 #include <avr/pgmspace.h>
 
 // Übersetzer-Tabellen
-// -------------------         0           1         2         3 
-//                             012 345678 90123456789012345678901
+// -------------------         0           1         2            3 
+//                             012 345678 9012345678901234567   8901
 #ifdef USTTY
-PROGMEM char TtyCodeTabBu[] = "#t\ro hnm\nlrgipcvezdbsyfxawj#uqk#";
-PROGMEM char TtyCodeTabZi[] = "#5\r9 #,.\n)4&80:;3\"$?%6!/-2'#71(#";
+PROGMEM char TtyCodeTabBu[] = "#t\ro hnm\nlrgipcvezdbsyfxawj\017uqk\016";
+PROGMEM char TtyCodeTabZi[] = "#5\r9 #,.\n)4&80:;3\"$?%6!/-2'\01771(\016";
 #else // ITA2
-PROGMEM char TtyCodeTabBu[] = "#t\ro hnm\nlrgipcvezdbsyfxawj#uqk#";
-PROGMEM char TtyCodeTabZi[] = "#5\r9 #,.\n)4#80:=3+#?'6#/-2%#71(#";
+PROGMEM char TtyCodeTabBu[] = "#t\ro hnm\nlrgipcvezdbsyfxawj\017uqk\016";
+PROGMEM char TtyCodeTabZi[] = "#5\r9 #,.\n)4#80:=3+#?'6#/-2%\01771(\016";
 #endif
+
+//  \017 = SI = Shift in = Ziffern, \016 = SO = Shift out = Buchstaben. Oktale Darstellung !
 
 //! Setzt ASCII-Zeichen in Baudot-Code um. Es erfolgt keine Umschaltung von Buchstaben
 //! auf Ziffern oder umgekehrt.
