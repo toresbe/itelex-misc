@@ -31,44 +31,9 @@
 //     - bei Ende: Anfangs-Adresse ggf. setzen, Abbruch
 //  
 //================================================================
-// verwendete Pins
+// verwendete Pins siehe ports.h
 //================================================================
 //				
-//   01: C6  	Reset
-//   02: D0 	RxD 			
-//   03: D1 	TxD 			
-//   04: D2  	bis V1.0: CTS
-//				ab V1.3: Taster nach Masse
-//   05: D3  	bis V1.0: RTS
-//				ab V1.3: LED grün (High = ein)
-//   06: D4  	LED blau (High = ein)
-//   07: VCC		
-//   08: GND		
-//   09: B6 	Quarz
-//   10: B7 	Quarz
-//   11: D5  	ab V1.3: XI1 (Sonderfunktion User)
-//				HACK: Debug-Ausgang
-//   12: D6   	ab V1.3: XI2 (Sonderfunktion User)
-//   13: D7   	bis V1.0: SDA an EEPROM
-//				ab V1.3: SCL an EEPROM
-//   14: B0  	bis V1.0: SCL an EEPROM
-//				ab V1.3: SDA an EEPROM
-//   15: B1  	ab V1.3: RTS
-//   16: B2  	ab V1.3: CTS
-//   17: B3 MOSI	Synchronisation (High = Start, mit Pull-Up)
-//   18: B4 MISO
-//   19: B5 SCK 
-//   20: AVCC
-//   21: AREF
-//   22: GND
-//   23: C0  	bis V1.0: LED rot (High = ein)				
-//   24: C1  	bis V1.0: LED gelb (High = ein)
-//   25: C2  	bis V1.0: LED grün (High = ein)
-//				ab V1.3: LED rot (High = ein)
-//   26: C3  	bis V1.0: Taster (nach Low)
-//				ab V1.3: LED gelb (High = ein)
-//   27: C4 SDA	(Bus)
-//   28: C5 SCL	(Bus)
 
 
 #include <avr/io.h>
@@ -128,6 +93,18 @@
 	//!< Watchdog abgeschaltet
 
 
+#if (PLATINE_VERSION >= 20)
+	
+#ifdef PROGIDZUSATZ
+//! Identifikation im Programmspeicher
+const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher2-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#else
+//! Identifikation im Programmspeicher
+const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher2___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#endif
+
+#else // PLATINE_VERSION < 20
+	
 #ifdef PROGIDZUSATZ
 //! Identifikation im Programmspeicher
 const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
@@ -135,7 +112,8 @@ const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher-" PROGIDZUSATZ "__
 //! Identifikation im Programmspeicher
 const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif
-
+	
+#endif // PLATINE_VERSION
 
 #include "timercs.h"
 
@@ -1420,18 +1398,12 @@ int main()
 	DDRD = 0;
 
 	init_TASTE();
+	init_LED_ROT();
+	init_LED_GELB();
+	init_LED_GRUEN();
+	init_LED_BLAU();
 
 	LED_EIN(ROT);
-	SET_BIT(LED_ROT_DDR, LED_ROT_BIT);
-
-	LED_AUS(GELB);
-	SET_BIT(LED_GELB_DDR, LED_GELB_BIT);
-
-	LED_AUS(GRUEN);
-	SET_BIT(LED_GRUEN_DDR, LED_GRUEN_BIT);
-
-	LED_AUS(BLAU);
-	SET_BIT(LED_BLAU_DDR, LED_BLAU_BIT);
 
 	SET_BIT(SER_RTS_DDR, SER_RTS_BIT);
 
