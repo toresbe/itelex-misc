@@ -47,9 +47,12 @@ void FehlerStop(uint8_t Code); // aus SeriellUndSpeicher.c
 // Allgemein für alle Arten von TWI-Bausteinen
 // ####################################################################################
 
-#ifdef SWTWI_DEBUG
+#ifdef SWTWI_DEBUG 
 
-#define SDA_0 CLR_BIT(PORTB, 7)
+// nur zur Verwendung im Sowftware-Debugger!
+// =========================================
+
+#define SDA_0 CLR_BIT(PORTB, 7)	
 #define SDA_1 SET_BIT(PORTB, 7)
 #define SDA_in BIT_IS_SET(PINB, 7)
 
@@ -66,18 +69,13 @@ void FehlerStop(uint8_t Code); // aus SeriellUndSpeicher.c
 
 */
 
-#define TWI_0(p,b) ((p ## _DDR) |= (1<<(b)))
-#define TWI_1(p,b) ((p ## _DDR) &= ~(1<<(b)))
+#define SDA_0 clro_SWTWI_SDA()
+#define SDA_1 inp_SWTWI_SDA()
+#define SDA_in get_SWTWI_SDA()
 
-#define TWI_in(p,b) (((p ## _IPORT) & (1<<(b))) != 0)
-
-#define SDA_0 TWI_0(SWTWI_SDA, SWTWI_SDA_BIT)
-#define SDA_1 TWI_1(SWTWI_SDA, SWTWI_SDA_BIT)
-#define SDA_in TWI_in(SWTWI_SDA, SWTWI_SDA_BIT)
-
-#define SCL_0 TWI_0(SWTWI_SCL, SWTWI_SCL_BIT)
-#define SCL_1 TWI_1(SWTWI_SCL, SWTWI_SCL_BIT)
-#define SCL_in TWI_in(SWTWI_SCL, SWTWI_SCL_BIT)
+#define SCL_0 clro_SWTWI_SCL()
+#define SCL_1 inp_SWTWI_SCL()
+#define SCL_in get_SWTWI_SCL()
 
 #endif //SWTWI_DEBUG
 
@@ -501,6 +499,9 @@ TEeZwischenPuffer HilfEZP; //!< Hilfs-Zwischen-Puffer für EEPROM-Zugriff bei gle
 //! Initialisierung des EEPROM-Zugriffs.
 void EeInit()
 	{
+	init_SWTWI_SDA();
+	init_SWTWI_SCL();
+
 	EeMode = Frei;
 	EZP.SchreibAnz = 0;
 	EZP.Gesperrt = false;

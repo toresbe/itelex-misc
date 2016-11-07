@@ -329,7 +329,7 @@ ISR(USART_UDRE_vect)
 //! \retval true bei Empfangsbereitschaft der Gegenstelle.
 static bool GetCTS()
 	{ 
-	return !BIT_IS_SET(SER_CTS_IPORT, SER_CTS_BIT);
+	return !get_SER_CTS();
 	}
 	
 	
@@ -395,7 +395,7 @@ static void SeriellIO()
 			
 		if (PufferAnzahl(&SerInBuf) > MaxPuffer / 2)
 			{
-			SET_BIT(SER_RTS_OPORT, SER_RTS_BIT);
+			set_SER_RTS();
 			//LED_EIN(ROT); // Test HACK
 			}
 
@@ -441,7 +441,7 @@ static char SerEmpfZ(bool Loesch)
 		PufferSpeich(&SerInBuf, Res);
 	else if (PufferAnzahl(&SerInBuf) < MaxPuffer / 2)
 		{
-		CLR_BIT(SER_RTS_OPORT, SER_RTS_BIT);
+		clr_SER_RTS();
 		//LED_AUS(ROT); // Test HACK
 		}
 
@@ -1405,9 +1405,10 @@ int main()
 
 	LED_EIN(ROT);
 
-	SET_BIT(SER_RTS_DDR, SER_RTS_BIT);
+	init_SER_RTS();
+	init_SER_CTS();
 
-	SET_BIT(TEST1_DDR, TEST1_BIT);
+	//SET_BIT(TEST1_DDR, TEST1_BIT);
 
 	// Timer initialisieren
 	MsTimerInit();
@@ -1512,22 +1513,46 @@ int main()
 
 	while (1)
 		{
+#ifndef OHNE_SPEICHER
+		extern uint16_t BeginnErsteMeldung;
+		extern uint16_t EndeLetzteMeldung;
+#endif //ndef OHNE_SPEICHER
+			
 		// aktueller Zustand: Ausgeschaltet
-		if (TimerVal(&Timer) <= 800)
-			LED_AUS(ROT);
-		else if (TimerVal(&Timer) <= 1000)
-			{
-			if (BusEigenAdresse == BusAdrUngueltig)
+		if (BusEigenAdresse == BusAdrUngueltig)
+			{ // Noch nicht korrekt konfiguriert
+			if (TimerVal(&Timer) <= 800)
+				LED_AUS(ROT);
+			else if (TimerVal(&Timer) <= 1000)
 				LED_EIN(ROT);
 			else
-				LED_AUS(ROT);
+				StartTimer(&Timer);
+			LED_AUS(GELB);
+			LED_AUS(GRUEN);
+			LED_AUS(BLAU);
 			}
+#ifndef OHNE_SPEICHER
+		else if (BeginnErsteMeldung != EndeLetzteMeldung) 		
+			{ // Nachricht ungelesen 
+			LED_AUS(ROT);
+			LED_AUS(GELB);
+			if (TimerVal(&Timer) <= 800)
+				LED_AUS(GRUEN);
+			else if (TimerVal(&Timer) <= 1600)
+				LED_EIN(GRUEN);
+			else
+				StartTimer(&Timer);
+			LED_AUS(BLAU);
+			}
+#endif //ndef OHNE_SPEICHER
 		else
-			StartTimer(&Timer);
-		LED_AUS(GELB);
-		LED_AUS(GRUEN);
-		LED_AUS(BLAU);
-
+			{ // alles in Ordnung
+			LED_AUS(ROT);
+			LED_AUS(GELB);
+			LED_AUS(GRUEN);
+			LED_AUS(BLAU);
+			}
+			
 		DoSwTwi();
 
 		if (HauptmenueAusgeben)
@@ -1645,6 +1670,8 @@ int main()
 						
 // HACK:
 				default:
+					while (!PufferLeer(&SerInBuf))
+						SerEmpfZ(true); // Puffer leeren
 #ifdef SPRACHE_EN				
 					LokalTextAusgabeP(PSTR("\r\ninvalid command"));
 #else
