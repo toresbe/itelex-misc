@@ -1222,6 +1222,9 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 //! wird nach kurzem Tastendruck aufgerufen
 static void Deaktivieren()
 	{
+	LED_AUS(ROT);
+	LED_AUS(GELB);
+	LED_AUS(GRUEN);
 	LED_EIN(BLAU);
 	Aktivieren(false);
 
@@ -1234,7 +1237,7 @@ static void Deaktivieren()
 	Tastendruck = NichtGedr;
 
 	Aktivieren(true);
-	LED_AUS(BLAU);
+
 
 	} // Deaktivieren
 
@@ -1243,6 +1246,10 @@ static void Deaktivieren()
 static void Konfiguration()
 	{
 	LED_EIN(ROT);
+	LED_AUS(GELB);
+	LED_AUS(GRUEN);
+	LED_AUS(BLAU);
+
 	Aktivieren(false);
 
 #ifdef TWI_DEBUG
@@ -1328,7 +1335,6 @@ static void Konfiguration()
 #endif	
 
 	Aktivieren(true);
-	LED_AUS(ROT);
 
 	}
 
