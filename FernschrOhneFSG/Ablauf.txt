@@ -1,0 +1,31 @@
+?: Wenn -> dann
++: Bei Erreichen des Zustands
+*: Regelmäßig ausführen
+
+Ruhe
+	? Anruf -> KommendWarteEinschaltung
+	? Schleifenunterbrechung -> GehendWarteAufforderung
+
+KommendWarteEinschaltung
+	+ Grün ein
+	? Zwei Sekunden abgelaufen -> Verbunden
+
+Verbunden
+	* Schleife schalten entsprechend kommender Signale
+	* Signale entsprechend Schleifenzustand
+	? Ende-Signal kommend -> AusschaltzeichenAusgeben
+	? Ende-Zeichen gehend -> VerbindungsAbbau
+
+VerbindungsAbbau
+	+ Abbau-Signal senden
+	-> AusschaltzeichenAusgeben
+
+AusschaltzeichenAusgeben
+	+ Definierte Zeichenfolge für Verbindungsende ausgeben
+	+ Gelb und grün aus
+	-> Ruhe
+
+
+
+
+	

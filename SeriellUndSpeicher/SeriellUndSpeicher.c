@@ -31,44 +31,9 @@
 //     - bei Ende: Anfangs-Adresse ggf. setzen, Abbruch
 //  
 //================================================================
-// verwendete Pins
+// verwendete Pins siehe ports.h
 //================================================================
 //				
-//   01: C6  	Reset
-//   02: D0 	RxD 			
-//   03: D1 	TxD 			
-//   04: D2  	bis V1.0: CTS
-//				ab V1.3: Taster nach Masse
-//   05: D3  	bis V1.0: RTS
-//				ab V1.3: LED grün (High = ein)
-//   06: D4  	LED blau (High = ein)
-//   07: VCC		
-//   08: GND		
-//   09: B6 	Quarz
-//   10: B7 	Quarz
-//   11: D5  	ab V1.3: XI1 (Sonderfunktion User)
-//				HACK: Debug-Ausgang
-//   12: D6   	ab V1.3: XI2 (Sonderfunktion User)
-//   13: D7   	bis V1.0: SDA an EEPROM
-//				ab V1.3: SCL an EEPROM
-//   14: B0  	bis V1.0: SCL an EEPROM
-//				ab V1.3: SDA an EEPROM
-//   15: B1  	ab V1.3: RTS
-//   16: B2  	ab V1.3: CTS
-//   17: B3 MOSI	Synchronisation (High = Start, mit Pull-Up)
-//   18: B4 MISO
-//   19: B5 SCK 
-//   20: AVCC
-//   21: AREF
-//   22: GND
-//   23: C0  	bis V1.0: LED rot (High = ein)				
-//   24: C1  	bis V1.0: LED gelb (High = ein)
-//   25: C2  	bis V1.0: LED grün (High = ein)
-//				ab V1.3: LED rot (High = ein)
-//   26: C3  	bis V1.0: Taster (nach Low)
-//				ab V1.3: LED gelb (High = ein)
-//   27: C4 SDA	(Bus)
-//   28: C5 SCL	(Bus)
 
 
 #include <avr/io.h>
@@ -128,6 +93,18 @@
 	//!< Watchdog abgeschaltet
 
 
+#if (PLATINE_VERSION >= 20)
+	
+#ifdef PROGIDZUSATZ
+//! Identifikation im Programmspeicher
+const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher2-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#else
+//! Identifikation im Programmspeicher
+const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher2___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#endif
+
+#else // PLATINE_VERSION < 20
+	
 #ifdef PROGIDZUSATZ
 //! Identifikation im Programmspeicher
 const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
@@ -135,7 +112,8 @@ const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher-" PROGIDZUSATZ "__
 //! Identifikation im Programmspeicher
 const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif
-
+	
+#endif // PLATINE_VERSION
 
 #include "timercs.h"
 
@@ -351,7 +329,7 @@ ISR(USART_UDRE_vect)
 //! \retval true bei Empfangsbereitschaft der Gegenstelle.
 static bool GetCTS()
 	{ 
-	return !BIT_IS_SET(SER_CTS_IPORT, SER_CTS_BIT);
+	return !get_SER_CTS();
 	}
 	
 	
@@ -417,7 +395,7 @@ static void SeriellIO()
 			
 		if (PufferAnzahl(&SerInBuf) > MaxPuffer / 2)
 			{
-			SET_BIT(SER_RTS_OPORT, SER_RTS_BIT);
+			set_SER_RTS();
 			//LED_EIN(ROT); // Test HACK
 			}
 
@@ -463,7 +441,7 @@ static char SerEmpfZ(bool Loesch)
 		PufferSpeich(&SerInBuf, Res);
 	else if (PufferAnzahl(&SerInBuf) < MaxPuffer / 2)
 		{
-		CLR_BIT(SER_RTS_OPORT, SER_RTS_BIT);
+		clr_SER_RTS();
 		//LED_AUS(ROT); // Test HACK
 		}
 
@@ -628,7 +606,11 @@ static void VerbindungKommend()
 	
 	if (SeriellEin)
 		{
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("\r\nIncall\r\n"));
+#else
 		LokalTextAusgabeP(PSTR("\r\nAnruf\r\n"));
+#endif
 		SerSendFlush();
 		}
 
@@ -639,7 +621,11 @@ static void VerbindungKommend()
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
 		if (SeriellEin)
-			LokalTextAusgabeP(PSTR("\r\nFehler\r\n"));
+#ifdef SPRACHE_EN		
+			LokalTextAusgabeP(PSTR("\r\nError\r\n"));
+#else			
+		    LokalTextAusgabeP(PSTR("\r\nFehler\r\n"));
+#endif			
 #ifndef OHNE_SPEICHER
 		AufzeichnungAbbruch();
 #endif //ndef OHNE_SPEICHER
@@ -672,7 +658,11 @@ static void VerbindungGehend()
 			return; 
 
 		case GeEinschWahl:
+#ifdef SPRACHE_EN		
+			LokalTextAusgabeP(PSTR("\r\nDial: "));
+#else			
 			LokalTextAusgabeP(PSTR("\r\nWählen: "));
+#endif			
 			SerSendFlush();
 			while (!KoEinschalten())
 				{
@@ -689,6 +679,7 @@ static void VerbindungGehend()
 
 					else if (c == CTRL('s'))
 						{ // Abbruch durch Bediener
+
 						GeAusschalten(false);
 						} // auf die Quittung wird dann in dieser Schleife gewartet...
 					}
@@ -696,7 +687,11 @@ static void VerbindungGehend()
 				if (KoAusschalten())
 					{
 					GeAusschalten(false); // zu warten ist nicht mehr nötig.
+#ifdef SPRACHE_EN					
+					LokalTextAusgabeP(PSTR("\r\nAbort"));
+#else
 					LokalTextAusgabeP(PSTR("\r\nAbbruch"));
+
 					return;
 					}
 
@@ -716,8 +711,11 @@ static void VerbindungGehend()
 			FehlerStop(13); 
 			return;
 		}
-
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\nConnected\r\n"));
+#else	
 	LokalTextAusgabeP(PSTR("\r\nVerbunden\r\n"));
+#endif	
 
 	VerbindungSteht(true, false);
 
@@ -848,17 +846,26 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 
 	LokalTextAusgabeP(PSTR("\r\nEndeLetzte: "));
 	LokalZahlAusgabe16(EndeLetzteMeldung, 0);
-	LokalTextAusgabeP(PSTR("   Nach Start: "));
+    LokalTextAusgabeP(PSTR("   Nach Start: "));
 	LokalZahlAusgabe16(WiedergabeAdresse, 0);
 	LokalTextAusgabeP(PSTR("\r\n"));
+
 #endif //DEBUG_OUT
 
+#ifdef SPRACHE_EN
+	(*FnTextPAusg)(PSTR("\r\nstart printout...\r\n"));
+#else	
 	(*FnTextPAusg)(PSTR("\r\nStarte Wiedergabe...\r\n"));
+#endif
 	(*FnAusgFlush)();
 
 	if (!WiedergabeNaechsteMeldung()) 
 		{
+#ifdef SPRACHE_EN			
+		(*FnTextPAusg)(PSTR("\r\nno unread messages\r\n"));
+#else
 		(*FnTextPAusg)(PSTR("\r\nkeine ungelesenen Meldungen\r\n"));
+#endif		
 		WiedergabeEnde();
 		return;
 		}
@@ -885,9 +892,17 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 				LokalZahlAusgabe16(WiedergabeAdresse, 0);
 				LokalTextAusgabeP(PSTR("\r\n"));
 #endif //DEBUG_OUT
+#ifdef SPRACHE_EN
+				(*FnTextPAusg)(PSTR("\r\n--- end of message ---"));
+#else		
 				(*FnTextPAusg)(PSTR("\r\n--- Ende Meldung ---"));
+#endif				
 				(*FnAusgFlush)();
+#ifdef SPRACHE_EN				
+				(*FnTextPAusg)(PSTR("\r\nDelete, Next, End?   "));
+#else	
 				(*FnTextPAusg)(PSTR("\r\nLoeschen, Naechste, Ende?   "));
+#endif				
 				(*FnAusgFlush)();
 				break;
 				}
@@ -948,9 +963,15 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 			// nur das erste Zeichen auswerten...
 			switch (z)
 				{
+#ifdef SPRACHE_EN				
+				case 'd':
+				case '''': // falls BU-ZI-Umschaltung nicht wirkte...
+					(*FnTextPAusg)(PSTR("...deleting..."));
+#else
 				case 'l':
 				case ')': // falls BU-ZI-Umschaltung nicht wirkte...
 					(*FnTextPAusg)(PSTR("...Loesche..."));
+#endif					
 					(*FnAusgFlush)();
 					WiedergabeLoescheAktuelleMeldung(); // springt auch automatisch zur nächsten
 					Verstanden = true;
@@ -959,20 +980,33 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 
 				case 'n' :
 				case ',': // falls BU-ZI-Umschaltung nicht wirkte...
+#ifdef SPRACHE_EN				
+					(*FnTextPAusg)(PSTR("...next..."));
+#else
 					(*FnTextPAusg)(PSTR("...Naechste..."));
+#endif					
 					(*FnAusgFlush)();
 					Verstanden = true;
 					SpringeNaechste = true;
 					break;
 
-				case 'w' :
+#ifdef SPRACHE_EN				
+				case 'w' : // wiederholen
 				case '2': // falls BU-ZI-Umschaltung nicht wirkte...
+#else
+				case 'r' : // repeat
+				case '4': // falls BU-ZI-Umschaltung nicht wirkte...
+#endif					
 					Verstanden = true;
 					break;
 	
 				case 'e' :
 				case '3': // falls BU-ZI-Umschaltung nicht wirkte...
+#ifdef SPRACHE_EN				
+					(*FnTextPAusg)(PSTR("...abort"));
+#else
 					(*FnTextPAusg)(PSTR("...Abbruch"));
+#endif					
 					(*FnAusgFlush)();
 					Beenden = true;
 					Verstanden = true;
@@ -1006,8 +1040,11 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 #endif //DEBUG_OUT
 
 	if (!Beenden)
+#ifdef SPRACHE_EN		
+		(*FnTextPAusg)(PSTR("\r\n--- no more messages ---\r\n"));
+#else
 		(*FnTextPAusg)(PSTR("\r\n--- keine weiteren Meldungen ---\r\n"));
-
+#endif		
 	WiedergabeEnde();
 	}
 	
@@ -1129,7 +1166,11 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 
 			GeAusschalten(true);
 			if (SeriellEin)
+#ifdef SPRACHE_EN				
+				LokalTextAusgabeP(PSTR("\r\nDisconnected\r\n"));
+#else
 				LokalTextAusgabeP(PSTR("\r\nGetrennt\r\n"));
+#endif			
 			return;
 			}
 
@@ -1158,7 +1199,11 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 #endif //ndef OHNE_SPEICHER
 				GeAusschalten(true);
 				if (SeriellEin)
+#ifdef SPRACHE_EN					
+					LokalTextAusgabeP(PSTR("\r\nDisconnected\r\n"));
+#else
 					LokalTextAusgabeP(PSTR("\r\nBeendet\r\n"));
+#endif					
 				return;
 				}
 			else
@@ -1176,6 +1221,9 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 //! wird nach kurzem Tastendruck aufgerufen
 static void Deaktivieren()
 	{
+	LED_AUS(ROT);
+	LED_AUS(GELB);
+	LED_AUS(GRUEN);
 	LED_EIN(BLAU);
 	Aktivieren(false);
 
@@ -1188,7 +1236,7 @@ static void Deaktivieren()
 	Tastendruck = NichtGedr;
 
 	Aktivieren(true);
-	LED_AUS(BLAU);
+
 
 	} // Deaktivieren
 
@@ -1197,6 +1245,10 @@ static void Deaktivieren()
 static void Konfiguration()
 	{
 	LED_EIN(ROT);
+	LED_AUS(GELB);
+	LED_AUS(GRUEN);
+	LED_AUS(BLAU);
+
 	Aktivieren(false);
 
 #ifdef TWI_DEBUG
@@ -1212,7 +1264,11 @@ static void Konfiguration()
 	DebugBufP = DebugBuf;
 #endif //!TWI_DEBUG
 
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n config telex serial version " SVNVERSION " date " __DATE__));
+#else
 	LokalTextAusgabeP(PSTR("\r\n konfiguration seriell+speicher version " SVNVERSION " datum " __DATE__));
+#endif	
 
 	if (!KonfigurationAllgemein())
 		{
@@ -1224,9 +1280,18 @@ static void Konfiguration()
 	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
 		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
 
+#ifdef SPRACHE_EN	
+	LokalTextAusgabeP(PSTR("\r\n date/time: "));
+#else
 	LokalTextAusgabeP(PSTR("\r\n Datum/Uhrzeit: "));
+#endif
+	
 	DatumAusgabe();
+#ifdef SPRACHE_EN	
+	LokalTextAusgabeP(PSTR(" new:         "));
+#else
 	LokalTextAusgabeP(PSTR(" neu:         "));
+#endif	
 	if (LokalZahlEingabe(&Tag, 0) == 0
 		|| LokalZahlEingabe(&Monat, 0) == 0
 		|| LokalZahlEingabe(&Jahr, 0) == 0
@@ -1236,20 +1301,39 @@ static void Konfiguration()
 	Timer1OvfC = 0;
 	TCNT1 = 0;
 
+#ifdef SPRACHE_EN	
+	LokalTextAusgabeP(PSTR("\r\n answerback: "));
+#else
 	LokalTextAusgabeP(PSTR("\r\n Kennung: "));
+#endif	
 	LokalTextAusgabe(Kennung + 2); // CR + LF weglassen
+#ifdef SPRACHE_EN	
+	LokalTextAusgabeP(PSTR(" new:         "));
+#else
 	LokalTextAusgabeP(PSTR(" neu:         "));
+#endif	
 	LokalTextEingabe(Kennung + 2, KENNUNG_MAXLEN - 3); // erste 2 Zeichen für CRLF reserviert
-	
+
+#ifdef SPRACHE_EN	
+	LokalTextAusgabeP(PSTR("\r\n password: "));
+#else
 	LokalTextAusgabeP(PSTR("\r\n Kennwort: "));
+#endif	
 	LokalTextAusgabe(Kennwort);
+#ifdef SPRACHE_EN	
+	LokalTextAusgabeP(PSTR(" new:         "));
+#else
 	LokalTextAusgabeP(PSTR(" neu:         "));
+#endif	
 	LokalTextEingabe(Kennwort, KENNWORT_MAXLEN - 1);
-	
+
+#ifdef SPRACHE_EN	
+	LokalTextAusgabeP(PSTR("\r\n config complete+++   \r\n"));
+#else
 	LokalTextAusgabeP(PSTR("\r\n fertig+++   \r\n"));
+#endif	
 
 	Aktivieren(true);
-	LED_AUS(ROT);
 
 	}
 
@@ -1319,22 +1403,17 @@ int main()
 	DDRD = 0;
 
 	init_TASTE();
+	init_LED_ROT();
+	init_LED_GELB();
+	init_LED_GRUEN();
+	init_LED_BLAU();
 
 	LED_EIN(ROT);
-	SET_BIT(LED_ROT_DDR, LED_ROT_BIT);
 
-	LED_AUS(GELB);
-	SET_BIT(LED_GELB_DDR, LED_GELB_BIT);
+	init_SER_RTS();
+	init_SER_CTS();
 
-	LED_AUS(GRUEN);
-	SET_BIT(LED_GRUEN_DDR, LED_GRUEN_BIT);
-
-	LED_AUS(BLAU);
-	SET_BIT(LED_BLAU_DDR, LED_BLAU_BIT);
-
-	SET_BIT(SER_RTS_DDR, SER_RTS_BIT);
-
-	SET_BIT(TEST1_DDR, TEST1_BIT);
+	//SET_BIT(TEST1_DDR, TEST1_BIT);
 
 	// Timer initialisieren
 	MsTimerInit();
@@ -1439,22 +1518,46 @@ int main()
 
 	while (1)
 		{
+#ifndef OHNE_SPEICHER
+		extern uint16_t BeginnErsteMeldung;
+		extern uint16_t EndeLetzteMeldung;
+#endif //ndef OHNE_SPEICHER
+			
 		// aktueller Zustand: Ausgeschaltet
-		if (TimerVal(&Timer) <= 800)
-			LED_AUS(ROT);
-		else if (TimerVal(&Timer) <= 1000)
-			{
-			if (BusEigenAdresse == BusAdrUngueltig)
+		if (BusEigenAdresse == BusAdrUngueltig)
+			{ // Noch nicht korrekt konfiguriert
+			if (TimerVal(&Timer) <= 800)
+				LED_AUS(ROT);
+			else if (TimerVal(&Timer) <= 1000)
 				LED_EIN(ROT);
 			else
-				LED_AUS(ROT);
+				StartTimer(&Timer);
+			LED_AUS(GELB);
+			LED_AUS(GRUEN);
+			LED_AUS(BLAU);
 			}
+#ifndef OHNE_SPEICHER
+		else if (BeginnErsteMeldung != EndeLetzteMeldung) 		
+			{ // Nachricht ungelesen 
+			LED_AUS(ROT);
+			LED_AUS(GELB);
+			if (TimerVal(&Timer) <= 800)
+				LED_AUS(GRUEN);
+			else if (TimerVal(&Timer) <= 1600)
+				LED_EIN(GRUEN);
+			else
+				StartTimer(&Timer);
+			LED_AUS(BLAU);
+			}
+#endif //ndef OHNE_SPEICHER
 		else
-			StartTimer(&Timer);
-		LED_AUS(GELB);
-		LED_AUS(GRUEN);
-		LED_AUS(BLAU);
-
+			{ // alles in Ordnung
+			LED_AUS(ROT);
+			LED_AUS(GELB);
+			LED_AUS(GRUEN);
+			LED_AUS(BLAU);
+			}
+			
 		DoSwTwi();
 
 		if (HauptmenueAusgeben)
@@ -1473,16 +1576,28 @@ int main()
 				SerSendFlush();
 				DatumAusgabe();
 				SerSendFlush();
+#ifdef SPRACHE_EN				
+				LokalTextAusgabeP(PSTR("\r\nCtrl-A: dial/connect"));
+#else
 				LokalTextAusgabeP(PSTR("\r\nCtrl-A: Anwahl"));
+#endif				
 				SerSendFlush();
+#ifdef SPRACHE_EN				
+				LokalTextAusgabeP(PSTR(", Ctrl-K: config"));
+#else
 				LokalTextAusgabeP(PSTR(", Ctrl-K: Konfiguration"));
+#endif				
 #ifdef BUSDEBUG_DIALOG
 				SerSendFlush();
 				LokalTextAusgabeP(PSTR(", Ctrl-D: Debug"));
 #endif
 #ifndef OHNE_SPEICHER
 				SerSendFlush();
+#ifdef SPRACHE_EN				
+				LokalTextAusgabeP(PSTR(", Ctrl-Q: read messages"));
+#else
 				LokalTextAusgabeP(PSTR(", Ctrl-Q: AB-Wiedergabe"));
+#endif				
 #endif //ndef OHNE_SPEICHER
 				SerSendFlush();
 				LokalTextAusgabeP(PSTR(" --> "));
@@ -1510,7 +1625,11 @@ int main()
 					if (BusEigenAdresse != BusAdrUngueltig)
 						VerbindungGehend();
 					else
+#ifdef SPRACHE_EN						
+						LokalTextAusgabeP(PSTR(" Error: not configured"));
+#else
 						LokalTextAusgabeP(PSTR(" Fehler: nicht konfiguriert."));
+#endif						
 					HauptmenueAusgeben = true;
 					break;
 				
@@ -1556,7 +1675,13 @@ int main()
 						
 // HACK:
 				default:
+					while (!PufferLeer(&SerInBuf))
+						SerEmpfZ(true); // Puffer leeren
+#ifdef SPRACHE_EN				
+					LokalTextAusgabeP(PSTR("\r\ninvalid command"));
+#else
 					LokalTextAusgabeP(PSTR("\r\nUngültiges Kommando"));
+#endif					
 					HauptmenueAusgeben = true;
 					break;
 				}
