@@ -14,6 +14,28 @@
 
 #include "FifoPuffer.h"
 
+
+#ifdef TESTFUNKTIONEN
+
+extern uint8_t TestFunktion; 
+
+// Definierte Testfunktionen:
+enum { TestfnNormal 				=  0 } ; //!< Schnittstelle arbeitet normal
+enum { TestfnEinschaltAblehnung 	=  1 } ; //!< TODO EinschaltKommando wird nach Verzögerung 'abgelehnt' mit BusKdoSchluss 
+enum { TestfnEinschaltVerzoegerung 	=  2 } ; //!< EinschaltKommando wird erst nach Verzögerung quittiert
+enum { TestfnAusschaltOhneQuitt 	=  3 } ; //!< TODO AusschaltKommando wird nicht quittiert
+enum { TestfnAusschaltVerzoegerung 	=  4 } ; //!< TODO AusschaltKommando wird erst nach Verzögerung quittiert
+enum { TestfnMarkNichtWdh 			=  5 } ; //!< Wiederholungs-Meldung für Wechsel nach Mark wird nicht gesendet
+enum { TestfnSpaceNichtWdh 			=  6 } ; //!< Wiederholungs-Meldung für Wechsel nach Space wird nicht gesendet
+enum { TestfnMarkNurWdh 			=  7 } ; //!< Wechsel nach Mark wird nur als Wiederholung gemeldet (Simulation Verlust von BusKdoMark)
+enum { TestfnSpaceNurWdh 			=  8 } ; //!< Wechsel nach Space wird nur als Wiederholung gemeldet (Simulation Verlust von BusKdoMark)
+enum { TestfnGeEinVerzoegerung		=  9 } ; //!< TODO Künstliche Pause zwischen Reservierung der Gegenstelle und EinschaltKommando an die Gegenstelle
+
+extern uint16_t TestVerzoegerung;
+
+#endif //def TESTFUNKTIONEN
+
+
 extern TPuffer SendePuffer, EmpfPuffer;
 
 //! Für Seriellumsetzung: Welche Seite der Verbindung wird ausgewertet bzw. beeinflusst.

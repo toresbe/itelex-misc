@@ -55,6 +55,29 @@ static volatile bool FsAusgMark;
 	// per TWI-Bus gesendetes Signal (vom Fernschreiber, gehend)
 
 
+// Variablen für Testfunktionen, die ein "spezielles" Verhalten des Endgeräts erzwingen
+// ------------------------------------------------------------------------------------
+
+#ifdef TESTFUNKTIONEN
+
+//! Index der Testfunktion (siehe #TestfnNormal und folgende).
+uint8_t TestFunktion; 
+
+#define TestfunktionAktiv(x) (TestFunktion == (x))
+
+
+//! Künstliche Verzögerungszeit in Millisekunden für #TestfnEinschaltVerzoegerung 
+//! und #TestfnAusschaltVerzoegerung und #TestfnEinschaltAblehnung 
+uint16_t TestVerzoegerung;
+
+
+#else //!def TESTFUNKTIONEN
+
+#define TestfunktionAktiv(x) false
+	
+#endif //def TESTFUNKTIONEN
+
+
 
 // Debug-Speicher
 // --------------
@@ -298,6 +321,12 @@ void KommInit()
 	
 	SendeUmsetzModus = UmsetzFern;
 	EmpfUmsetzModus = UmsetzFern;
+	
+#ifdef TESTFUNKTIONEN
+	TestFunktion = 0;
+	TestVerzoegerung = 0;
+#endif //def TESTFUNKTIONEN
+	
 	}
 	
 
@@ -319,6 +348,23 @@ uint8_t KoAnwahlnummer()
 
 #endif //def FUER_TW39
 
+
+#ifdef TESTFUNKTIONEN
+
+static void TestVerzoegerungAbwarten()
+	{
+	TMsTimer VerzTimer;
+	StartTimer(&VerzTimer);
+	while (TimerVal(&VerzTimer) < TestVerzoegerung)
+		;
+	}
+
+#else
+
+#define	TestVerzoegerungAbwarten() while (0)
+	
+#endif //def TESTFUNKTIONEN
+
 	
 //! Bestätigung der Einschaltung des eigenen Gerätes
 //--------------------------------------------------
@@ -334,6 +380,8 @@ TGeEinschResultat GeEinschalten()
 	{
 	if (FsBetriebsart == EinschaltungKo)
 		{
+		if (TestfunktionAktiv(TestfnEinschaltVerzoegerung))
+			TestVerzoegerungAbwarten();
 		BusKommSperre = true;
 		BusSenden(BusQuittEin);
 		BusWarteFertig();
@@ -905,9 +953,19 @@ static void BusKomm()
 				if (BusSendMark)
 					{ // Mark
 					if (GesendeterPegelStatus == Space1 || GesendeterPegelStatus == Space2)
-						BusSenden(BusKdoMark);
+						{
+						if (!TestfunktionAktiv(TestfnMarkNurWdh))
+							BusSenden(BusKdoMark);
+						else 
+							BusSenden(BusKdoMarkWdh);
+						}
 					else if (GesendeterPegelStatus == Mark1)
-						BusSenden(BusKdoMarkWdh);
+						{
+						if (!TestfunktionAktiv(TestfnMarkNichtWdh))
+							BusSenden(BusKdoMarkWdh);
+						else
+							GesendeterPegelStatus = Mark2; // erfolgreiches Senden von BusKdoMarkWdh simulieren
+						}
 #ifdef WIEDERHOLUNGSSENDUNGEN
 					else if (TimerVal(&PegelWdhTimer) > 400) // mind. alle 0,4 Sek senden
 						BusSenden(BusKdoMarkWdh);
@@ -916,9 +974,19 @@ static void BusKomm()
 				else
 					{ // Space
 					if (GesendeterPegelStatus == Mark1 || GesendeterPegelStatus == Mark2)
-						BusSenden(BusKdoSpace);
+						{
+						if (!TestfunktionAktiv(TestfnSpaceNurWdh))
+							BusSenden(BusKdoSpace);
+						else
+							BusSenden(BusKdoSpaceWdh);
+						}
 					else if (GesendeterPegelStatus == Space1)
-						BusSenden(BusKdoSpaceWdh);
+						{
+						if (!TestfunktionAktiv(TestfnSpaceNichtWdh))
+							BusSenden(BusKdoSpaceWdh);
+						else
+							GesendeterPegelStatus = Space2; // erfolgreiches Senden von BusKdoSpaceWdh simulieren
+						}
 #ifdef WIEDERHOLUNGSSENDUNGEN
 					else if (TimerVal(&PegelWdhTimer) > 400) // mind. alle 0,4 Sek senden
 						BusSenden(BusKdoSpaceWdh);
