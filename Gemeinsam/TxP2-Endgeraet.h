@@ -31,7 +31,7 @@ enum { TestfnMarkNurWdh 			=  7 } ; //!< Wechsel nach Mark wird nur als Wiederho
 enum { TestfnSpaceNurWdh 			=  8 } ; //!< Wechsel nach Space wird nur als Wiederholung gemeldet (Simulation Verlust von BusKdoMark)
 enum { TestfnGeEinVerzoegerung		=  9 } ; //!< TODO Künstliche Pause zwischen Reservierung der Gegenstelle und EinschaltKommando an die Gegenstelle
 
-extern uint16_t TestVerzoegerung;
+extern uint8_t TestVerzoegerung;
 
 #endif //def TESTFUNKTIONEN
 

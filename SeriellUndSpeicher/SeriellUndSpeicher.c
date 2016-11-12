@@ -691,7 +691,7 @@ static void VerbindungGehend()
 					LokalTextAusgabeP(PSTR("\r\nAbort"));
 #else
 					LokalTextAusgabeP(PSTR("\r\nAbbruch"));
-
+#endif
 					return;
 					}
 

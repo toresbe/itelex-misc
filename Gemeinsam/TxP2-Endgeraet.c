@@ -66,9 +66,13 @@ uint8_t TestFunktion;
 #define TestfunktionAktiv(x) (TestFunktion == (x))
 
 
-//! Künstliche Verzögerungszeit in Millisekunden für #TestfnEinschaltVerzoegerung 
+//! Künstliche Verzögerungszeit in 0,1-Sekunden-Einheiten für 
+//! #TestfnEinschaltVerzoegerung 
 //! und #TestfnAusschaltVerzoegerung und #TestfnEinschaltAblehnung 
-uint16_t TestVerzoegerung;
+uint8_t TestVerzoegerung;
+
+//! Zeitmesser für die künstlichen Verzögerungen bei Tests.
+TMsTimer TestVerzTimer;
 
 
 #else //!def TESTFUNKTIONEN
@@ -333,7 +337,19 @@ void KommInit()
 //! Besteht ein Einschaltwunsch, der von einer Gegenstelle ausgelöst wurde?	
 bool KoEinschalten()
 	{
+#ifdef TESTFUNKTIONEN
+	if (FsBetriebsart == Eingeschaltet)
+		return true;
+	else if (FsBetriebsart == EinschaltungKo)
+		if (TestfunktionAktiv(TestfnEinschaltVerzoegerung))
+			return TimerVal(&TestVerzTimer) >= TestVerzoegerung * 100;
+		else
+			return true;
+	else
+		return false;
+#else		
 	return (FsBetriebsart == EinschaltungKo || FsBetriebsart == Eingeschaltet);
+#endif 
 	}
 	
 
@@ -351,17 +367,23 @@ uint8_t KoAnwahlnummer()
 
 #ifdef TESTFUNKTIONEN
 
+// prüfen ob überhupt gebraucht
+/*
 static void TestVerzoegerungAbwarten()
 	{
 	TMsTimer VerzTimer;
 	StartTimer(&VerzTimer);
-	while (TimerVal(&VerzTimer) < TestVerzoegerung)
+	while (TimerVal(&VerzTimer) < TestVerzoegerung * 100)
 		;
 	}
+*/
 
 #else
 
+	/*
 #define	TestVerzoegerungAbwarten() while (0)
+	*/
+
 	
 #endif //def TESTFUNKTIONEN
 
@@ -380,8 +402,6 @@ TGeEinschResultat GeEinschalten()
 	{
 	if (FsBetriebsart == EinschaltungKo)
 		{
-		if (TestfunktionAktiv(TestfnEinschaltVerzoegerung))
-			TestVerzoegerungAbwarten();
 		BusKommSperre = true;
 		BusSenden(BusQuittEin);
 		BusWarteFertig();
@@ -785,6 +805,10 @@ static void BusKomm()
 				if (FsBetriebsart == Reserviert)
 					{ 
 					AblaufMark(0xFF); 
+					#ifdef TESTFUNKTIONEN
+					if (TestfunktionAktiv(TestfnEinschaltVerzoegerung) || TestfunktionAktiv(TestfnEinschaltAblehnung))
+						StartTimer(&TestVerzTimer);
+					#endif //def TESTFUNKTIONEN
 					BetriebsartWechsel(EinschaltungKo);
 					Bearbeitet = true;
 					}					

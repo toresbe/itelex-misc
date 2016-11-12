@@ -9,6 +9,8 @@
 
 #include "LokalAusgabe.h"
 
+#include "TxP2-Endgeraet.h"
+
 
 //! Bestätigungsmeldung. weil's häufig benutzt wird.
 PROGMEM char OkStrP[] = " ok. ";
@@ -220,6 +222,25 @@ extern void LokalZeichenAusgabe(char c);
 
 bool KonfigurationAllgemein()
 	{
+
+#ifdef TESTFUNKTIONEN
+
+	LokalTextAusgabeP(PSTR("\r\n testfunktion aktuell: "));
+	LokalZahlAusgabe(TestFunktion, 0);
+	LokalTextAusgabeP(PSTR(" neu:     "));
+	if (LokalZahlEingabe(&TestFunktion, 0) == 0)
+		return false;
+
+	LokalTextAusgabeP(PSTR("\r\n testverzoegerung aktuell: "));
+	LokalZahlAusgabe(TestVerzoegerung, 0);
+	LokalTextAusgabeP(PSTR(" neu:     "));
+	if (LokalZahlEingabe(&TestVerzoegerung, 0) == 0)
+		return false;
+
+#endif //def TESTFUNKTIONEN
+
+	// Abfrage Durchwahl
+	// -----------------
 	while (true)
 		{ // solange Durchwahl abfragen, bis gültige Eingabe erfolgt
 		uint8_t ZifferAnz;
@@ -263,7 +284,11 @@ bool KonfigurationAllgemein()
 #else
 		LokalTextAusgabeP(PSTR(" schon vergeben oder ungueltig, andere waehlen!"));
 #endif
-		}
-	}
+		} // abfrage Durchwahl
+		
+	// sonstige allgemeine Konfigurationen... 
+	// keine
+	
+	} // KonfigurationAllgemein()
 
 
