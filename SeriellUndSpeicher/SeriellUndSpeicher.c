@@ -965,7 +965,7 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 				{
 #ifdef SPRACHE_EN				
 				case 'd':
-				case '''': // falls BU-ZI-Umschaltung nicht wirkte...
+				case '\'': // falls BU-ZI-Umschaltung nicht wirkte...
 					(*FnTextPAusg)(PSTR("...deleting..."));
 #else
 				case 'l':
