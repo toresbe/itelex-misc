@@ -20,16 +20,18 @@
 extern uint8_t TestFunktion; 
 
 // Definierte Testfunktionen:
-enum { TestfnNormal 				=  0 } ; //!< Schnittstelle arbeitet normal
-enum { TestfnEinschaltAblehnung 	=  1 } ; //!< TODO EinschaltKommando wird nach Verzögerung 'abgelehnt' mit BusKdoSchluss 
-enum { TestfnEinschaltVerzoegerung 	=  2 } ; //!< EinschaltKommando wird erst nach Verzögerung quittiert
-enum { TestfnAusschaltOhneQuitt 	=  3 } ; //!< TODO AusschaltKommando wird nicht quittiert
-enum { TestfnAusschaltVerzoegerung 	=  4 } ; //!< TODO AusschaltKommando wird erst nach Verzögerung quittiert
-enum { TestfnMarkNichtWdh 			=  5 } ; //!< Wiederholungs-Meldung für Wechsel nach Mark wird nicht gesendet
-enum { TestfnSpaceNichtWdh 			=  6 } ; //!< Wiederholungs-Meldung für Wechsel nach Space wird nicht gesendet
-enum { TestfnMarkNurWdh 			=  7 } ; //!< Wechsel nach Mark wird nur als Wiederholung gemeldet (Simulation Verlust von BusKdoMark)
-enum { TestfnSpaceNurWdh 			=  8 } ; //!< Wechsel nach Space wird nur als Wiederholung gemeldet (Simulation Verlust von BusKdoMark)
-enum { TestfnGeEinVerzoegerung		=  9 } ; //!< TODO Künstliche Pause zwischen Reservierung der Gegenstelle und EinschaltKommando an die Gegenstelle
+enum { TestfnNormal 					=  0 } ; //!< Schnittstelle arbeitet normal
+enum { TestfnLebenszeichenAbstand		=  1 } ; //!< Abstand der Lebenszeichen wird durch #TestVerzoegerung bestimmt.
+enum { TestfnGeEinVerzoegerung			=  2 } ; //!< TODO Künstliche Pause zwischen Reservierung der Gegenstelle und EinschaltKommando an die Gegenstelle
+enum { TestfnEinschaltAblehnung 		=  3 } ; //!< EinschaltKommando wird nach Verzögerung 'abgelehnt' mit BusKdoSchluss 
+enum { TestfnEinschaltVerzoegerung 		=  4 } ; //!< EinschaltKommando wird erst nach Verzögerung quittiert
+enum { TestfnAusschaltOhneQuitt 		=  5 } ; //!< AusschaltKommando wird nicht quittiert
+enum { TestfnAusschaltQuittVerzoegerung	=  6 } ; //!< TODO AusschaltKommando wird erst nach Verzögerung quittiert
+enum { TestfnAusschaltQuittStattKdo		=  7 } ; //!< statt AusschaltKommando wird AusschaltQuittung gesendet
+enum { TestfnMarkNichtWdh 				=  8 } ; //!< Wiederholungs-Meldung für Wechsel nach Mark wird nicht gesendet
+enum { TestfnSpaceNichtWdh 				=  9 } ; //!< Wiederholungs-Meldung für Wechsel nach Space wird nicht gesendet
+enum { TestfnMarkNurWdh 				= 10 } ; //!< Wechsel nach Mark wird nur als Wiederholung gemeldet (Simulation Verlust von BusKdoMark)
+enum { TestfnSpaceNurWdh 				= 11 } ; //!< Wechsel nach Space wird nur als Wiederholung gemeldet (Simulation Verlust von BusKdoMark)
 
 extern uint8_t TestVerzoegerung;
 

@@ -78,6 +78,8 @@ TMsTimer TestVerzTimer;
 #else //!def TESTFUNKTIONEN
 
 #define TestfunktionAktiv(x) false
+
+#define TestVerzoegerung 0
 	
 #endif //def TESTFUNKTIONEN
 
@@ -343,6 +345,13 @@ bool KoEinschalten()
 	else if (FsBetriebsart == EinschaltungKo)
 		if (TestfunktionAktiv(TestfnEinschaltVerzoegerung))
 			return TimerVal(&TestVerzTimer) >= TestVerzoegerung * 100;
+				// solange Timer nicht abgelaufen ist vortäuschen,
+				// dass kein Einschaltauftrag anliegt
+		else if (TestfunktionAktiv(TestfnEinschaltAblehnung))
+			if (TimerVal(&TestVerzTimer) >= TestVerzoegerung * 100)
+				GeAusschalten(true); // TODO prüfen ob das reicht
+			else
+				return false; // vortäuschen dass kein Einschaltauftrag anliegt
 		else
 			return true;
 	else
@@ -709,7 +718,8 @@ static void BusKomm(); // wird gleich benötigt...
 //! Die Funktion kehrt sofort zurück, außer Parameter WarteQuitt ist wahr.
 //! Im Fall 2. kann mit KoAusschalten() abgefragt werden, ob die 
 //! Ausschaltung erfolgreich vollzogen wurde.
-//! durchgeführter Ausschaltung zurück.
+//! Bei testweiser Verzögerung der Quittung wird die Verzögerung in 
+//! dieser Funktion abgewartet.
 
 void GeAusschalten(bool WarteQuitt)
 	{
@@ -719,13 +729,25 @@ void GeAusschalten(bool WarteQuitt)
 	AblaufMark(0x49);
 	if (FsBetriebsart == AusschaltungKo)
 		{ // nur noch quittieren
-		BusSenden(BusQuittSchluss);
+#ifdef TESTFUNKTIONEN	
+		if (TestfunktionAktiv(TestfnAusschaltQuittVerzoegerung))
+			{
+			StartTimer(&TestVerzTimer);
+			while (TimerVal(&TestVerzTimer) < TestVerzoegerung * 100)
+				BusKomm(); // sicherheitshalber. TODO ungeprüft, was passieren kann.
+			}
+#endif //def TESTFUNKTIONEN	
+		if (!TestfunktionAktiv(TestfnAusschaltOhneQuitt))
+			BusSenden(BusQuittSchluss);
 		BusWarteFertig();
 		BetriebsartWechsel(Ausgeschaltet); 
 		}
 	else
 		{ // aktiv ausschalten
-		BusSenden(BusKdoSchluss); 
+		if (TestfunktionAktiv(TestfnAusschaltQuittStattKdo))
+			BusSenden(BusQuittSchluss);  // Dies ist nur beim Testen
+		else
+			BusSenden(BusKdoSchluss); // korrektes Verhalten
 		BetriebsartWechsel(AusschaltungGe);
 		StartTimer(&AusschaltQuittTimer);
 		}
@@ -1080,7 +1102,7 @@ static void BusKomm()
 	if (BusVerbPartner > 0 
 		&& BusFrei 
 		&& (BusAuftrag == Nichts || BusAuftrag == Fertig) 
-		&& TimerVal(&PegelWdhTimer) > 785) // mind. alle 0,785 Sek senden
+		&& TimerVal(&PegelWdhTimer) > (TestfunktionAktiv(TestfnLebenszeichenAbstand) ? (TestVerzoegerung * 100 + 10) : 785)) // mind. alle 0,785 Sek senden
 		{
 		BusSenden(BusLebenszeichen);
 		StartTimer(&PegelWdhTimer);

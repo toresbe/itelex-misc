@@ -977,11 +977,12 @@ static void Deaktivieren(bool WegenTimeout)
 
 	Aktivieren(true);
 	clr_LEDBLAU();
-	clr_LEDROT();
 
 	if (!WegenTimeout)
+		{
+		clr_LEDROT();
 		KommendSperren();
-		
+		}
 	} // Deaktivieren
 
 
