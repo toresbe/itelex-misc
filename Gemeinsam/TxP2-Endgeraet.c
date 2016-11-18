@@ -16,6 +16,12 @@
 #include "SeriellUmsetz.h"
 
 
+// macken:
+// bei nicht existierender Durchwahl wird BusQuittSchluss an Adresse 0 gesendet
+// bei gar nicht erfolgter Wahl wird BusKdoSchluss an Adresse 0 gesendet
+// Konfigurations-Abbruch Status 00 (nicht anrufbar)
+
+
 // HACK (Gilt nur für TW39):
 //#define HACK_ROT_EIN SET_BIT(PORTD,1);
 //#define HACK_ROT_AUS CLR_BIT(PORTD,1);
