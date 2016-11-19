@@ -17,9 +17,9 @@
 
 
 // macken:
-// bei nicht existierender Durchwahl wird BusQuittSchluss an Adresse 0 gesendet
-// bei gar nicht erfolgter Wahl wird BusKdoSchluss an Adresse 0 gesendet
-// Konfigurations-Abbruch Status 00 (nicht anrufbar)
+// TESTEN: bei nicht existierender Durchwahl wird BusQuittSchluss an Adresse 0 gesendet
+// TESTEN: bei gar nicht erfolgter Wahl wird BusKdoSchluss an Adresse 0 gesendet
+// TESTEN: Konfigurations-Abbruch Status 00 (nicht anrufbar)
 
 
 // HACK (Gilt nur für TW39):
@@ -44,7 +44,7 @@ typedef enum { Ausgeschaltet,   //!< Grundstellung = Ausgeschaltet
 
 static char AusschaltCode; //!< Grund für Abschaltung
 
-static volatile TFsBetriebsart FsBetriebsart; //!< Aktuelle Phase der Verbindung.
+volatile TFsBetriebsart FsBetriebsart; //!< Aktuelle Phase der Verbindung.
 	
 static volatile bool FsEingMark; 
 	//!< wird von Schnittstellenprogramm gesetzt (vom Fernschreiber)
@@ -481,15 +481,13 @@ static void InternWahlPruefen()
 	else
 		{ // Partner nicht existent
 		BusErgebnis = Ok; // um spätere Probleme zu vermeiden		
+		BusVerbPartner = 0; // weitere Kommunikation mit der gewählten Adresse sinnlos
 		if (WahlZifferAnzahl >= 2)
 			{ // hat keinen Sinn weiter zu wählen
 			AblaufMark(0x2d);
-			BusVerbPartner = 0;
 			BetriebsartWechsel(AusschaltungKo);
 			AusschaltCode = 'x'; // nicht existent
 			}
-		else
-			BusVerbPartner = 0; // sonst schläge der Watchdog zu
 		return;
 		}
 
@@ -731,6 +729,10 @@ void GeAusschalten(bool WarteQuitt)
 	{
 	if (FsBetriebsart == Ausgeschaltet)
 		return;
+	
+	if (BusVerbPartner == 0)
+		return; // nicht verbunden, also auch nicht trennen.
+	
 	BusKommSperre = true;
 	AblaufMark(0x49);
 	if (FsBetriebsart == AusschaltungKo)

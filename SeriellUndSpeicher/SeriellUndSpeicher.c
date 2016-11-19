@@ -679,7 +679,6 @@ static void VerbindungGehend()
 
 					else if (c == CTRL('s'))
 						{ // Abbruch durch Bediener
-
 						GeAusschalten(false);
 						} // auf die Quittung wird dann in dieser Schleife gewartet...
 					}
@@ -1271,11 +1270,7 @@ static void Konfiguration()
 #endif	
 
 	if (!KonfigurationAllgemein())
-		{
-		Aktivieren(true);
-		LED_AUS(ROT);
 		return;
-		}
 
 	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
 		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
@@ -1298,6 +1293,7 @@ static void Konfiguration()
 		|| LokalZahlEingabe(&Stunde, 0) == 0
 		|| LokalZahlEingabe(&Minute, 0) == 0)
 		return;
+		
 	Timer1OvfC = 0;
 	TCNT1 = 0;
 
@@ -1312,7 +1308,8 @@ static void Konfiguration()
 #else
 	LokalTextAusgabeP(PSTR(" neu:         "));
 #endif	
-	LokalTextEingabe(Kennung + 2, KENNUNG_MAXLEN - 3); // erste 2 Zeichen für CRLF reserviert
+	if (LokalTextEingabe(Kennung + 2, KENNUNG_MAXLEN - 3) == 0) // erste 2 Zeichen für CRLF reserviert
+		return;
 
 #ifdef SPRACHE_EN	
 	LokalTextAusgabeP(PSTR("\r\n password: "));
@@ -1325,7 +1322,8 @@ static void Konfiguration()
 #else
 	LokalTextAusgabeP(PSTR(" neu:         "));
 #endif	
-	LokalTextEingabe(Kennwort, KENNWORT_MAXLEN - 1);
+	if (LokalTextEingabe(Kennwort, KENNWORT_MAXLEN - 1) == 0)
+		return;
 
 #ifdef SPRACHE_EN	
 	LokalTextAusgabeP(PSTR("\r\n config complete+++   \r\n"));
@@ -1333,11 +1331,20 @@ static void Konfiguration()
 	LokalTextAusgabeP(PSTR("\r\n fertig+++   \r\n"));
 #endif	
 
+	} // Konfiguration()
+
+
+//! Beendet die Selbstkonfiguration des Moduls.
+//-----------------------------------------------
+//! Arbeitet mit dem angeschlossenen Endgerät zusammen.
+
+static void KonfigurationEnde()
+	{
 	Aktivieren(true);
-
+	LED_AUS(ROT);
 	}
-
-
+	
+	
 //! Testfunktion zur Auflistung aller angeschlossenen Module	
 static void BusteilnehmerListen()
 	{
@@ -1566,13 +1573,6 @@ int main()
 				{
 				LokalTextAusgabeP(PSTR("\r\n"));
 
-				/*/ TEST:
-				extern uint8_t FsBetriebsart;
-				LokalTextAusgabeP(PSTR("\r\nBetriebsart: "));
-				LokalZahlAusgabe(FsBetriebsart, 0);
-				LokalTextAusgabeP(PSTR("\r\nStatus: "));
-				LokalZahlAusgabe(Status, 0); //*/
-
 				SerSendFlush();
 				DatumAusgabe();
 				SerSendFlush();
@@ -1636,6 +1636,7 @@ int main()
 				case CTRL('k'):
 					eeprom_write_byte(&Minute_EE, Minute);
 					Konfiguration();
+					KonfigurationEnde();
 					HauptmenueAusgeben = true;
 					break;
 
@@ -1691,7 +1692,10 @@ int main()
 			{
 			Tastendruck = NichtGedr;
 			if (SeriellBereit())
+				{
 				Konfiguration();
+				KonfigurationEnde();
+				}
 			HauptmenueAusgeben = true;
 			}
 
