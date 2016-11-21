@@ -38,6 +38,7 @@
 //				|					|	0xA9 on TWI bus is heartbeat and is not forwarded to client
 
 
+// standard libs:
 #include <avr/io.h>
 //#include <avr/pgmspace.h>
 #include <avr/interrupt.h>
@@ -45,35 +46,224 @@
 #include <avr/wdt.h>
 #include <inttypes.h>
 
+// sonni's libs:
 #include "bits.h"
-#include "Ports.h"
+#include "timercs.h"
+#include "TwiEvents.h"
+#include "MsTimer.h"
 //#include "EepromTools.h"
 
-#include "TwiEvents.h"
-
+// Txp2 libs:
 #include "TxP2-Defs.h"
-#include "MsTimer.h"
 //#include "BaudotCode.h"
 #include "BusKomm.h"
 #include "SeriellUmsetz.h"
 
+// Project includes:
+//#include "Ports.h"
 #include "ClientCommunication.h"
 
 
-//! Hauptprogramm
+// Constants
+// =========
+
+
+
+// Variables
+// =========
+
+//! Speichert, welcher Pegelzustand der Gegenstelle gemeldet wurde.
+static volatile enum { Mark1, 	//!< Es wurde BusKdoMark gesendet, aber noch nicht BusKdoMarkWdh.
+					   Mark2,	//!< Es wurde BusKdoMark und BusKdoMarkWdh gesendet.
+					   Space1,  //!< Es wurde BusKdoSpace gesendet, aber noch nicht BusKdoSpaceWdh.
+					   Space2   //!< Es wurde BusKdoSpace und BusKdoSpaceWdh gesendet.
+					   } SentLoopStatus = Mark2; 
+
+					   
+//! Measures time for Heartbeat and other generated commands on the TWI bus.					   
+static TMsTimer TWICommTimer;
+
+
+//! Buffer for 
+
+
+
+static void InitBuffers()
+	{
+	PufferInit(&ClientInputBuffer);
+	PufferInit(&ClientOutputBuffer);
+	} // InitBuffers()
+
+
+
+#define TIMER0_CS TCCR_DIV(0, 8)
+#define TIMER0_PRESCALER 8
+#define TIMER0_FREQ (F_CPU / TIMER0_PRESCALER)
+
+// f_Timer0OVF = (f_CPU / Prescaler) / (256 - Startwert)
+// --> Startwert = 256 - (f_CPU / Prescaler) / f_Timer0OVF
+
+#define TIMER0_OVFFREQ 10000
+#define TIMER0_START (256 - TIMER0_FREQ / TIMER0_OVFFREQ)
+
+
+static void InitPorts()
+	{
+	// Timer
+#ifdef TCCR0A
+	TCCR0A = 0;
+	TCCR0B = TIMER0_CS; 
+	SET_BIT(TIMSK0, TOIE0);
+#else
+	TCCR0 = TIMER0_CS;
+	SET_BIT(TIMSK, TOIE0);
+#endif //def TCCR0A
+
+	Status = (1 << StatBit_Frei); // StatBit_SpezialGeraetKennung muss vom Hauptprogramm gesetzt werden
+	SeriellUmsetzInit();
+
+	// TWI
+	TwiInit();
+	
+	// Watchdog
+	wdt_enable(WDTO_2S);
+	
+	}
+
+
+static void ProcessClientToTWI()
+	{
+	
+
+/*
+baudot-codes an Bus:
+	if (SerUmSendBitNr == SerUmSendWarte)
+		{
+		SerUmSendDaten = xxx;
+		SerUmSendBitNr = SerUmSendStart;
+		}
+*/
+	
+	} // ProcessClientToTWI()
+
+
+static void ProcessTWItoClient()
+	{
+	uint8_t Kdo;
+	
+/*	
+	if (GetEmpfByte(&Kdo))
+		{
+		// Codes for mark and space and heartbeat are already processed
+		
+		TODO put other codes to the client buffer
+		}
+
+		
+		
+			if (SerUmEmpfBitNr == SerUmEmpfFertig)
+				{
+				PufferSpeich(&EmpfPuffer, SerUmEmpfDaten);
+				SerUmEmpfBitNr = SerUmEmpfWarte;
+				}
+*/
+
+				
+	} // ProcessTWItoClient()
+
+
+static void DoTWICommunication()
+	{
+	if (BusEmpfMark)
+		SET_BIT_Status(StatBit_FsBefEin);
+	else
+		CLR_BIT_Status(StatBit_FsBefEin);
+	
+	// prepare sending of mark / space
+
+	bool BusSendMark = true; // mark signal is default as long as no data is to be sent
+			
+	SeriellUmsetzung(BusEmpfMark, &BusSendMark);
+	
+	if (BusFrei && BusAuftrag == Nichts)
+		{ // ready to send anything on the TWI
+		if (BusSendMark)
+			{ // Mark
+			if (SentLoopStatus == Space1 || SentLoopStatus == Space2)
+				BusSenden(BusKdoMark);
+			else if (SentLoopStatus == Mark1 && TimerVal(&TWICommTimer) > 0)
+				BusSenden(BusKdoMarkWdh); 
+			} // Mark
+		else
+			{ // Space
+			if (SentLoopStatus == Mark1 || SentLoopStatus == Mark2)
+				BusSenden(BusKdoSpace);
+			else if (SentLoopStatus == Space1 && TimerVal(&TWICommTimer) > 0)
+					BusSenden(BusKdoSpaceWdh); // TODO small delay
+			} // Space
+
+		} // Bus ist sendefähig	
+
+	if (BusAuftrag == Fertig)
+		{ // letzte Sendung wurde abgeschlossen
+		StartTimer(&TWICommTimer);
+		if (BusErgebnis == Ok)
+			{
+			switch (BusSendeDaten)
+				{
+				case BusKdoSpace:
+					SentLoopStatus = Space1;
+					break;
+				case BusKdoSpaceWdh:
+					SentLoopStatus = Space2;
+					break;
+				case BusKdoMark:
+					SentLoopStatus = Mark1;
+					break;
+				case BusKdoMarkWdh:
+					SentLoopStatus = Mark2;
+					break;
+				} // switch BusSendeDaten
+			} // letzte Bus-Sendung war fehlerfrei
+		BusAuftrag = Nichts;
+		}
+
+	if (BusVerbPartner > 0 
+		&& BusFrei 
+		&& BusAuftrag == Nichts 
+		&& TimerVal(&TWICommTimer) > 891) // mind. alle 0,891 Sek senden
+		{
+		BusSenden(BusLebenszeichen);
+		StartTimer(&TWICommTimer);
+		}
+	
+	if (BusVerbPartner == 0)
+		wdt_reset(); // because no communication is expected
+	
+	} // DoTWICommunication()
+
+
+
+
+//! Main Programm
 
 int main()
-{
+	{
 	// initializing everything
+	InitPorts();
+	
+	InitBuffers();
+	
+	InitClientCom();
 	
 	// main loop
-	while ()
-	{
-		ClientCommunication();
-		
-		
-	}
-	
-}
+	while (true)
+		{
+		DoClientCommunication();
+		ProcessClientToTWI();
+		DoTWICommunication();
+		ProcessTWItoClient();
+		}
+	} // main()
 
 
