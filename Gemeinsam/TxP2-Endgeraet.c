@@ -16,12 +16,6 @@
 #include "SeriellUmsetz.h"
 
 
-// macken:
-// TESTEN: bei nicht existierender Durchwahl wird BusQuittSchluss an Adresse 0 gesendet
-// TESTEN: bei gar nicht erfolgter Wahl wird BusKdoSchluss an Adresse 0 gesendet
-// TESTEN: Konfigurations-Abbruch Status 00 (nicht anrufbar)
-
-
 // HACK (Gilt nur für TW39):
 //#define HACK_ROT_EIN SET_BIT(PORTD,1);
 //#define HACK_ROT_AUS CLR_BIT(PORTD,1);
@@ -731,7 +725,10 @@ void GeAusschalten(bool WarteQuitt)
 		return;
 	
 	if (BusVerbPartner == 0)
+		{
+		BetriebsartWechsel(Ausgeschaltet); 
 		return; // nicht verbunden, also auch nicht trennen.
+		}
 	
 	BusKommSperre = true;
 	AblaufMark(0x49);
@@ -872,11 +869,16 @@ static void BusKomm()
 */
 
 			case BusKdoSchluss:
+				if (FsBetriebsart != Ausgeschaltet)
+					BetriebsartWechsel(AusschaltungKo);
+				Bearbeitet = true;
+				break;
+
 			case BusQuittSchluss:
 				if (FsBetriebsart == AusschaltungGe)
 					BetriebsartWechsel(Ausgeschaltet);
-				else if (FsBetriebsart != Ausgeschaltet)
-					BetriebsartWechsel(AusschaltungKo);
+				// sonst ignorieren, da es eine verspätete Meldung einer vorherigen 
+				// Ausschaltung sein kann.
 				Bearbeitet = true;
 				break;
 
