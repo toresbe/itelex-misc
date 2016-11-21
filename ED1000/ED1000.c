@@ -919,7 +919,7 @@ static void Konfiguration()
 		LokalTextAusgabeP(PSTR("nein"));
 	LokalTextAusgabeP(PSTR(") neu (0 = nein):     "));
 
-	if (LokalZahlEingabe(&KommendSperreWahl, 0) == 0)
+	if (LokalZahlEingabe(&KommendSperreWahl, 0) < 0)
 		return;
 
 	if (KommendSperreWahl != eeprom_read_byte(&KommendSperreWahl_EE))

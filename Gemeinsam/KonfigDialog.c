@@ -24,11 +24,11 @@ extern char LokalZeichenLesen();
 //! kann nur positive Zahlen.
 //! \param[out] z Eingegebene Zahl.
 //! \param[in] maxzif Maximale Anzahl Ziffern bei der Eingabe.
-//! \retval 0 abbruch
-//! \retval 1 unverändert
-//! \retval 2 eingabe erfolgt
+//! \retval <0 abbruch
+//! \retval 0 unverändert
+//! \retval >0 eingabe erfolgt mit anzahl ziffern
 
-uint8_t LokalZahlEingabe(uint8_t* z, uint8_t maxzif)
+int8_t LokalZahlEingabe(uint8_t* z, uint8_t maxzif)
 	{
 	uint8_t Pos = 0; // 0 = noch keine Ziffer eingegeben, 1 = erste Ziffer, ...
 
@@ -44,16 +44,16 @@ uint8_t LokalZahlEingabe(uint8_t* z, uint8_t maxzif)
 				*z = Zeichen - '0';
 			Pos++;
 			if (Pos == maxzif)
-				return 2;
+				return Pos;
 			}
 		else if (Zeichen == '.' || Zeichen == '-' || Zeichen == '+' || Zeichen == '=' || Zeichen == '/')
 			{
-			return (Pos > 0) ? 2 : 1;
+			return Pos;
 			}
 
 		else if (Zeichen == '\0') // abschaltung
 			{
-			return 0;
+			return -1;
 			}
 		else if (Zeichen == '\t') // ignorieren
 			{
@@ -61,7 +61,7 @@ uint8_t LokalZahlEingabe(uint8_t* z, uint8_t maxzif)
 		else // nicht erkanntes ZeichenZuCode
 			{
 			if (Pos > 0)
-				return 2; // da Zahl mit irgendwas abgeschlossen
+				return Pos; // da Zahl mit irgendwas abgeschlossen
 			}
 		}
 	}
@@ -228,13 +228,13 @@ bool KonfigurationAllgemein()
 	LokalTextAusgabeP(PSTR("\r\n testfunktion aktuell: "));
 	LokalZahlAusgabe(TestFunktion, 0);
 	LokalTextAusgabeP(PSTR(" neu:     "));
-	if (LokalZahlEingabe(&TestFunktion, 0) == 0)
+	if (LokalZahlEingabe(&TestFunktion, 0) < 0)
 		return false;
 
 	LokalTextAusgabeP(PSTR("\r\n testverzoegerung aktuell: "));
 	LokalZahlAusgabe(TestVerzoegerung, 0);
 	LokalTextAusgabeP(PSTR(" neu:     "));
-	if (LokalZahlEingabe(&TestVerzoegerung, 0) == 0)
+	if (LokalZahlEingabe(&TestVerzoegerung, 0) < 0)
 		return false;
 
 #endif //def TESTFUNKTIONEN
@@ -256,10 +256,12 @@ bool KonfigurationAllgemein()
 		LokalTextAusgabeP(PSTR(" neu:     "));
 #endif
 		
-		if (LokalZahlEingabe(&Durchwahl, 0) == 0)
+		ZifferAnz = LokalZahlEingabe(&Durchwahl, 0);
+		if (ZifferAnz < 0)
 			return false;
 
-		//! \todo Einstellige Durchwahlen erlauben.
+		if (ZifferAnz == 0)
+			Durchwahl = AdresseZuWahl(BusEigenAdresse, &ZifferAnz); // wiederherstellen
 		
 		Durchwahl &= ~(BusEigenAdrMehrfach - 1);
 			// erreicht, dass bei (Bsp.) 8 Adressen die Basisadresse 8, 16, 24, ...
@@ -270,10 +272,10 @@ bool KonfigurationAllgemein()
 #else
 		LokalTextAusgabeP(PSTR("\r\n pruefe "));
 #endif
-		LokalZahlAusgabe(Durchwahl, 2);
+		LokalZahlAusgabe(Durchwahl, ZifferAnz);
 		LokalZeichenAusgabe(' ');	
 
-		if (BusEigenAdressePruefenUndSetzen(WahlZuAdresse(Durchwahl, 2)))
+		if (BusEigenAdressePruefenUndSetzen(WahlZuAdresse(Durchwahl, ZifferAnz)))
 			{
 			LokalTextAusgabeP(OkStrP);
 			return true;

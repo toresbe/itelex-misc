@@ -855,7 +855,7 @@ static void Konfiguration()
 		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
 		LokalTextAusgabeP(PSTR("/100 sek)?      "));
 
-		if (LokalZahlEingabe(&WahlauffordImpulsLaenge, 0) == 0)
+		if (LokalZahlEingabe(&WahlauffordImpulsLaenge, 0) < 0)
 			return;
 
 		if (WahlauffordImpulsLaenge < 1)
@@ -889,7 +889,7 @@ static void Konfiguration()
 	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
 #endif //def SPRACHE_EN
 
-	if (LokalZahlEingabe(&KommendSperreWahl, 0) == 0)
+	if (LokalZahlEingabe(&KommendSperreWahl, 0) < 0)
 		return;
 
 	if (KommendSperreWahl != eeprom_read_byte(&KommendSperreWahl_EE))
