@@ -850,8 +850,6 @@ static void BusKomm()
 					}					
 				break; // case BusQuittEin
 
-			// case BusQuittKonfig: TODO: im neuen Konzept könnte es vorkommen...
-
 			case BusKdoWahlFreigabe:
 				if (FsBetriebsart == Wahl)
 					{ // Gegenstelle läuft
