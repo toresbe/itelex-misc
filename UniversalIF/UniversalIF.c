@@ -20,7 +20,8 @@
 // 0x7F			|		no			| query internal parameter
 // 0x80 - 0x9F  | as 0x93 / 0x9E	| low 5 bits are used as baudot code to be send. MSB = bit 4 
 //				|					|	is sent first.
-// 0xA0 - 0xFF  |	  	yes			| control codes. 0xAC also clears destination address
+// 0xA0 - 0xFE  |	  	yes			| control codes. 0xAC also clears destination address
+// 0xFF			|					| reset
 //
 // Transmission TxP2 (TWI) -> client
 // to client	| Orig. on TWI bus 	| Comment
@@ -34,8 +35,9 @@
 // 0x80 - 0x9F  | 0x93 / 0x9E		| received baudot code 
 //				|					|	First received bit is bit 4 on client side.
 // 0x80 - 0x9F  |	  	no			| other codes in this range are ignored
-// 0xA0 - 0xFF  | yes, except 0xA9	| control codes. 0xAC also clears destination address.
+// 0xA0 - 0xFE  | yes, except 0xA9	| control codes. 0xAC also clears destination address.
 //				|					|	0xA9 on TWI bus is heartbeat and is not forwarded to client
+// 0xFF			|		no			| error indicator
 
 
 // standard libs:
@@ -61,6 +63,7 @@
 
 // Project includes:
 //#include "Ports.h"
+#include "ClientComDefs.h"
 #include "ClientCommunication.h"
 
 
@@ -84,14 +87,38 @@ static volatile enum { Mark1, 	//!< Es wurde BusKdoMark gesendet, aber noch nich
 static TMsTimer TWICommTimer;
 
 
-//! Buffer for 
+//! All variables accessible by #Txi_SetParam and #Txi_QueryParam
+uint8_t ParameterBuffer[256]; 
 
+bool PendingSendErrorCode;
+
+
+// Error Flags (Bits)
+
+
+// Actually used parameters
+
+#define OwnAddress (ParameterBuffer[0]) // own TWI address
+#define DefaultStatus (ParameterBuffer[1]) // optional status bits for 'free' state
+
+#define ErrorFlags (ParameterBuffer[0x40]) // any error code
+// 0x41 free for extendet ErrorFlags
+#define StatusPB (ParameterBuffer[0x42]) // copy of Status (Bitmask)
+#define CommunicationPartner (ParameterBuffer[0x43]) // current TWI communication partner
 
 
 static void InitBuffers()
 	{
+	for (uint8_t i = 0 ; i < sizeof(ParameterBuffer) ; i++)
+		ParameterBuffer[i] = 0;
+	
+	// TODO Init from EEPROM
+	
 	PufferInit(&ClientInputBuffer);
 	PufferInit(&ClientOutputBuffer);
+	
+	PendingSendErrorCode = false;
+	
 	} // InitBuffers()
 
 
@@ -126,23 +153,214 @@ static void InitPorts()
 	TwiInit();
 	
 	// Watchdog
-	wdt_enable(WDTO_2S);
+	wdt_enable(WDTO_2S); //! \todo check if software watchdog would be a better solution
 	
+	}
+
+	
+void RaiseError(uint8_t errflags)
+	{
+	ErrorFlags |= errflags;
+//!  \todo check if last byte isn't already an error code	
+	PendingSendErrorCode = PufferVoll(&ClientOutputBuffer);
+	if (!PendingSendErrorCode)
+		PufferSpeich(&ClientOutputBuffer, Txi_Error); 
+	}
+
+	
+static void SetParameter(uint8_t addr, uint8_t val)
+	{
+	switch (addr)
+		{
+		case Txi_Param_OwnAddress:			
+			BusEigenAdresse = val & 0xFE; // gets active after an reset
+			break;
+			
+		case Txi_Param_DefaultStatus:		
+			DefaultStatus = (val & 0x30) | (1 << StatBit_Frei);
+				// only bits 4 and 5 allowed
+			break;
+			
+		case Txi_Param_ErrorCode:			
+			ErrorFlags = val; // to reset them
+			break;
+			
+		case Txi_Param_CurrentPartner:		
+			BusVerbPartner = val & 0xFE; // use this with extreme care!
+			break;
+			
+		case Txi_Param_CurrentStatus:		
+			Status = val; // use this with extreme care!
+			break;
+			
+		default:							
+			break; // nothing
+		}
+	}
+
+
+static uint8_t GetParameter(uint8_t addr)
+	{
+	switch (addr)
+		{
+		case Txi_Param_OwnAddress:			return BusEigenAdresse;
+		case Txi_Param_DefaultStatus:		return DefaultStatus;
+		case Txi_Param_ErrorCode:			return ErrorFlags;
+		case Txi_Param_CurrentPartner:		return BusVerbPartner;
+		case Txi_Param_CurrentStatus:		return Status;
+		default:							return 0;
+		}
 	}
 
 
 static void ProcessClientToTWI()
 	{
+	uint8_t Code;
+	uint8_t Addr;
+	int16_t Val;
 	
-
-/*
-baudot-codes an Bus:
-	if (SerUmSendBitNr == SerUmSendWarte)
+	if (PufferLeer(&ClientInputBuffer))
+		return; // nothing to do
+	
+	Code = PufferZeig(&ClientInputBuffer); 
+		// this function does not remove the code from the buffer.
+		// at the end of this function ProcessClientToTWI it will 
+		// be deleted, so insert a return statement if the command
+		// is not processed completely or if the processed data 
+		// is deleted specific
+		
+	switch (Code)
 		{
-		SerUmSendDaten = xxx;
-		SerUmSendBitNr = SerUmSendStart;
-		}
-*/
+		case Txi_Idle: // should never be put into the buffer.
+			break;
+			
+		case Txi_ConnectMin ... Txi_ConnectMax:
+			if (BusVerbPartner != 0)
+				RaiseError(Txi_ErrFlag_AlreadyConnected);
+			else
+				{
+				Status = 0; // not connected
+				
+				BusVerbPartner = Code << 1; 
+				BusSenden(BusEigenAdresse >> 1); 
+					// internally the free status of the unit to be connected is checked.
+					
+				BusWarteFertig();
+
+				StartTimer(&TWICommTimer);
+
+				if (BusErgebnis == Ok)
+					{ // successful connected
+					PufferSpeich(&ClientOutputBuffer, Txi_ConnectOK);
+					}
+				else 
+					{ // unit has answered with 'busy' OR has not answered at all.
+					if (BusErgebnis == Besetzt)				
+						PufferSpeich(&ClientOutputBuffer, Txi_ConnectBusy);
+					else
+						PufferSpeich(&ClientOutputBuffer, Txi_NoAnswer);
+					BusErgebnis = Ok; // to avoid later problems
+					BusVerbPartner = 0;
+					Status = DefaultStatus | (1 << StatBit_Frei); // restore to standard value
+					}
+				}
+			
+			break;
+		
+		case Txi_QueryStatus:
+			if (PufferAnzahl(&ClientInputBuffer) < 2)
+				return; // needs at least code + address
+
+			if (PufferAnzahl(&ClientOutputBuffer) < MaxPuffer - 4)
+				return; // not ready to send the result
+			
+			PufferAusg(&ClientInputBuffer); // deletes command code from buffer
+			
+			Addr = PufferAusg(&ClientInputBuffer);
+			
+			Val = GetStatus(Addr); // check status of any unit on the bus
+			
+			if (Val >= 0)
+				{
+				PufferSpeich(&ClientOutputBuffer, Txi_QueryStatus);
+				PufferSpeich(&ClientOutputBuffer, Addr);
+				PufferSpeich(&ClientOutputBuffer, Val & 0x0FF);
+				}	
+			else
+				PufferSpeich(&ClientOutputBuffer, Txi_NoAnswer);
+				
+			return; // not break, because all data already removed from the input buffer.
+		
+		case Txi_SetParam:
+			if (PufferAnzahl(&ClientInputBuffer) < 3)
+				return; // needs at least code + param-index + value
+
+			PufferAusg(&ClientInputBuffer); // deletes command code from buffer
+			
+			Addr = PufferAusg(&ClientInputBuffer);
+			
+			SetParameter(Addr, PufferAusg(&ClientInputBuffer));
+			
+			return; // not break, because all data already removed from the input buffer.
+		
+		case Txi_QueryParam:
+			if (PufferAnzahl(&ClientInputBuffer) < 2)
+				return; // needs at least code + address
+
+			if (PufferAnzahl(&ClientOutputBuffer) < MaxPuffer - 4)
+				return; // not ready to send the result
+			
+			PufferAusg(&ClientInputBuffer); // deletes command code from buffer
+			
+			Addr = PufferAusg(&ClientInputBuffer);
+			
+			PufferSpeich(&ClientOutputBuffer, Txi_QueryParam);
+			PufferSpeich(&ClientOutputBuffer, Addr);
+			PufferSpeich(&ClientOutputBuffer, GetParameter(Addr));
+			
+			return; // not break, because all data already removed from the input buffer.
+	
+		case Txi_PrintcodeMin ... Txi_PrintcodeMax:
+			if (BusVerbPartner == 0)
+				RaiseError(Txi_ErrFlag_NotConnected);
+			else if (SerUmSendBitNr == SerUmSendWarte)
+				{
+				SerUmSendDaten = Code & 0x1F; 
+				SerUmSendBitNr = SerUmSendStart;
+				}
+			else 
+				return; // not yet ready to process the input.
+
+			break;
+			
+		case Txi_DirectMin ... Txi_DirectMax:
+			if (BusVerbPartner == 0)
+				RaiseError(Txi_ErrFlag_NotConnected);
+			else if (SerUmSendBitNr == SerUmSendWarte && BusFrei && BusAuftrag == Nichts)
+				{
+				BusSenden(Code);
+				if (Code == Txi_DisconnAck)
+					{
+					BusVerbPartner = 0;
+					Status = DefaultStatus | (1 << StatBit_Frei); // restore to standard value
+					}
+				}
+			else
+				return; // not yet ready to send the command;
+			
+			break;
+
+		case Txi_Error:
+			// TODO: Reset
+			break;
+			
+		default: // unknown code
+			RaiseError(Txi_ErrFlag_InvalidCmd);
+			break;
+
+		} // switch (Code)
+	
+	PufferAusg(&ClientInputBuffer); // deletes the processed code
 	
 	} // ProcessClientToTWI()
 
@@ -151,23 +369,18 @@ static void ProcessTWItoClient()
 	{
 	uint8_t Kdo;
 	
-/*	
-	if (GetEmpfByte(&Kdo))
-		{
-		// Codes for mark and space and heartbeat are already processed
+	if (PufferVoll(&ClientOutputBuffer))
+		return; // not enough space to store the result
 		
+	if (SerUmEmpfBitNr == SerUmEmpfFertig)
+		{
+		PufferSpeich(&ClientOutputBuffer, SerUmEmpfDaten | Txi_PrintcodeMin);
+		SerUmEmpfBitNr = SerUmEmpfWarte;
+		}
+	else if (GetEmpfByte(&Kdo))
+		{
 		TODO put other codes to the client buffer
 		}
-
-		
-		
-			if (SerUmEmpfBitNr == SerUmEmpfFertig)
-				{
-				PufferSpeich(&EmpfPuffer, SerUmEmpfDaten);
-				SerUmEmpfBitNr = SerUmEmpfWarte;
-				}
-*/
-
 				
 	} // ProcessTWItoClient()
 
