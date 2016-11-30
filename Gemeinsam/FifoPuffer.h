@@ -24,7 +24,10 @@ extern bool PufferLeer(TPuffer *p);
 extern bool PufferVoll(TPuffer *p);
 	
 extern uint8_t PufferAusg(TPuffer *p);	
- 
+
 extern uint8_t PufferAnzahl(TPuffer *p);
+
+extern uint8_t PufferZeig(TPuffer *p);
+
 
 #endif //ndef __FIFOPUFFER_H__

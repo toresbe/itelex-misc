@@ -27,6 +27,10 @@
 // TWI-Kommandos
 // -------------
 
+// Codes in the range from 0x80 to 0x9F should only be used for
+// data transmission functions (like mark / space), not for 
+// control functions
+
 #define BusKdoVerbAufnahme	0x7F 
 	//!< TWI-Kommando für Verbindungsaufbau ist die TWI-Adresse / 2 der Gegenstelle.
 	//!< Somit ist BusKdoVerbAufnahme der Maximalwert für dieses Kommando.
