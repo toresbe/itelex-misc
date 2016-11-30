@@ -42,7 +42,7 @@
 
 // standard libs:
 #include <avr/io.h>
-//#include <avr/pgmspace.h>
+#include <avr/pgmspace.h>
 #include <avr/interrupt.h>
 #include <avr/eeprom.h>
 #include <avr/wdt.h>
@@ -60,6 +60,7 @@
 //#include "BaudotCode.h"
 #include "BusKomm.h"
 #include "SeriellUmsetz.h"
+#include "../SvnVersion.h"
 
 // Project includes:
 //#include "Ports.h"
@@ -67,9 +68,26 @@
 #include "ClientCommunication.h"
 
 
+#ifndef PROGIDZUSATZ 
+#define PROGIDZUSATZ ""
+#endif //ndef PROGIDZUSATZ 
+
+
+//! Identificator in flash memory
+const char PROGMEM Identifier[] = "___TxP2_UniversalIF-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+
+
 // Constants
 // =========
 
+
+
+// internal Eeprom
+// ===============
+
+EEMEM uint8_t Spacer[4]; //!< 
+EEMEM uint8_t OwnAddress_EE = 99; //!< copy of #BusEigenAdresse in EEPROM
+EEMEM uint8_t DefaultStatus_EE = 0xB0; //!< copy of #DefaultStatus in EEPROM
 
 
 // Variables
@@ -86,11 +104,14 @@ static volatile enum { Mark1, 	//!< Es wurde BusKdoMark gesendet, aber noch nich
 //! Measures time for Heartbeat and other generated commands on the TWI bus.					   
 static TMsTimer TWICommTimer;
 
-
-//! All variables accessible by #Txi_SetParam and #Txi_QueryParam
-uint8_t ParameterBuffer[256]; 
-
+//! Flag if Error could not be sent due to foll buffer
 bool PendingSendErrorCode;
+
+//! Active Error flags (to be reset by command #Txi_SetParam)
+uint8_t ErrorFlags;
+
+//! Default status when idle. Only bits #StatBit_SpezialGeraetKennung and #StatBit_Leitung are allowed.
+uint8_t DefaultStatus;
 
 
 // Error Flags (Bits)
@@ -98,28 +119,28 @@ bool PendingSendErrorCode;
 
 // Actually used parameters
 
-#define OwnAddress (ParameterBuffer[0]) // own TWI address
-#define DefaultStatus (ParameterBuffer[1]) // optional status bits for 'free' state
 
-#define ErrorFlags (ParameterBuffer[0x40]) // any error code
-// 0x41 free for extendet ErrorFlags
-#define StatusPB (ParameterBuffer[0x42]) // copy of Status (Bitmask)
-#define CommunicationPartner (ParameterBuffer[0x43]) // current TWI communication partner
-
-
-static void InitBuffers()
+static void InitVariables()
 	{
-	for (uint8_t i = 0 ; i < sizeof(ParameterBuffer) ; i++)
-		ParameterBuffer[i] = 0;
+	// Init from EEPROM
+	// ----------------
+	BusEigenAdresse = eeprom_read_byte(&OwnAddress_EE) & 0xFE;
+	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
+		BusEigenAdresse = 99 << 1; // default
 	
-	// TODO Init from EEPROM
+	DefaultStatus = (1 << StatBit_Frei) | (eeprom_read_byte(&DefaultStatus_EE) & 0x30);
+
 	
+	// Init other variables (static)
+	// -----------------------------
 	PufferInit(&ClientInputBuffer);
 	PufferInit(&ClientOutputBuffer);
 	
 	PendingSendErrorCode = false;
+
+	ErrorFlags = 0;
 	
-	} // InitBuffers()
+	} // InitVariables()
 
 
 
@@ -215,7 +236,7 @@ static uint8_t GetParameter(uint8_t addr)
 
 //! Check the TWI code for need to update the Status bits.
 
-static uint8_t UpdateStatusOnBusCode(uint8_t Code)
+static void UpdateStatusOnBusCode(uint8_t Code)
 	{
 	switch (Code)
 		{
@@ -507,16 +528,14 @@ static void DoTWICommunication()
 	} // DoTWICommunication()
 
 
-
-
 //! Main Programm
 
 int main()
 	{
 	// initializing everything
+	InitVariables();
+
 	InitPorts();
-	
-	InitBuffers();
 	
 	InitClientCom();
 	
