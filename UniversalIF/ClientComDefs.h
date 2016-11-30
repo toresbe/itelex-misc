@@ -73,7 +73,9 @@
 
 #define Txi_ErrFlag_TwiTimeout				0x10
 
-#define Txi_ErrFlag_InvalidCmd				0x20
+#define Txi_ErrFlag_TwiCodeError			0x20  // invalid code received on TWI bus
+
+#define Txi_ErrFlag_InvalidCmd				0x80
 
 
 // Parameter Addresses

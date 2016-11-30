@@ -213,6 +213,27 @@ static uint8_t GetParameter(uint8_t addr)
 	}
 
 
+//! Check the TWI code for need to update the Status bits.
+
+static uint8_t UpdateStatusOnBusCode(uint8_t Code)
+	{
+	switch (Code)
+		{
+		case Txi_ActivateAck:
+			SET_BIT_Status(StatBit_Verbunden);
+			SET_BIT_Status(StatBit_FsBefBetrieb);
+			SET_BIT_Status(StatBit_FsMeldBetrieb);
+			break;
+			
+		case Txi_DisconnAck:
+			BusVerbPartner = 0;
+			Status = DefaultStatus | (1 << StatBit_Frei); // restore to standard value
+			break;
+			
+		}
+	}
+
+
 static void ProcessClientToTWI()
 	{
 	uint8_t Code;
@@ -339,11 +360,7 @@ static void ProcessClientToTWI()
 			else if (SerUmSendBitNr == SerUmSendWarte && BusFrei && BusAuftrag == Nichts)
 				{
 				BusSenden(Code);
-				if (Code == Txi_DisconnAck)
-					{
-					BusVerbPartner = 0;
-					Status = DefaultStatus | (1 << StatBit_Frei); // restore to standard value
-					}
+				UpdateStatusOnBusCode(Code);
 				}
 			else
 				return; // not yet ready to send the command;
@@ -367,7 +384,7 @@ static void ProcessClientToTWI()
 
 static void ProcessTWItoClient()
 	{
-	uint8_t Kdo;
+	uint8_t Code;
 	
 	if (PufferVoll(&ClientOutputBuffer))
 		return; // not enough space to store the result
@@ -377,10 +394,42 @@ static void ProcessTWItoClient()
 		PufferSpeich(&ClientOutputBuffer, SerUmEmpfDaten | Txi_PrintcodeMin);
 		SerUmEmpfBitNr = SerUmEmpfWarte;
 		}
-	else if (GetEmpfByte(&Kdo))
+	else if (GetEmpfByte(&Code))
 		{
-		TODO put other codes to the client buffer
-		}
+		switch (Code)
+			{
+			case Txi_ConnectMin ... Txi_ConnectMax:
+				if (BusVerbPartner == 0)
+					{ // new incoming connection
+					BusVerbPartner = Code << 1;
+					Status = (1 << StatBit_AngerufenBelegt);
+					PufferSpeich(&ClientOutputBuffer, Code);
+					}	
+				else // already another existing connection
+					{
+					RaiseError(Txi_ErrFlag_TwiCodeError);
+					}
+				break;
+				
+			case Txi_DirectMin ... Txi_DirectMax:
+				if (BusVerbPartner != 0)
+					{ // standard procedure for incoming command code
+					PufferSpeich(&ClientOutputBuffer, Code);
+					UpdateStatusOnBusCode(Code);
+					}	
+				else // BusVerbPartner == 0
+					{
+					RaiseError(Txi_ErrFlag_TwiCodeError);
+					}
+				break;
+
+			default:
+				RaiseError(Txi_ErrFlag_TwiCodeError);
+				break;
+			
+			} // switch (Code)
+					
+		} // GetEmpfByte(&Code)
 				
 	} // ProcessTWItoClient()
 
@@ -412,7 +461,7 @@ static void DoTWICommunication()
 			if (SentLoopStatus == Mark1 || SentLoopStatus == Mark2)
 				BusSenden(BusKdoSpace);
 			else if (SentLoopStatus == Space1 && TimerVal(&TWICommTimer) > 0)
-					BusSenden(BusKdoSpaceWdh); // TODO small delay
+				BusSenden(BusKdoSpaceWdh); 
 			} // Space
 
 		} // Bus ist sendefähig	
@@ -426,18 +475,20 @@ static void DoTWICommunication()
 				{
 				case BusKdoSpace:
 					SentLoopStatus = Space1;
+					CLR_BIT_Status(StatBit_FsMeldEin);
 					break;
 				case BusKdoSpaceWdh:
 					SentLoopStatus = Space2;
 					break;
 				case BusKdoMark:
 					SentLoopStatus = Mark1;
+					SET_BIT_Status(StatBit_FsMeldEin);
 					break;
 				case BusKdoMarkWdh:
 					SentLoopStatus = Mark2;
 					break;
 				} // switch BusSendeDaten
-			} // letzte Bus-Sendung war fehlerfrei
+			} // command successfully sent on twi bus
 		BusAuftrag = Nichts;
 		}
 
