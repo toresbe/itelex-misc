@@ -86,7 +86,7 @@ const char PROGMEM Identifier[] = "___TxP2_UniversalIF-" PROGIDZUSATZ "___" __DA
 // ===============
 
 EEMEM uint8_t Spacer[4]; //!< Start of EEPROM sometimes disturbed
-EEMEM uint8_t OwnAddress_EE = 99; //!< copy of #BusEigenAdresse in EEPROM
+EEMEM uint8_t OwnAddress_EE = 99 << 1; //!< copy of #BusEigenAdresse in EEPROM
 EEMEM uint8_t DefaultStatus_EE = 0xB0; //!< copy of #DefaultStatus in EEPROM
 
 
@@ -134,7 +134,7 @@ static void InitVariables()
 		BusEigenAdresse = 99 << 1; // default
 	
 	DefaultStatus = (1 << StatBit_Frei) | (eeprom_read_byte(&DefaultStatus_EE) & 0x30);
-
+	Status = DefaultStatus;
 	
 	// Init other variables (static)
 	// -----------------------------
@@ -144,6 +144,8 @@ static void InitVariables()
 	ErrorIndicationStatus = EiNormal;
 
 	ErrorFlags = 0;
+
+	BusEigenAdrMehrfach = 1; // no multi Adress mode supported yet.
 	
 	} // InitVariables()
 
@@ -172,15 +174,34 @@ static void InitPorts()
 	SET_BIT(TIMSK, TOIE0);
 #endif //def TCCR0A
 
-	Status = (1 << StatBit_Frei); // StatBit_SpezialGeraetKennung muss vom Hauptprogramm gesetzt werden
 	SeriellUmsetzInit();
 
 	// TWI
-	TwiInit();
+	TwiInit(); // but it's not activated yet
 	
+	// Timer
+	MsTimerInit();
+
 	// Watchdog
 	wdt_enable(WDTO_2S); //! \todo check if software watchdog would be a better solution
 	
+	}
+
+
+static void TwiActivate()
+	{
+	TMsTimer Timer;
+	
+	StartTimer(&Timer);
+	while (TimerVal(&Timer) < 100)
+		;
+	
+	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (1<<TWSTO) | (0<<TWEN) | (0<<TWIE);
+
+	while (TimerVal(&Timer) < 200)
+		;
+		
+	TWCR = (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (1<<TWEN) | (1<<TWIE);
 	}
 
 	
@@ -552,6 +573,7 @@ static void DoTWICommunication()
 	
 	} // DoTWICommunication()
 
+	
 
 //! Main Programm
 
@@ -563,8 +585,11 @@ int main()
 	InitPorts();
 	
 	InitClientCom();
+
+	sei();
 	
-	// main loop
+	TwiActivate();
+	
 	while (true)
 		{
 		DoClientCommunication();
