@@ -1,0 +1,5 @@
+1E-93-07
+BF-D1-00
+
+first line signature
+second line fuse bits (low-high-extended)

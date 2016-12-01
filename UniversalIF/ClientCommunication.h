@@ -17,4 +17,7 @@ extern void InitClientCom();
 //! and read from #ClientOutputBuffer.
 extern void DoClientCommunication();
 
+// This function is defined in UniversalIF.c, but may be used in this unit.
+extern void RaiseError(uint8_t errflags);
+
 #endif //def __CLIENT_COMMUNICATION_H__

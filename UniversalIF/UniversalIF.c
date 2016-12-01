@@ -85,7 +85,7 @@ const char PROGMEM Identifier[] = "___TxP2_UniversalIF-" PROGIDZUSATZ "___" __DA
 // internal Eeprom
 // ===============
 
-EEMEM uint8_t Spacer[4]; //!< 
+EEMEM uint8_t Spacer[4]; //!< Start of EEPROM sometimes disturbed
 EEMEM uint8_t OwnAddress_EE = 99; //!< copy of #BusEigenAdresse in EEPROM
 EEMEM uint8_t DefaultStatus_EE = 0xB0; //!< copy of #DefaultStatus in EEPROM
 
@@ -104,11 +104,16 @@ static volatile enum { Mark1, 	//!< Es wurde BusKdoMark gesendet, aber noch nich
 //! Measures time for Heartbeat and other generated commands on the TWI bus.					   
 static TMsTimer TWICommTimer;
 
-//! Flag if Error could not be sent due to foll buffer
-bool PendingSendErrorCode;
-
 //! Active Error flags (to be reset by command #Txi_SetParam)
 uint8_t ErrorFlags;
+
+//! Error indication status
+enum {
+	EiNormal, //!< no error ocurred or error already sent to client
+	EiSent, //!< error ocurred and stored in buffer, but not sent to client
+	EiPending //!< error occurred but not stored in buffer due to overflow
+	} ErrorIndicationStatus;
+
 
 //! Default status when idle. Only bits #StatBit_SpezialGeraetKennung and #StatBit_Leitung are allowed.
 uint8_t DefaultStatus;
@@ -136,7 +141,7 @@ static void InitVariables()
 	PufferInit(&ClientInputBuffer);
 	PufferInit(&ClientOutputBuffer);
 	
-	PendingSendErrorCode = false;
+	ErrorIndicationStatus = EiNormal;
 
 	ErrorFlags = 0;
 	
@@ -182,10 +187,16 @@ static void InitPorts()
 void RaiseError(uint8_t errflags)
 	{
 	ErrorFlags |= errflags;
-//!  \todo check if last byte isn't already an error code	
-	PendingSendErrorCode = PufferVoll(&ClientOutputBuffer);
-	if (!PendingSendErrorCode)
-		PufferSpeich(&ClientOutputBuffer, Txi_Error); 
+	if (ErrorIndicationStatus == EiNormal)
+		{
+		if (PufferVoll(&ClientOutputBuffer))
+			ErrorIndicationStatus = EiPending;
+		else
+			{
+			PufferSpeich(&ClientOutputBuffer, Txi_Error); 
+			ErrorIndicationStatus = EiSent;
+			}
+		}
 	}
 
 	
@@ -409,13 +420,22 @@ static void ProcessTWItoClient()
 	
 	if (PufferVoll(&ClientOutputBuffer))
 		return; // not enough space to store the result
-		
+	
+	if (ErrorIndicationStatus == EiPending)
+		{
+		PufferSpeich(&ClientOutputBuffer, Txi_Error); 
+		ErrorIndicationStatus = EiSent;
+		return; // no further processing because buffer may be full now.
+		}
+	
 	if (SerUmEmpfBitNr == SerUmEmpfFertig)
 		{
 		PufferSpeich(&ClientOutputBuffer, SerUmEmpfDaten | Txi_PrintcodeMin);
 		SerUmEmpfBitNr = SerUmEmpfWarte;
+		return; // no further processing because buffer may be full now.
 		}
-	else if (GetEmpfByte(&Code))
+		
+	if (GetEmpfByte(&Code))
 		{
 		switch (Code)
 			{
@@ -449,9 +469,14 @@ static void ProcessTWItoClient()
 				break;
 			
 			} // switch (Code)
-					
+
+		return; // no further processing because buffer may be full now.
 		} // GetEmpfByte(&Code)
-				
+
+	// reset status for error display if error code was successfully sent to client
+	if (ErrorIndicationStatus == EiSent && PufferLeer(&ClientOutputBuffer))
+		ErrorIndicationStatus = EiNormal;
+	
 	} // ProcessTWItoClient()
 
 
