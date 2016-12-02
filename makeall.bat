@@ -14,4 +14,5 @@ make -C SeriellUndSpeicher/PlatVer13
 make -C SeriellUndSpeicher/PlatVer13Test
 make -C SeriellUndSpeicher/OhneSpeicher
 make -C SeriellUndSpeicher/USTTY-45
+make -C UniversalIF/RS232-Hex
 make -C Wahlbruecke/default

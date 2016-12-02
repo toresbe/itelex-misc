@@ -68,13 +68,8 @@
 #include "ClientCommunication.h"
 
 
-#ifndef PROGIDZUSATZ 
-#define PROGIDZUSATZ ""
-#endif //ndef PROGIDZUSATZ 
-
-
 //! Identificator in flash memory
-const char PROGMEM Identifier[] = "___TxP2_UniversalIF-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const char PROGMEM Identifier[] = "___TxP2_UniIF-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 
 
 // Constants
