@@ -42,7 +42,7 @@
 
 // standard libs:
 #include <avr/io.h>
-//#include <avr/pgmspace.h>
+#include <avr/pgmspace.h>
 #include <avr/interrupt.h>
 #include <avr/eeprom.h>
 #include <avr/wdt.h>
@@ -60,6 +60,7 @@
 //#include "BaudotCode.h"
 #include "BusKomm.h"
 #include "SeriellUmsetz.h"
+#include "../SvnVersion.h"
 
 // Project includes:
 //#include "Ports.h"
@@ -67,9 +68,26 @@
 #include "ClientCommunication.h"
 
 
+#ifndef PROGIDZUSATZ 
+#define PROGIDZUSATZ ""
+#endif //ndef PROGIDZUSATZ 
+
+
+//! Identificator in flash memory
+const char PROGMEM Identifier[] = "___TxP2_UniversalIF-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+
+
 // Constants
 // =========
 
+
+
+// internal Eeprom
+// ===============
+
+EEMEM uint8_t Spacer[4]; //!< Start of EEPROM sometimes disturbed
+EEMEM uint8_t OwnAddress_EE = 99 << 1; //!< copy of #BusEigenAdresse in EEPROM
+EEMEM uint8_t DefaultStatus_EE = 0xB0; //!< copy of #DefaultStatus in EEPROM
 
 
 // Variables
@@ -86,11 +104,19 @@ static volatile enum { Mark1, 	//!< Es wurde BusKdoMark gesendet, aber noch nich
 //! Measures time for Heartbeat and other generated commands on the TWI bus.					   
 static TMsTimer TWICommTimer;
 
+//! Active Error flags (to be reset by command #Txi_SetParam)
+uint8_t ErrorFlags;
 
-//! All variables accessible by #Txi_SetParam and #Txi_QueryParam
-uint8_t ParameterBuffer[256]; 
+//! Error indication status
+enum {
+	EiNormal, //!< no error ocurred or error already sent to client
+	EiSent, //!< error ocurred and stored in buffer, but not sent to client
+	EiPending //!< error occurred but not stored in buffer due to overflow
+	} ErrorIndicationStatus;
 
-bool PendingSendErrorCode;
+
+//! Default status when idle. Only bits #StatBit_SpezialGeraetKennung and #StatBit_Leitung are allowed.
+uint8_t DefaultStatus;
 
 
 // Error Flags (Bits)
@@ -98,28 +124,32 @@ bool PendingSendErrorCode;
 
 // Actually used parameters
 
-#define OwnAddress (ParameterBuffer[0]) // own TWI address
-#define DefaultStatus (ParameterBuffer[1]) // optional status bits for 'free' state
 
-#define ErrorFlags (ParameterBuffer[0x40]) // any error code
-// 0x41 free for extendet ErrorFlags
-#define StatusPB (ParameterBuffer[0x42]) // copy of Status (Bitmask)
-#define CommunicationPartner (ParameterBuffer[0x43]) // current TWI communication partner
-
-
-static void InitBuffers()
+static void InitVariables()
 	{
-	for (uint8_t i = 0 ; i < sizeof(ParameterBuffer) ; i++)
-		ParameterBuffer[i] = 0;
+	// Init from EEPROM
+	// ----------------
+	BusEigenAdresse = eeprom_read_byte(&OwnAddress_EE) & 0xFE;
+	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
+		BusEigenAdresse = 99 << 1; // default
+	BusEigenAdrMehrfach = 1; // no multi Adress mode supported yet.
 	
-	// TODO Init from EEPROM
+	DefaultStatus = (1 << StatBit_Frei) | (eeprom_read_byte(&DefaultStatus_EE) & 0x30);
+	Status = DefaultStatus;
 	
+	// Init other variables (static)
+	// -----------------------------
 	PufferInit(&ClientInputBuffer);
 	PufferInit(&ClientOutputBuffer);
 	
-	PendingSendErrorCode = false;
+	ErrorIndicationStatus = EiNormal;
+
+	ErrorFlags = 0;
+
+	BusEmpfMark = true;
+	SentLoopStatus = Mark2;
 	
-	} // InitBuffers()
+	} // InitVariables()
 
 
 
@@ -137,6 +167,7 @@ static void InitBuffers()
 static void InitPorts()
 	{
 	// Timer
+/* i don't need it, do i???
 #ifdef TCCR0A
 	TCCR0A = 0;
 	TCCR0B = TIMER0_CS; 
@@ -145,26 +176,52 @@ static void InitPorts()
 	TCCR0 = TIMER0_CS;
 	SET_BIT(TIMSK, TOIE0);
 #endif //def TCCR0A
+*/
 
-	Status = (1 << StatBit_Frei); // StatBit_SpezialGeraetKennung muss vom Hauptprogramm gesetzt werden
 	SeriellUmsetzInit();
 
 	// TWI
-	TwiInit();
+	TwiInit(); // but it's not activated yet
 	
+	// Timer
+	MsTimerInit();
+
 	// Watchdog
-	wdt_enable(WDTO_2S); //! \todo check if software watchdog would be a better solution
+	//wdt_enable(WDTO_2S); //! \todo check if software watchdog would be a better solution
 	
+	}
+
+
+static void TwiActivate()
+	{
+	TMsTimer Timer;
+	
+	StartTimer(&Timer);
+	while (TimerVal(&Timer) < 100)
+		;
+	
+	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (1<<TWSTO) | (0<<TWEN) | (0<<TWIE);
+
+	while (TimerVal(&Timer) < 200)
+		;
+		
+	TWCR = (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (1<<TWEN) | (1<<TWIE);
 	}
 
 	
 void RaiseError(uint8_t errflags)
 	{
 	ErrorFlags |= errflags;
-//!  \todo check if last byte isn't already an error code	
-	PendingSendErrorCode = PufferVoll(&ClientOutputBuffer);
-	if (!PendingSendErrorCode)
-		PufferSpeich(&ClientOutputBuffer, Txi_Error); 
+	if (ErrorIndicationStatus == EiNormal)
+		{
+		if (PufferVoll(&ClientOutputBuffer))
+			ErrorIndicationStatus = EiPending;
+		else
+			{
+			PufferSpeich(&ClientOutputBuffer, Txi_Error); 
+			ErrorIndicationStatus = EiSent;
+			}
+		}
 	}
 
 	
@@ -209,6 +266,27 @@ static uint8_t GetParameter(uint8_t addr)
 		case Txi_Param_CurrentPartner:		return BusVerbPartner;
 		case Txi_Param_CurrentStatus:		return Status;
 		default:							return 0;
+		}
+	}
+
+
+//! Check the TWI code for need to update the Status bits.
+
+static void UpdateStatusOnBusCode(uint8_t Code)
+	{
+	switch (Code)
+		{
+		case Txi_ActivateAck:
+			SET_BIT_Status(StatBit_Verbunden);
+			SET_BIT_Status(StatBit_FsBefBetrieb);
+			SET_BIT_Status(StatBit_FsMeldBetrieb);
+			break;
+			
+		case Txi_DisconnAck:
+			BusVerbPartner = 0;
+			Status = DefaultStatus | (1 << StatBit_Frei); // restore to standard value
+			break;
+			
 		}
 	}
 
@@ -339,11 +417,7 @@ static void ProcessClientToTWI()
 			else if (SerUmSendBitNr == SerUmSendWarte && BusFrei && BusAuftrag == Nichts)
 				{
 				BusSenden(Code);
-				if (Code == Txi_DisconnAck)
-					{
-					BusVerbPartner = 0;
-					Status = DefaultStatus | (1 << StatBit_Frei); // restore to standard value
-					}
+				UpdateStatusOnBusCode(Code);
 				}
 			else
 				return; // not yet ready to send the command;
@@ -367,26 +441,78 @@ static void ProcessClientToTWI()
 
 static void ProcessTWItoClient()
 	{
-	uint8_t Kdo;
+	uint8_t Code;
 	
 	if (PufferVoll(&ClientOutputBuffer))
 		return; // not enough space to store the result
-		
+	
+	if (ErrorIndicationStatus == EiPending)
+		{
+		PufferSpeich(&ClientOutputBuffer, Txi_Error); 
+		ErrorIndicationStatus = EiSent;
+		return; // no further processing because buffer may be full now.
+		}
+	
 	if (SerUmEmpfBitNr == SerUmEmpfFertig)
 		{
 		PufferSpeich(&ClientOutputBuffer, SerUmEmpfDaten | Txi_PrintcodeMin);
 		SerUmEmpfBitNr = SerUmEmpfWarte;
+		return; // no further processing because buffer may be full now.
 		}
-	else if (GetEmpfByte(&Kdo))
+		
+	if (GetEmpfByte(&Code))
 		{
-		TODO put other codes to the client buffer
-		}
+		switch (Code)
+			{
+			case Txi_ConnectMin ... Txi_ConnectMax:
+				if (BusVerbPartner == 0)
+					{ // new incoming connection
+					BusVerbPartner = Code << 1;
+					Status = (1 << StatBit_AngerufenBelegt);
+					PufferSpeich(&ClientOutputBuffer, Code);
+					}	
+				else // already another existing connection
+					{
+					RaiseError(Txi_ErrFlag_TwiCodeError);
+					}
+				break;
 				
+			case Txi_DirectMin ... Txi_DirectMax:
+				if (BusVerbPartner != 0)
+					{ // standard procedure for incoming command code
+					PufferSpeich(&ClientOutputBuffer, Code);
+					UpdateStatusOnBusCode(Code);
+					}	
+				else // BusVerbPartner == 0
+					{
+					RaiseError(Txi_ErrFlag_TwiCodeError);
+					}
+				break;
+
+			default:
+				RaiseError(Txi_ErrFlag_TwiCodeError);
+				break;
+			
+			} // switch (Code)
+
+		return; // no further processing because buffer may be full now.
+		} // GetEmpfByte(&Code)
+
+	// reset status for error display if error code was successfully sent to client
+	if (ErrorIndicationStatus == EiSent && PufferLeer(&ClientOutputBuffer))
+		ErrorIndicationStatus = EiNormal;
+	
 	} // ProcessTWItoClient()
 
 
 static void DoTWICommunication()
 	{
+	if (BusVerbPartner == 0)
+		{
+		wdt_reset(); // because no communication is expected
+		return; // incoming data is handled in ProcessTWItoClient
+		}
+
 	if (BusEmpfMark)
 		SET_BIT_Status(StatBit_FsBefEin);
 	else
@@ -412,7 +538,7 @@ static void DoTWICommunication()
 			if (SentLoopStatus == Mark1 || SentLoopStatus == Mark2)
 				BusSenden(BusKdoSpace);
 			else if (SentLoopStatus == Space1 && TimerVal(&TWICommTimer) > 0)
-					BusSenden(BusKdoSpaceWdh); // TODO small delay
+				BusSenden(BusKdoSpaceWdh); 
 			} // Space
 
 		} // Bus ist sendefähig	
@@ -426,23 +552,24 @@ static void DoTWICommunication()
 				{
 				case BusKdoSpace:
 					SentLoopStatus = Space1;
+					CLR_BIT_Status(StatBit_FsMeldEin);
 					break;
 				case BusKdoSpaceWdh:
 					SentLoopStatus = Space2;
 					break;
 				case BusKdoMark:
 					SentLoopStatus = Mark1;
+					SET_BIT_Status(StatBit_FsMeldEin);
 					break;
 				case BusKdoMarkWdh:
 					SentLoopStatus = Mark2;
 					break;
 				} // switch BusSendeDaten
-			} // letzte Bus-Sendung war fehlerfrei
+			} // command successfully sent on twi bus
 		BusAuftrag = Nichts;
 		}
 
-	if (BusVerbPartner > 0 
-		&& BusFrei 
+	if (BusFrei 
 		&& BusAuftrag == Nichts 
 		&& TimerVal(&TWICommTimer) > 891) // mind. alle 0,891 Sek senden
 		{
@@ -450,26 +577,25 @@ static void DoTWICommunication()
 		StartTimer(&TWICommTimer);
 		}
 	
-	if (BusVerbPartner == 0)
-		wdt_reset(); // because no communication is expected
-	
 	} // DoTWICommunication()
 
-
-
+	
 
 //! Main Programm
 
 int main()
 	{
 	// initializing everything
+	InitVariables();
+
 	InitPorts();
 	
-	InitBuffers();
-	
 	InitClientCom();
+
+	sei();
 	
-	// main loop
+	TwiActivate();
+	
 	while (true)
 		{
 		DoClientCommunication();
