@@ -1,6 +1,10 @@
 C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\AnalogModem2\default\AnalogModem2.hex .\TxP2_LeitungAnalog2.bin
 C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\ED1000\default\ED1000.hex .\TxP2_ED1000.bin
 C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\ED1000\FuerPrototyp\ED1000.hex .\TxP2_ED1000-PROTO.bin
+C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\ED1000\V.21\ED1000.hex .\TxP2_V21.bin
+C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\FernschrOhneFSG\default\FernschrOhneFSG.hex .\TxP2_OhneFSG.bin
+C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\FernschrOhneFSG\English\FernschrOhneFSG.hex .\TxP2_OhneFSG-EN.bin
+C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\FernschrOhneFSG\USTTY-45\FernschrOhneFSG.hex .\TxP2_OhneFSG-US45.bin
 C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\FernschrTW39\default\FernschrTW39.hex .\TxP2_TW39.bin
 C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\FernschrTW39\AltePlatine\FernschrTW39.hex .\TxP2_TW39-PL10.bin
 C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\FernschrTW39\USTTY-45\FernschrTW39.hex .\TxP2_TW39-US45.bin
