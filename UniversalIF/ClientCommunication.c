@@ -69,6 +69,11 @@ void InitClientCom()
 
 	UCSR0B = (1<<TXEN0)+(1<<RXEN0)+(0<<RXCIE0)+(0<<UCSZ02);
 	UCSR0C = (0<<UMSEL01)+(0<<UMSEL00)+(0<<UPM00)+(0<<UPM01)+(0<<USBS0)+(1<<UCSZ01)+(1<<UCSZ00);
+
+#ifdef HEX_FORMAT
+	HexNibbleOut = -1;
+	HexNibbleIn = -1;
+#endif //else !HEX_FORMAT
 	}
 
 

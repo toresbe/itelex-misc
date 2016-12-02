@@ -132,6 +132,7 @@ static void InitVariables()
 	BusEigenAdresse = eeprom_read_byte(&OwnAddress_EE) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
 		BusEigenAdresse = 99 << 1; // default
+	BusEigenAdrMehrfach = 1; // no multi Adress mode supported yet.
 	
 	DefaultStatus = (1 << StatBit_Frei) | (eeprom_read_byte(&DefaultStatus_EE) & 0x30);
 	Status = DefaultStatus;
@@ -145,7 +146,8 @@ static void InitVariables()
 
 	ErrorFlags = 0;
 
-	BusEigenAdrMehrfach = 1; // no multi Adress mode supported yet.
+	BusEmpfMark = true;
+	SentLoopStatus = Mark2;
 	
 	} // InitVariables()
 
@@ -165,6 +167,7 @@ static void InitVariables()
 static void InitPorts()
 	{
 	// Timer
+/* i don't need it, do i???
 #ifdef TCCR0A
 	TCCR0A = 0;
 	TCCR0B = TIMER0_CS; 
@@ -173,6 +176,7 @@ static void InitPorts()
 	TCCR0 = TIMER0_CS;
 	SET_BIT(TIMSK, TOIE0);
 #endif //def TCCR0A
+*/
 
 	SeriellUmsetzInit();
 
@@ -183,7 +187,7 @@ static void InitPorts()
 	MsTimerInit();
 
 	// Watchdog
-	wdt_enable(WDTO_2S); //! \todo check if software watchdog would be a better solution
+	//wdt_enable(WDTO_2S); //! \todo check if software watchdog would be a better solution
 	
 	}
 
@@ -503,6 +507,12 @@ static void ProcessTWItoClient()
 
 static void DoTWICommunication()
 	{
+	if (BusVerbPartner == 0)
+		{
+		wdt_reset(); // because no communication is expected
+		return; // incoming data is handled in ProcessTWItoClient
+		}
+
 	if (BusEmpfMark)
 		SET_BIT_Status(StatBit_FsBefEin);
 	else
@@ -559,17 +569,13 @@ static void DoTWICommunication()
 		BusAuftrag = Nichts;
 		}
 
-	if (BusVerbPartner > 0 
-		&& BusFrei 
+	if (BusFrei 
 		&& BusAuftrag == Nichts 
 		&& TimerVal(&TWICommTimer) > 891) // mind. alle 0,891 Sek senden
 		{
 		BusSenden(BusLebenszeichen);
 		StartTimer(&TWICommTimer);
 		}
-	
-	if (BusVerbPartner == 0)
-		wdt_reset(); // because no communication is expected
 	
 	} // DoTWICommunication()
 
