@@ -6,7 +6,8 @@ make -C FernschrTW39/default
 make -C FernschrTW39/DoppelAusgabe
 make -C FernschrTW39/USTTY-45
 make -C Messgeraet/default
-make -C SeriellUndSpeicher/default
-make -C SeriellUndSpeicher/OhneSpeicher
-make -C SeriellUndSpeicher/USTTY-45
+make -C SeriellUndSpeicher/PlatVer13
+make -C SeriellUndSpeicher/PlatVer21
+make -C SeriellUndSpeicher/OhneSpeicher13
+make -C SeriellUndSpeicher/USTTY-45_21
 make -C Wahlbruecke/default
