@@ -6,6 +6,7 @@ C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\FernschrTW39\default
 C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\FernschrTW39\AltePlatine\FernschrTW39.hex .\TxP2_TW39-PL10.bin
 C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\FernschrTW39\USTTY-45\FernschrTW39.hex .\TxP2_TW39-US45.bin
 C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\Messgeraet\default\Messgeraet.hex .\TxP2_Messgeraet.bin
+C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\Messgeraet\USTTY-45\Messgeraet.hex .\TxP2_Messgeraet-US45.bin
 C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\SeriellUndSpeicher\PlatVer13\SeriellUndSpeicher.hex .\TxP2_SeriellUndSpeicher.bin
 C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\SeriellUndSpeicher\PlatVer21\SeriellUndSpeicher.hex .\TxP2_SeriellUndSpeicher2.bin
 C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\SeriellUndSpeicher\USTTY-45_21\SeriellUndSpeicher.hex .\TxP2_SeriellUndSpeicher2-US45.bin
