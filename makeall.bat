@@ -9,6 +9,7 @@ make -C FernschrTW39/default
 make -C FernschrTW39/DoppelAusgabe
 make -C FernschrTW39/USTTY-45
 make -C Messgeraet/default
+make -C Messgeraet/USTTY-45
 make -C SeriellUndSpeicher/PlatVer13
 make -C SeriellUndSpeicher/PlatVer21
 make -C SeriellUndSpeicher/OhneSpeicher13
