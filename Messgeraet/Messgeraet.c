@@ -250,7 +250,7 @@ static void LEDAktualisieren()
 //! Schaltet LED entspechend der Status-Bits an.
 static void GeSendeText(char* s)
 	{
-	while (!GeSendePufferLeer())
+	while (!GeSendePufferLeer() && !KoAusschalten())
 		;
 	GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
 	while (*s != '\0')
@@ -264,7 +264,7 @@ static void GeSendeText(char* s)
 //! Sendet einen Text aus dem Programmspeicher an den Verbindungspartner.
 static void GeSendeTextP(PGM_P s)
 	{
-	while (!GeSendePufferLeer())
+	while (!GeSendePufferLeer() && !KoAusschalten())
 		;
 	GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
 	while (pgm_read_byte(s) != '\0')
@@ -898,6 +898,9 @@ static void PruefSendeZeichen(uint8_t Funktion, uint8_t Code, int8_t Zerrgrad)
 		else
 			GeSendeMark(false);
 			// Stop-Bit wird gesendet, weil entsprechendes Bit in Code gelöscht wurde...
+			
+		if (KoAusschalten())
+			break;
 		}
 	}
 
@@ -919,6 +922,9 @@ static void Pruefsendung(uint8_t Funktion)
 
 	for (Zerrgrad = ZerrgradMin[Funktion] ; Zerrgrad <= ZerrgradMax[Funktion] ; Zerrgrad++)
 		{
+		if (KoAusschalten())
+			break;
+		
 		GeSendeCode(TtyCodeWR);
 		GeSendeCode(TtyCodeZL);
 		GeSendeCode(TtyCodeZiUm);
@@ -926,6 +932,7 @@ static void Pruefsendung(uint8_t Funktion)
 		GeSendeZeichen(':');
 		GeSendeZeichen(' ');
 		GeSendeCode(TtyCodeBuUm);
+		
 		while (!GeSendePufferLeer())
 			;
 
@@ -933,6 +940,8 @@ static void Pruefsendung(uint8_t Funktion)
 
 		for (Pos = 0 ; Pos < 25 ; Pos++)
 			{
+			if (KoAusschalten())
+				break;
 			PruefSendeZeichen(Funktion, 0x0A, Zerrgrad); // R
 			PruefSendeZeichen(Funktion, 0x15, Zerrgrad); // Y
 			}
@@ -949,23 +958,23 @@ static void Pruefsendung(uint8_t Funktion)
 static void VerbindungTestsender()
 	{
 	GeSendeTextP(PSTR("\r\nPruefsender."));
-
-	while (true)
+	
+	while (!KoAusschalten())
 		{
 		char c;
 
+		while (KoEmpfZeichen(&c))
+			; // weitere empfangene Zeichen ignorieren
+	
 		GeSendeTextP(PSTR("\r\nFunktion waehlen:     "));
 
 		while (!KoEmpfZeichen(&c))
-			{
 			if (KoAusschalten())
-				{
-				GeAusschalten(false);
-				return;
-				}
-			}
+				break;
 
-		if (c >= '0' && c <= '9')
+		if (KoAusschalten())
+			break;
+		else if (c >= '0' && c <= '9')
 			Pruefsendung(c - '0');
 		else if (c == ' ' || c == '\r' || c == '\n')
 			; // ignorieren
@@ -989,9 +998,11 @@ static void VerbindungTestsender()
 			while (!GeSendePufferLeer())
 				;
 			}
-		while (KoEmpfZeichen(&c))
-			; // weitere empfangene Zeichen ignorieren
-		} // while true
+			
+		} // while (!KoAusschalten())
+			
+	GeAusschalten(true);
+	
 	} // VerbindungTestsender
 
 
