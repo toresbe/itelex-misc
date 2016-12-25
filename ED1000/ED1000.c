@@ -25,6 +25,8 @@
 #include "BaudotCode.h"
 #include "KonfigDialog.h"
 #include "LokalAusgabe.h"
+#include "LokalUhr.h"
+#include "Zeitsperre.h"
 
 #include "WaveTab.h"
 
@@ -109,6 +111,13 @@ const PROGMEM char Identifier[] = "___TxP2_ED1000___" __DATE__ "___" __TIME__ "_
 EEMEM uint8_t Platzhalter[4]; //!< Platzhalter, da Anfang des EEPROM gern von Störungen betroffen ist
 EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
 EEMEM uint8_t KommendSperreWahl_EE = 0; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
+EEMEM uint16_t Sperrzeit_EE[10];
+
+
+// Typen
+// -----
+
+typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrund;
 
 
 // Variablen
@@ -131,6 +140,7 @@ static volatile uint8_t EmpfBufSchreibI;
 
 static uint8_t EmpfBufLeseI;
 	//!< Index für das Auslesen von Werten aus #EmpfBuf.
+
 
 //! Initialisiert Zeitgeber.
 void InitTimer()
@@ -612,6 +622,8 @@ static void VerbindungSteht(bool AutoKennungAbfrage);
 
 static void Deaktivieren(bool WegenTimeout);
 
+static void KommendSperren(TSperreGrund Grund);
+
 
 /////////////////////////////////////////////////////////////
 
@@ -631,8 +643,9 @@ static void VerbindungKommend()
 	if (!ED1000Einschalten())
 		{ // Timeout...
 		clr_LEDGRUEN();
-		GeAusschalten(true); // TODO wird von SeriellUndSpezial nicht quittiert!
-		Deaktivieren(true);
+		GeAusschalten(true); 
+		//Deaktivieren(true); //! \todo testen ob dies korrekt funktioniert.
+		KommendSperren(SperreStoerung);
 		return;
 		}
 
@@ -744,9 +757,6 @@ static bool WahlMitTastatur()
 	}
 	
   
-static void KommendSperren();
-
-
 /////////////////////////////////////////////////////////////
 
 //! Wickelt ausgehende Verbdindungen vollständig ab.
@@ -780,7 +790,7 @@ static void VerbindungGehend()
 			if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
 				{
 				clr_LEDGELB();
-				KommendSperren();
+				KommendSperren(SperreWahl);
 				}
 				
 			return;
@@ -927,6 +937,11 @@ static void Konfiguration()
 
 	LokalTextAusgabeP(OkStrP);
 	
+	if (!SperrzeitEingabeDialog())
+		return;
+	
+	SperrzeitSpeicherEeprom();
+	
 	// weitere Eingaben
 
 	LokalTextAusgabeP(PSTR("\r\n +++ \r\n"));
@@ -954,12 +969,20 @@ static void KonfigurationEnde()
 //! Kann durch Wahl einer entsprechenden Ziffernfolge aufgerufen werden oder
 //! durch Tastendruck an der Platine.
 	
-static void KommendSperren()
+static void KommendSperren(TSperreGrund Grund)
 	{
 	TMsTimer BlinkTimer;
+	uint8_t BlinkTaktFaktor;
 	
 	StartTimer(&BlinkTimer);
 	Aktivieren(false);
+	
+	if (Grund == SperreTaste || Grund == SperreWahl)
+		BlinkTaktFaktor = 2;
+	else if (Grund == SperreZeit)
+		BlinkTaktFaktor = 4;
+	else
+		BlinkTaktFaktor = 1;
 	
 	while (true)
 		{
@@ -967,6 +990,7 @@ static void KommendSperren()
 		if (Tastendruck != NichtGedr)
 			{
 			Tastendruck = NichtGedr;
+			//! \todo Zeitgesteuerte Sperre begrenzt deaktivieren
 			break;
 			}
 			
@@ -974,12 +998,23 @@ static void KommendSperren()
 		if (MeldungEingeschaltet)
 			break;
 			
-		if (TimerVal(&BlinkTimer) > 1000)
+		if (TimerVal(&BlinkTimer) > 500 * BlinkTaktFaktor)
 			StartTimer(&BlinkTimer);
-		else if (TimerVal(&BlinkTimer) > 500)
+		else if (TimerVal(&BlinkTimer) > 200 * BlinkTaktFaktor)
 			set_LEDBLAU();
 		else
 			clr_LEDBLAU();
+		
+		if (RundsendAnzDaten > 0)
+			{
+			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
+				{
+				if (Grund == SperreZeit && !SperrzeitAktiv())
+					break;
+				}
+			// else Daten anderwertig auswerten
+			}
+		
 		}
 		
 	clr_LEDBLAU();
@@ -1009,7 +1044,7 @@ static void Deaktivieren(bool WegenTimeout)
 	clr_LEDROT();
 
 	if (!WegenTimeout)
-		KommendSperren();
+		KommendSperren(SperreTaste);
 		
 	} // Deaktivieren
 
@@ -1051,11 +1086,14 @@ int main()
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
 		BusEigenAdresse = 51 << 1; // Standardwert
 	BusEigenAdrMehrfach = 1;
+	RundsendEmpfFreig = true;
 	
 	KommendSperreWahl = eeprom_read_byte(&KommendSperreWahl_EE);
 	if (KommendSperreWahl > 99)
 		KommendSperreWahl = 0;
 
+	SperrzeitLadeEeprom();
+	
 	BefehlEinschalten = false;
 	BefehlMark = true;
 	MeldungEingeschaltet = false;
@@ -1206,7 +1244,22 @@ int main()
 			{
 			VerbindungKommend();
 			}
+
+		// Rundsendedaten auswerten:
+		if (RundsendAnzDaten > 0)
+			{
+			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
+				{
+				if (SperrzeitAktiv())
+					KommendSperren(SperreZeit);
+				}
+			else
+				; // keine Ahnung, was hier gesendet wurde, ist aber auch egal...
+				
+			RundsendAnzDaten = 0;
+			}
 		
+			
 		} // while (1)
 	} // main()
 

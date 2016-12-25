@@ -5,6 +5,9 @@
 #include <inttypes.h>
 #include <avr/pgmspace.h>
 
+extern void LokalZeichenAusgabe(char c); 
+// muss vom Anwendung beigestellt werden!
+
 extern void LokalTextAusgabeP(PGM_P s);
 
 extern void LokalTextAusgabe(char* s);

@@ -10,6 +10,7 @@ extern uint8_t Monat;
 extern uint8_t Tag;
 extern uint8_t Stunde; 
 extern uint8_t Minute;
+extern uint8_t Wochentag;
 
 extern void LokalUhrInit();
 

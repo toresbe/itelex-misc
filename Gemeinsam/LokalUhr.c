@@ -7,7 +7,7 @@ uint8_t Monat; //!< aktueller Monat
 uint8_t Tag; //!< aktueller Tag. Auch Kennzeichen für überhaupt gesetztes Datum (wenn >0)
 uint8_t Stunde; //!< aktuelle Stunde
 uint8_t Minute; //!< aktuelle Minute
-
+uint8_t Wochentag; //!< Aktueller Wochentag.
 
 //! Initialisiert alles
 //---------------------------------------------------------------------
@@ -19,6 +19,7 @@ void LokalUhrInit()
 	Tag = 0;
 	Stunde = 0;
 	Minute = 0;
+	Wochentag = 0;
 	}
 	
 
@@ -37,6 +38,8 @@ bool LokalUhrPruefeRundsendung(uint8_t *buf, uint8_t anz)
 		Tag = buf[5];
 		Stunde = buf[6];
 		Minute = buf[7];
+		if (anz >= 9)
+			Wochentag = buf[8];
 		return true;
 		}
 	else
