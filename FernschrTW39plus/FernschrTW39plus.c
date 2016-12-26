@@ -75,7 +75,6 @@ PROGMEM const char Identifier[] = "___itlx_TW39plus___" __DATE__ "___" __TIME__ 
 // Eeprom-Speicher
 // ---------------
 
-EEMEM uint8_t Platzhalter[4]; //!< Platzhalter, da Anfang des EEPROM gern von Störungen betroffen ist
 EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
 EEMEM uint8_t MitWaehlscheibe_EE = 1; //!< Hat das Gerät eine Wählscheibe
 EEMEM uint8_t WahlauffordImpulsLaenge_EE = 30; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
@@ -1017,11 +1016,6 @@ __attribute__ ((noreturn)) int main()
 	wdt_enable(WDTO_2S);
 #endif //NOWATCHDOG
 
-	// nur für den Simulator:
-	PINB = 0xFF;
-	PINC = 0xFF;
-	PIND = 0xFF;
-
 	// Ports initialisieren
 	init_LEDROT();
 	init_LEDGELB();
@@ -1044,7 +1038,7 @@ __attribute__ ((noreturn)) int main()
 	MsTimerInit();
 
 	SperrzeitInit();
-	
+
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
 		BusEigenAdresse = 31 << 1; // Standardwert

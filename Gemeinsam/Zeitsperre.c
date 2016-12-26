@@ -104,7 +104,7 @@ bool SperrzeitEingabeDialog()
 	{
 	uint8_t i;
 	
-	LokalTextAusgabeP("\r\n zeiten vierstellig eingeben");
+	LokalTextAusgabeP(PSTR("\r\n zeiten vierstellig eingeben"));
 	for (i = 0 ; i < 2 ; i++)
 		{
 		LokalTextAusgabeP(PSTR("\r\n sperrzeit "));
