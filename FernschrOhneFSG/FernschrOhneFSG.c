@@ -1131,7 +1131,7 @@ static void Deaktivieren(bool WegenTimeout)
 	clr_LEDROT();
 
 	if (!WegenTimeout)
-		KommendSperren();
+		KommendSperren(SperreStoerung);
 		
 	} // Deaktivieren
 
