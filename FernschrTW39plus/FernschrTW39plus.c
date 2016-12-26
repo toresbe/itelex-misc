@@ -1,8 +1,8 @@
 //================================================================
-// Fernschreiber-Schnittstelle ED1000 für TxP2-System
-//	für ATmega168 auf Platine ED1000
+// Fernschreiber-Schnittstelle TW39 für TxP2-System
+//	für ATmega8 auf Platine FernschrTW39
 //================================================================
-
+//		
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
@@ -25,16 +25,18 @@
 #include "BaudotCode.h"
 #include "KonfigDialog.h"
 #include "LokalAusgabe.h"
-#include "LokalUhr.h"
-#include "Zeitsperre.h"
-
-#include "WaveTab.h"
 
 #include "../SvnVersion.h"
 
 
 // Schalter für Code-Varianten
 // ===========================
+
+//#define PARALLELAUSGABE
+	//!< Für Platine TW39doppel: Sendung und Empfang wird auf der zweiten 
+	//!< Schnittstelle mitprotokolliert. Dann darf der Kontroller der 
+	//!< zweiten Schnittstelle nicht bestückt sein.
+	// 
 
 //#define FALSCHKDO_FEHLERSTOP
 	//!< Unpassende Kommandos auf dem I²C-Bus werden mit Fehlerstop quittiert.
@@ -50,59 +52,22 @@
 	//!< Status Mark / Space regelmäßig senden.
 #endif //TWI_DEBUG
 
+
 // #define LEDROT_BEI_UNERWARTETWDH
 	//!< LED rot wird eingeschaltet, wenn BusKdoSpaceWdh oder BusKdoMarkWdh empfangen wird, ohne
 	//!< das entsprechendes "Haupt-Kommando" empfangen wurde.
 
+
 //#define NOWATCHDOG
 	//!< Watchdog abgeschaltet
 
-//#define V21
-	// macht andere Frequenzen
-	
-//! Marker im Code als Identifikation
 
 #ifdef PROGIDZUSATZ
-
-#ifdef V21	
-const PROGMEM char Identifier[] = "___TxP2_V21-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+//! Marker im Code als Identifikation
+PROGMEM const char Identifier[] = "___TxP2_TW39-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #else
-const PROGMEM char Identifier[] = "___TxP2_ED1000-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
-#endif 
-
-#else
-
-#ifdef V21	
-const PROGMEM char Identifier[] = "___TxP2_V21___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
-#else
-const PROGMEM char Identifier[] = "___TxP2_ED1000___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
-#endif 
-
-#endif //def PROGIDZUSATZ
-
-// Einstellungen für Timer 1: Sinus-Ausgabe und ADC-Start und Empfangsfilterung
-// ----------------------------------------------------------------------------
-
-#define TIMER1_PRESCALER 8
-#define TIMER1_CS TCCR_DIV(1, 8)
-#define TIMER1_FREQ (F_CPU / TIMER1_PRESCALER)
-
-#ifdef V21
-	#define TIMER1_OCR (147 - 1)
-	#define TIMER1_OCFREQ (TIMER1_FREQ / (TIMER1_OCR + 1))
-#else
-	#define TIMER1_OCFREQ 12800
-	#define TIMER1_OCR (TIMER1_FREQ / TIMER1_OCFREQ - 1)
-#endif
-
-// Sendefrequenzen
-// ----------------
-#ifdef V21
-	#define SEND_MARK_FAKTOR 10
-	#define SEND_SPACE_FAKTOR 12
-#else
-	#define SEND_MARK_FAKTOR 7
-	#define SEND_SPACE_FAKTOR 5
+//! Marker im Code als Identifikation
+PROGMEM const char Identifier[] = "___TxP2_TW39___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif
 
 // Eeprom-Speicher
@@ -110,91 +75,16 @@ const PROGMEM char Identifier[] = "___TxP2_ED1000___" __DATE__ "___" __TIME__ "_
 
 EEMEM uint8_t Platzhalter[4]; //!< Platzhalter, da Anfang des EEPROM gern von Störungen betroffen ist
 EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
+EEMEM uint8_t MitWaehlscheibe_EE = 1; //!< Hat das Gerät eine Wählscheibe
+EEMEM uint8_t WahlauffordImpulsLaenge_EE = 30; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
 EEMEM uint8_t KommendSperreWahl_EE = 0; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
-EEMEM uint16_t Sperrzeit_EE[10] = { 0 } ;
-
-
-// Typen
-// -----
-
-typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrund;
 
 
 // Variablen
 // ---------
 
-static volatile uint8_t SinAusgI; //!< Zeiger auf die Sinus-Ausgabetabelle. Wird im Timerinterrupt inkrementiert.
-
-static volatile uint8_t SinAusgInc; 
-	//!< Inkrement des Zeiger auf die Sinus-Ausgabetabelle je Timerinterrupt-Aufruf.
-	//!< Bestimmt die Ausgabefrequenz: f = #TIMER1_OCFREQ * #SinAusgInc / Sinus63Len (=128)
-
-#define EMPFBUFSIZE (1<<5)
-	//!< Größe des Puffers für ADC-Messwerte. Muss Potenz von 2 sein.
-
-static volatile int8_t EmpfBuf[EMPFBUFSIZE];
-	//!< Puffer für ADC-Messwerte. 
-
-static volatile uint8_t EmpfBufSchreibI;
-	//!< Index für das Eintragen von Werten in #EmpfBuf.
-
-static uint8_t EmpfBufLeseI;
-	//!< Index für das Auslesen von Werten aus #EmpfBuf.
-
-
-//! Initialisiert Zeitgeber.
-void InitTimer()
-	{
-	SinAusgI = 0;
-	SinAusgInc = 0;
-	EmpfBufLeseI = 0;
-	EmpfBufSchreibI = 0;
-	TCCR1A = (0<<WGM11) | (0<<WGM10); // CTC Mode
-	TCCR1B = (0<<WGM13) | (1<<WGM12) | TIMER1_CS; // CTC Mode
-	TCCR1C = 0;
-	OCR1A = TIMER1_OCR; 
-	SET_BIT(TIMSK1, OCIE1A);
-	}
-
-
-//! Initialisiert ADC-Wandler.
-void InitADC()
-	{
-	ADMUX = (0<<REFS1) | (1<<REFS0) | (1<<ADLAR) | (0b0000<<MUX0);
-
-	ADCSRA = (1<<ADEN) | (1<<ADSC) | (0<<ADATE) | (0<<ADIE) | (1<<ADPS2) | (1<<ADPS1) | (0<<ADPS0);
-
-	while (BIT_IS_SET(ADCSRA, ADSC))
-		;
-
-	SET_BIT(ADCSRA, ADIF);
-	//SET_BIT(ADCSRA, ADIE);
-
-	DIDR0 = 1; // Digital-Eingabg Bit 0 deaktivieren
-
-	}
-
-	
-//! Interrupt-Routine für TIMER1. 
-//-------------------------------
-//! Wird mit der Frequenz #TIMER1_OCFREQ aufgerufen.
-//! Schreibt ADC-Werte in den Puffer und startet den ADC neu.
-//! Errechnet neuen Index in Sinus-Ausgabetabelle und gibt ermittelten Tabelleneintrag 
-//! auf der Schnittstelle aus (R2R-Netzwerk).
-ISR(TIMER1_COMPA_vect)
-	{
-	// letztes AD-Ergebnis retten
-	EmpfBuf[EmpfBufSchreibI++] = ADCH - 128;
-	EmpfBufSchreibI &= (EMPFBUFSIZE-1);
-
-	SinAusgI += SinAusgInc;
-	SinAusgI &= (Sinus63Len-1);
-
-	PORTB = pgm_read_byte(&Sinus63[SinAusgI]);
-
-	SET_BIT(ADCSRA,	ADSC); // AD-Wandler starten (dabei wird ADIF mit gelöscht!)
- 
-	}
+bool MitWaehlscheibe; //!< Gerät het eine Wählscheibe
+uint8_t WahlauffordImpulsLaenge; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
 
 
 bool BefehlEinschalten; //!< Fs soll laufen
@@ -202,219 +92,162 @@ bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
 bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
 bool MeldungMark; //!< Fs Schleifenstrom ist Ein
 
-bool EmpfangMark; //!< ist false, wenn Endgerät ausgeschaltet oder Endgerät Space sendet
-bool SpaceSperre; //!< Wird gesetzt, wenn die empfangene Space-Frequenz trotzdem als Mark gewertet werden soll.
+TMsTimer AusschaltungTimer; //!< Zählt die Millisekunden von Schleifenunterbrechung bis Ausschaltung
+TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port bis tatsächlichem Pegelwechsel
 
-int8_t x0, x1, x2, ym0, ym1, ym2, ys0, ys1, ys2; 
-	//!< Alles Zwischenwerte für den digitalen Filter
 
-uint8_t PegelGlaettZaehl;
-	//!< Zähler zur Filterung von kurzen Mark-Space-Wechseln.
-
-#define PEGEL_GLAETT 50
-	//!< Grenzwert für #PegelGlaettZaehl.
-	//!< Verursachte Verzögerung: PEGEL_GLAETT / TIMER1_OCFREQ, also 4 ms.
-
-uint16_t EinAusschaltZaehl;
-	//!< Zähler für die Ermittlung von Ein- und Ausschaltungen. Dies sind
-	//!< langandauernde Wechsel der Empfangsfrequenz.
-
-#define EINSCHALT_VERZ (TIMER1_OCFREQ / 10) 
-	//!< Grenzwert für Einschaltung bei EinAusschaltZaehl. 1/10 sek. Mark-Frequenz = ein.
-	
-#define AUSSCHALT_VERZ (TIMER1_OCFREQ / 2) 
-	//!< Grenzwert für Ausschaltung bei EinAusschaltZaehl. 1/2 sek. Space = aus.
-
-#define UEBERSTEUER_GRENZE 90
-	//!< Grenzwert der Aussteuerung (maximal möglich 127) für das Ansprechen der
-	//!< roten LED bei Überlauf der digitalen Filterberechnung.
-
-uint8_t UebersteuerWarnZaehl;
-	//!< Zähler für die Verlängerung des Leuchtens der roten LED bei drohendem 
-	//!< Überlauf der digitalen Filterberechnung.
-
-#define UEBERSTEUER_ZAEHLMAX 40
-	//!< Grenzwert für UebersteuerWarnZaehl. Ein Überschreiten der Amplitude (#UEBERSTEUER_GRENZE)
-	//!< lässt rote LED 40 Zyklen leuchten (4 ms).
-
-//! Initialisiert die Schnittstelle zum Endgerät.
-//-----------------------------------------------
-//! Initialisierung des digitalen Filters. Initialisierung der Sinus-Ausgabe.	
-static void ED1000Init()
-	{
-	x0 = x1 = x2 = ym0 = ym1 = ym2 = ys0 = ys1 = ys2 = 0;
-	EmpfangMark = false;
-	BefehlEinschalten = false;
-	MeldungEingeschaltet = false;
-	BefehlMark = true;
-	MeldungMark = true;
-	}
-	
-	
 ///////////////////////////////////////////////////////////////////////////////
 
 //! bedient Hardware-IO entsprechend der aktuellen Zustände.
-//----------------------------------------------------------
-//! setzt die Ausgabefrequenz entsprechend BefehlEinschalten und BefehlMark,
-//! setzt MeldungEingeschaltet und MeldungMark entsprechend der empfangenen Frequenz,
-//! steuert die Status-LEDs
-static void ED1000IO()
+
+/*!
+ * setzt FS_AKTIV und FS_AUSG entsprechend BefehlEinschalten und BefehlMark,
+ * setzt MeldungEingeschaltet und MeldungMark entsprechend FS_EING,
+ * steuert die Status-LEDs
+ */ 
+
+static void TW39IO()
 	{
-	if (BefehlEinschalten && BefehlMark)
-		SinAusgInc = SEND_MARK_FAKTOR;
-	else
-		{
-		SinAusgInc = SEND_SPACE_FAKTOR;
-		SpaceSperre = true;
-		}
-		
-	// Messungen auswerten
-	uint8_t AnzMesswerte = 0;
-	
-	while (EmpfBufLeseI != EmpfBufSchreibI)
-		{
-		x0 = EmpfBuf[EmpfBufLeseI++];
-		EmpfBufLeseI &= (EMPFBUFSIZE-1);
-
-		// Filterung: Parameter wurden mit dem Programm WinFilter errechnet.
-
-#ifdef V21
-		// MARK: 
-		// Einstellungen: Samplerate = 12539, IIR Bandpass Butterworth  f1 = 1680, f2 = 1750, Order = 1, 8 Bit
-		// Ergebnis aus generiertem C-Code: 
-		//		__int8 ACoef[NCoef+1] = {  73,   0, -73 };
-		//		__int8 BCoef[NCoef+1] = {  64, -82,  61 };
-		// --> ym0 = (73 * (x0 - x2) + 82 * ym1 - 102 * ym2) / 64;
-		//           A0;A2            -B1         -B2          B0
-		// Zur Vermeidung von Überlauf bei 8-Bit-Berechnungen alle A-Koeffizienten / 3 und alle B-Koeffizienten * 4
-		// --> ys0 = (24 * (x0 - x2) + 328 * ym1 - 244 * ym2) / 256;
-		//           A0;A2/3          -B1*4       -B2*4       B0*4     
-		//                      328 = 256 + 72
-		int16_t h =  (24 * (x0 - x2) +  72 * ym1 - 244 * ym2);
-		ym0 = (h >> 8) + ym1; // <- hier kommen die fehlenden 256 * ym1 aus der Berechnung von h nachträglich dazu.
-		
-		// SPACE: 
-		// Einstellungen: Samplerate = 12539, IIR Bandpass Butterworth  f1 = 1900, f2 = 1950, Order = 1, 8 Bit
-		// Ergebnis aus generiertem C-Code: 
-		//		__int8 ACoef[NCoef+1] = {  95,   0, -95 };
-		//		__int8 BCoef[NCoef+1] = {  64, -72,  62	};
-		// --> ys0 = (95 * (x0 - x2) + 72 * ys1 - 62 * ys2) / 64;
-		//           A0/A2            -B1        -B2          B0
-		// Zur Vermeidung von Überlauf bei 8-Bit-Berechnungen alle A-Koeffizienten / 3 und alle B-Koeffizienten * 4
-		// --> ys0 = (32 * (x0 - x2) + 288 * ys1 - 248 * ys2) / 256;
-		//           A0;A2/3          -B1*4       -B2*4         B0*4
-		//                      288 = 256 + 32
-		         h = (32 * (x0 - x2)  + 32 * ys1 - 248 * ys2);
-		ys0 = (h >> 8) + ys1; // <- hier kommen die fehlenden 256 * ys1 aus der Berechnung von h nachträglich dazu.
-		
-#else		
-		// SPACE: 
-		// Einstellungen: Samplerate = 12800, IIR Bandpass Butterworth  f1 = 2150, f2 = 2650, Order = 1, 8 Bit
-		// Ergebnis aus generiertem C-Code: 
-		//		__int8 ACoef[NCoef+1] = {  67,   0, -67 };
-		//		__int8 BCoef[NCoef+1] = { 128, -87,  99	};
-		// --> ys0 = (67 * (x0 - x2) + 87 * ys1 - 99 * ys2) / 128;
-		//           A0/A2            -B1        -B2           B0
-		// Zur Vermeidung von Überlauf bei 8-Bit-Berechnungen alle A-Koeffizienten / 2
-		// --> ys0 = (33 * (x0 - x2) + 87 * ys1 - 99 * ys2) / 128;
-		//           A0/A2            -B1        -B2           B0
-		int16_t h = (33 * (x0 - x2) + 87 * ys1 - 99 * ys2);
-		ys0 = h >> 7;
-
-		// MARK: 
-		// Einstellungen: Samplerate = 12800, IIR Bandpass Butterworth  f1 = 3150, f2 = 3600, Order = 1, 8 Bit
-		// Ergebnis aus generiertem C-Code: 
-		//		__int8 ACoef[NCoef+1] = {  80,   0, -80 };
-		//		__int8 BCoef[NCoef+1] = { 128,  19, 102 };
-		// --> ym0 = (80 * (x0 - x2) - 19 * ym1 - 102 * ym2) / 128;
-		//           A0/A2            -B1        -B2           B0
-		// Zur Vermeidung von Überlauf bei 8-Bit-Berechnungen alle A-Koeffizienten / 2
-		// --> ym0 = (40 * (x0 - x2) - 19 * ym1 - 102 * ym2) / 128;
-		//           A0/A2            -B1        -B2           B0
-		h = (40 * (x0 - x2) - 19 * ym1 - 102 * ym2);
-		ym0 = h >> 7;
-		
-#endif //ndef V21
-
-		if (ys0 > UEBERSTEUER_GRENZE || ys0 < -UEBERSTEUER_GRENZE 
-			|| ym0 > UEBERSTEUER_GRENZE || ym0 < -UEBERSTEUER_GRENZE)
-			UebersteuerWarnZaehl = UEBERSTEUER_ZAEHLMAX;
-		else if (UebersteuerWarnZaehl > 0)
-			UebersteuerWarnZaehl--;
-		bset_LEDROT(UebersteuerWarnZaehl != 0);
-			
-		x2 = x1; x1 = x0;
-		ym2 = ym1; ym1 = ym0;
-		ys2 = ys1; ys1 = ys0;
-
-		// Gleichrichten:
-		if (ym0 < 0) ym0 = -ym0;
-		if (ys0 < 0) ys0 = -ys0;
-
-		if (ym0 > ys0)
-			// Mark über Space
-			if (PegelGlaettZaehl < PEGEL_GLAETT)
-				PegelGlaettZaehl++;
-			else
-				EmpfangMark = true;
-		else
-			// Space über Mark
-			if (PegelGlaettZaehl > 0)
-				PegelGlaettZaehl--;
-			else
-				EmpfangMark = false;
-				
-		AnzMesswerte++;
-		}
-		
-	if (EmpfangMark)
-		{
-		MeldungMark = true;
-		SpaceSperre = false;
-		}
-	else if (SpaceSperre)
-		MeldungMark = true;
-	else
-		MeldungMark = false;
-		
-	// Entscheidung Aus oder Ein (unabhängig von SpaceSperre)
-	if (EmpfangMark)
-		{ // kann nur bei Einschaltung anstehen
-		if (MeldungEingeschaltet)
-			EinAusschaltZaehl = 0; // ist schon an, nix tun...
-		else if (EinAusschaltZaehl + AnzMesswerte >= EINSCHALT_VERZ)
-			{
-			MeldungEingeschaltet = true;
-			EinAusschaltZaehl = 0;
-			}
-		else
-			EinAusschaltZaehl += AnzMesswerte;
-		}
-	else
-		{ // Kann Space oder Ausschaltung sein
-		if (!MeldungEingeschaltet)
-			EinAusschaltZaehl = 0; // ist schon aus, nix tun...
-		else if (EinAusschaltZaehl + AnzMesswerte >= AUSSCHALT_VERZ)
-			{
-			MeldungEingeschaltet = false;
-			EinAusschaltZaehl = 0;
-			}
-		else
-			EinAusschaltZaehl += AnzMesswerte;
-		}
+	// Pegel & Polung ausgeben
+	// -----------------------
+	bset_FS_AKTIV(BefehlEinschalten);
+	#ifdef PARALLELAUSGABE
+		bset_FS2_AKTIV(BefehlEinschalten);
+	#endif //def PARALLELAUSGABE
 
 	if (BefehlEinschalten)
 		bset_LEDBLAU(!BefehlMark);
+	bset_FS_AUSG(BefehlMark);
+	#ifdef PARALLELAUSGABE
+		bset_FS2_AUSG(BefehlMark);
+	#endif //def PARALLELAUSGABE
 
-	if (MeldungEingeschaltet)
-		{
-		if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
-			bset_LEDGELB(!MeldungMark);
+#define NEU
+
+#ifdef NEU
+	// Schleifenstrom auswerten: Einschaltung oder nicht
+	// -------------------------------------------------
+	if (get_FS_EING())
+		{ // Schleifenstrom ist aus (negierter Eingang)
+		if (MeldungEingeschaltet)
+			{
+			if (TimerVal(&AusschaltungTimer) > 800) // mehr als 800 ms kein Strom --> aus
+				MeldungEingeschaltet = false;
+			} 
 		else
-			bset_LEDGRUEN(!MeldungMark);
+			StartTimer(&AusschaltungTimer); // Meldung und tatsächlicher Zustand stimmen überein
 		}
-	}
+	else
+		{ // Schleifenstrom ist ein
+		if (!MeldungEingeschaltet)
+			{
+			if (TimerVal(&AusschaltungTimer) > 5) // mehr als 5 ms Strom --> ein
+				MeldungEingeschaltet = true;
+			} 
+		else
+			StartTimer(&AusschaltungTimer); // Meldung und tatsächlicher Zustand stimmen überein
+		} // else Schleifenstrom ist ein
+		
+	// Schleifenstrom auswerten: Mark / Space
+	// --------------------------------------
+	if (!BefehlMark || !MeldungEingeschaltet)
+		{
+		MeldungMark = true; // Beim Senden von Space ist kein Empfang möglich --> Grundstellung
+		StartTimer(&EntprellungTimer);
+		}
+	else
+		{ // sinnvolle Auswertung des Schleifenstroms möglich
+		if (get_FS_EING())
+			{ // Strom ist aus --> Space
+			if (MeldungMark)
+				{ // der Applikation wird noch Mark gemeldet
+				if (TimerVal(&EntprellungTimer) > 3) // mindestens 3 ms konstant Space --> Space melden
+					MeldungMark = false;
+				}
+			else // !MeldungMark
+				StartTimer(&EntprellungTimer); // Regelzustand bei Space: Space wird auch gemeldet
+			} // Strom ist aus
+		else // !get_FS_EING()
+			{ // Schleifenstrom fließt
+			if (!MeldungMark)
+				{ // der Applikation wird noch Space gemeldet
+				if (TimerVal(&EntprellungTimer) > 3) // mindestens 3 ms konstant Mark --> Mark melden
+					MeldungMark = true;
+				}
+			else // MeldungMark
+				StartTimer(&EntprellungTimer); // Regelzustand bei Mark: Mark wird auch gemeldet
+			} // else !get_FS_EING() == Schleifenstrom fließt
+		} // else BefehlMark && MeldungEingeschaltet
+	
+#else
+	// Schleifenstrom auswerten
+	// ------------------------
+	if (BefehlMark || !MeldungEingeschaltet)
+		{
+		if (get_FS_EING())
+			{ // Strom ist aus --> Space
+			if (!MeldungEingeschaltet || TimerVal(&AusschaltungTimer) > 500)
+				{ // mehr als 0,5 s Stromunterbrechung --> Ausschalten
+				MeldungEingeschaltet = false;
+				MeldungMark = true;
+				StartTimer(&EntprellungTimer);
+				}
+			else if (MeldungMark)
+				{ // der Applikation wird noch Mark gemeldet
+				if (TimerVal(&EntprellungTimer) > 3)
+					{ // mindestens 3 ms konstant Space --> Space melden
+					MeldungMark = false;
+					}
+				}
+			else // !MeldungMark
+				{ // Regelzustand bei Space: Space wird auch gemeldet
+				StartTimer(&EntprellungTimer);
+				}
+			} // Strom ist aus
+		else // !get_FS_EING
+			{ // Schleifenstrom fließt
+			if (!MeldungMark)
+				{ // der Applikation wird noch Space gemeldet
+				if (TimerVal(&EntprellungTimer) > 3)
+					{ // mindestens 3 ms konstant Mark --> Mark melden
+					MeldungMark = true;
+					}
+				}
+			else // MeldungMark
+				{ // Regelzustand bei Mark: Mark wird auch gemeldet
+				if (!MeldungEingeschaltet)
+					{ // erst mal stabile Einschaltung abwarten...
+					if (TimerVal(&EntprellungTimer) > 100)
+						{
+						MeldungEingeschaltet = true;
+						StartTimer(&AusschaltungTimer);
+						}
+					else
+						; // warten
+					}
+				else // ist schon Eingeschaltet (Meldung)
+					{ 
+					StartTimer(&AusschaltungTimer);
+					StartTimer(&EntprellungTimer);
+					}
+				}
+			} // else !get_FS_EING
+		} // else FsSendMark --> Schleife ist Schnittstellen-Ausgabeseitig ein
+	else // !BefehlMark && MeldungEingeschaltet
+		{
+		MeldungMark = true; // nur Simplex-Modus
+		StartTimer(&EntprellungTimer);
+		StartTimer(&AusschaltungTimer);
+		}
+#endif
 
+	if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
+		bset_LEDGELB(!MeldungMark);
+	else // !BIT_IS_SET(Status, StatBit_AngerufenBelegt))
+		bset_LEDGRUEN(!MeldungMark);
+
+	} // TW39IO
+	
 	
 uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 
@@ -427,7 +260,7 @@ char BuZiMode; //!< Marker für Buchstaben-Ziffern-Umschaltung.
 //-------------------------------
 //! \returns Einschaltung wurde erfolgreich durch Endgerät quittiert.
 
-static bool ED1000Einschalten()
+static bool TW39Einschalten()
 	{
 	TMsTimer StabilTimer;
 	TMsTimer AbbruchTimer;
@@ -438,14 +271,14 @@ static bool ED1000Einschalten()
 		{
 		BefehlEinschalten = true;
 		BefehlMark = true;
-		ED1000IO();
+		TW39IO();
 		if (!MeldungEingeschaltet)
 			StartTimer(&StabilTimer);
 		if (TimerVal(&AbbruchTimer) > 7000)
 			{
 			BefehlEinschalten = false;
 			BefehlMark = true;
-			ED1000IO();
+			TW39IO();
 			return false;
 			}
 		} while (TimerVal(&StabilTimer) < 300);
@@ -457,19 +290,19 @@ static bool ED1000Einschalten()
 
 //! Ausschaltung des Fs auslösen.
 
-static void ED1000Ausschalten()
+static void TW39Ausschalten()
 	{
 	TMsTimer Timer;
 	
 	if (MeldungEingeschaltet && !BefehlEinschalten)
-		ED1000Einschalten(); // Rückgabewert ignorieren
+		TW39Einschalten(); // Rückgabewert ignorieren
 
 	StartTimer(&Timer);
 	do
 		{
 		BefehlEinschalten = false;
 		BefehlMark = true;
-		ED1000IO();
+		TW39IO();
 		if (MeldungEingeschaltet)
 			StartTimer(&Timer);
 		}
@@ -483,7 +316,7 @@ static void ED1000Ausschalten()
 //---------------------------------------------
 //! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
 
-void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ )
+__attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ ) 
 	// Fehler-Codes: 
 	// 1: Bus-Empfang trotz Sperre
 	// 2: General Call ohne entsprechende Freigabe
@@ -506,11 +339,7 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
-#ifdef TASTE_NACH_PLUS
-			if (get_TASTE())
-#else
-			if (!get_TASTE())
-#endif
+			if (get_TASTE()) //! \todo umgekehrte Tastenpolarität prüfen
 				{ // Taste nicht gedrückt
 				if (TasteZ > 0)
 					{
@@ -561,9 +390,10 @@ char LokalZeichenLesen()
 	{
 	char c;
 
+	EmpfUmsetzModus = UmsetzLokal; // sicherheitshalber
 	while (true)
 		{
-		ED1000IO();
+		TW39IO();
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
 			{
@@ -587,12 +417,13 @@ char LokalZeichenLesen()
 
 static void LokalCodeAusgabe(uint8_t code)
 	{
+	SendeUmsetzModus = UmsetzLokal; // sicherheitshalber
 	SerUmSendDaten = code;
 	SerUmSendBitNr = SerUmSendStart;
 	while (SerUmSendBitNr != SerUmSendWarte)
 		{
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
-		ED1000IO();
+		TW39IO();
 		}
 	}
 
@@ -606,23 +437,33 @@ static void LokalCodeAusgabe(uint8_t code)
 
 void LokalZeichenAusgabe(char c)
 	{
-	uint8_t code1, code2;
+	uint8_t code;
 	
 	if (c >= 'A' && c <= 'Z')
 		c += 'a'-'A';
-	if (!ZeichenZuCode2(c, &BuZiMode, &code1, &code2))
-		return;
-	LokalCodeAusgabe(code1);
-	if (code2 != 255)
-		LokalCodeAusgabe(code2);
+
+	if ((code = ZeichenZuCode(c, BuZiMode)) != 255)
+		{
+		LokalCodeAusgabe(code);
+		}
+	else if ((code = ZeichenZuCode(c, BuMode)) != 255)
+		{
+		LokalCodeAusgabe(TtyCodeBuUm);
+		LokalCodeAusgabe(code);
+		BuZiMode = BuMode;
+		}
+	else if ((code = ZeichenZuCode(c, ZiMode)) != 255)
+		{
+		LokalCodeAusgabe(TtyCodeZiUm);
+		LokalCodeAusgabe(code);
+		BuZiMode = ZiMode;
+		}
 	}
 			
 		
 static void VerbindungSteht(bool AutoKennungAbfrage);
 
 static void Deaktivieren(bool WegenTimeout);
-
-static void KommendSperren(TSperreGrund Grund);
 
 
 /////////////////////////////////////////////////////////////
@@ -635,17 +476,16 @@ static void KommendSperren(TSperreGrund Grund);
 
 static void VerbindungKommend()
 	{
-	ED1000IO();
+	TW39IO();
 
 	set_LEDGRUEN();
 	set_LEDROT();
 	
-	if (!ED1000Einschalten())
+	if (!TW39Einschalten())
 		{ // Timeout...
 		clr_LEDGRUEN();
-		GeAusschalten(true); 
-		//Deaktivieren(true); //! \todo testen ob dies korrekt funktioniert.
-		KommendSperren(SperreStoerung);
+		GeAusschalten(true); // TODO wird von SeriellUndSpezial nicht quittiert!
+		Deaktivieren(true);
 		return;
 		}
 
@@ -654,7 +494,7 @@ static void VerbindungKommend()
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
 		GeAusschalten(true);
-		ED1000Ausschalten(true);
+		TW39Ausschalten();
 		}
 	else
 		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
@@ -674,9 +514,9 @@ static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	GeAusschalten(true);
 	Aktivieren(false);
 	if (Abschaltimpuls)
-		ED1000Ausschalten();
+		TW39Ausschalten();
 	while (MeldungEingeschaltet)
-		ED1000IO();
+		TW39IO();
 	clr_LEDROT();
 	Aktivieren(true);
 	}
@@ -684,8 +524,73 @@ static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	
 /////////////////////////////////////////////////////////////
 
-//! Wickelt die gehende Wahl ab. 
+//! Wickelt die gehende Wahl ab bei vorhandener Wählscheibe.
 //----------------------------------------------
+//! \retval true bei erfolgreichem Verbindungsaufbau.
+
+static bool WahlMitWaehlscheibe()
+	{
+	uint8_t Wahlziffer;
+	TMsTimer WahlendeTimer;
+	bool EsWurdeGewaehlt;
+
+	// kurzzeitiger Mißbrauch von WahlendeTimer für Wahlaufforderung: 0,3 Sek unterbrechung
+	StartTimer(&WahlendeTimer);
+	EsWurdeGewaehlt = false;
+	while (TimerVal(&WahlendeTimer) < 700)
+		TW39IO();
+
+	BefehlMark = false;
+	
+	StartTimer(&WahlendeTimer);
+	while (TimerVal(&WahlendeTimer) < 10 * WahlauffordImpulsLaenge) 
+		TW39IO();
+		
+	BefehlMark = true;
+	
+	Wahlziffer = 0;
+	StartTimer(&WahlendeTimer); // der Timer prüft auch, ob überhaupt gewählt wird...
+	while (true)
+		{
+		TW39IO();
+		if (!MeldungMark)
+			{ // Pause durch Wählscheibe
+			Wahlziffer++;
+			do
+				TW39IO();
+			while (!MeldungMark && MeldungEingeschaltet);
+			StartTimer(&WahlendeTimer);
+			}
+		
+		if (!MeldungEingeschaltet || KoAusschalten())
+			return false;
+			
+		if (Wahlziffer > 0 && TimerVal(&WahlendeTimer) > 200)
+			{
+			if (Wahlziffer > 9)
+				GeWaehlen(0);
+			else
+				GeWaehlen(Wahlziffer);
+			Wahlziffer = 0;
+			EsWurdeGewaehlt = true;
+			}
+			
+		if (KoEinschalten())
+			return true;
+
+		if (TimerVal(&WahlendeTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 15 / 45 Sekunden nicht gewählt
+			{ // auf das Ausschalten durch die Schlusstaste warten
+			AbschaltungZuLangeWahlpause(EsWurdeGewaehlt);
+			return false;
+			}
+		} // while (true)
+	}
+	
+	
+/////////////////////////////////////////////////////////////
+
+//! Wickelt die gehende Wahl ab bei nicht vorhandener Wählscheibe.
+//----------------------------------------------------------------
 //! Tastaturwahl. 
 //! \retval true bei erfolgreichem Verbindungsaufbau.
 
@@ -696,7 +601,7 @@ static bool WahlMitTastatur()
 	bool EsWurdeGewaehlt;
 	int Falschziffern;
 	
-	if (!ED1000Einschalten())
+	if (!TW39Einschalten())
 		return false;
 
 	SeriellUmsetzInit();
@@ -710,7 +615,7 @@ static bool WahlMitTastatur()
 
 	while (true)
 		{
-		ED1000IO();
+		TW39IO();
 		
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
@@ -738,7 +643,7 @@ static bool WahlMitTastatur()
 
 		if (!MeldungEingeschaltet || KoAusschalten())
 			{
-			// ED1000Ausschalten() macht die aufrufende Routine
+			// TW39Ausschalten() macht die aufrufende Routine
 			return false;
 			}
 			
@@ -757,6 +662,9 @@ static bool WahlMitTastatur()
 	}
 	
   
+static void KommendSperren();
+
+
 /////////////////////////////////////////////////////////////
 
 //! Wickelt ausgehende Verbdindungen vollständig ab.
@@ -769,7 +677,7 @@ static void VerbindungGehend()
 
 	if (BusEigenAdresse == BusAdrUngueltig)
 		{
-		ED1000Ausschalten();
+		TW39Ausschalten();
 		return;
 		}
 	
@@ -779,31 +687,40 @@ static void VerbindungGehend()
 			return; 
 
 		case GeEinschWahl:
-			if (WahlMitTastatur())
-				// Einschalten ist nicht erforderlich, da schon eingeschaltet ist...
-				break; // ist jetzt verbunden
-
+			if (MitWaehlscheibe)
+				{
+				if (WahlMitWaehlscheibe())
+					{
+					TW39Einschalten();
+					break; // ist jetzt Verbunden
+					}
+				}
+			else // ohne Waehlscheibe
+				{
+				if (WahlMitTastatur())
+					// Einschalten ist nicht erforderlich, da schon eingeschaltet ist...
+					break; // ist jetzt verbunden
+				}
 			GeAusschalten(true);
-			ED1000Ausschalten();
-
+			TW39Ausschalten();
 			
 			if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
 				{
 				clr_LEDGELB();
-				KommendSperren(SperreWahl);
+				KommendSperren();
 				}
 				
 			return;
 
 /*
 		case GeEinschSofortEin:
-			ED1000Einschalten();
+			TW39Einschalten();
 			break; // ist jetzt Verbunden
 
 		case GeEinschFremdKonfig:
-			ED1000Einschalten();
+			TW39Einschalten();
 // passt nicht mehr...			LeitungsSstKonfigurationsDialog();
-			ED1000Ausschalten();
+			TW39Ausschalten();
 			GeAusschalten();
 			return; // keine normale Verbindung
 */
@@ -813,7 +730,7 @@ static void VerbindungGehend()
 			return;
 		}
 
-	VerbindungSteht(true); // mit automatischer Kennungsgeber-Abfrage
+	VerbindungSteht(!MitWaehlscheibe); // wenn keine Wählscheibe, dann automatische Kennungsgeber-Abfrage
 
 	}
 
@@ -839,25 +756,24 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 	while (true)
 		{
-		ED1000IO();
+		TW39IO();
 		TastePruefen();
 
 		if (!MeldungEingeschaltet)
 			{
 			GeAusschalten(false);
-			ED1000Ausschalten();
+			TW39Ausschalten();
 			while (!KoAusschalten())
-				ED1000IO();
+				TW39IO();
 			return;
 			}
 
 		if (KoAusschalten())
 			{
-			ED1000Ausschalten();
-			GeAusschalten(false);
+			TW39Ausschalten();
+			GeAusschalten(false); // da braucht auf nichts mehr gewartet zu werden
 			return;
 			}
-
 
 		BefehlMark = KoEmpfMark();
 	
@@ -909,11 +825,11 @@ static void Konfiguration()
 	Aktivieren(false);
 	set_LEDROT();
 	
-	if (!ED1000Einschalten())
+	if (!TW39Einschalten())
 		return;
 	
-	LokalTextAusgabeP(PSTR("\r\n konfiguration ed1000 version " SVNVERSION " datum " __DATE__));
-	
+	LokalTextAusgabeP(PSTR("\r\n konfiguration tw39 version " SVNVERSION " datum " __DATE__));
+
 	// Durchwahl...
 	if (!KonfigurationAllgemein())
 		return;
@@ -921,13 +837,57 @@ static void Konfiguration()
 	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
 		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
 	
+	// Wählscheibe vorhanden?
+	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden?      "));
+
+	if (LokalBoolEingabe(&MitWaehlscheibe) == 0)
+		return;
+
+	if (MitWaehlscheibe != (eeprom_read_byte(&MitWaehlscheibe_EE) != 0))
+		eeprom_write_byte(&MitWaehlscheibe_EE, MitWaehlscheibe ? 1 : 0);
+
+	LokalTextAusgabeP(OkStrP);
+
+	if (MitWaehlscheibe)
+		{
+		// Länge Wahlaufforderungsimpuls?
+		LokalTextAusgabeP(PSTR("\r\n laenge wahlauff-imp. (akt. "));
+		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
+		LokalTextAusgabeP(PSTR("/100 sek)?      "));
+
+		if (LokalZahlEingabe(&WahlauffordImpulsLaenge, 0) < 0)
+			return;
+
+		if (WahlauffordImpulsLaenge < 1)
+			WahlauffordImpulsLaenge = 1;
+
+		if (WahlauffordImpulsLaenge != eeprom_read_byte(&WahlauffordImpulsLaenge_EE))
+			eeprom_write_byte(&WahlauffordImpulsLaenge_EE, WahlauffordImpulsLaenge);
+
+		LokalTextAusgabeP(OkStrP);
+		}
+
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
-	LokalTextAusgabeP(PSTR("\r\n kommend-sperre mit wahl: (akt. "));
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n block incoming calls by: (cur. "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n kommende anrufe sperren mit: (akt. "));
+#endif //def SPRACHE_EN
+
 	if (KommendSperreWahl != 0)
 		LokalZahlAusgabe(KommendSperreWahl, 2);
 	else
-		LokalTextAusgabeP(PSTR("nein"));
-	LokalTextAusgabeP(PSTR(") neu (0 = nein):     "));
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("off"));
+#else
+		LokalTextAusgabeP(PSTR("aus"));
+#endif //def SPRACHE_EN
+
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(") new (0 = off):     "));
+#else
+	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
+#endif //def SPRACHE_EN
 
 	if (LokalZahlEingabe(&KommendSperreWahl, 0) < 0)
 		return;
@@ -936,11 +896,6 @@ static void Konfiguration()
 		eeprom_write_byte(&KommendSperreWahl_EE, KommendSperreWahl);
 
 	LokalTextAusgabeP(OkStrP);
-	
-	if (!SperrzeitEingabeDialog())
-		return;
-	
-	SperrzeitSpeicherEeprom();
 	
 	// weitere Eingaben
 
@@ -956,7 +911,7 @@ static void Konfiguration()
 
 static void KonfigurationEnde()
 	{
-	ED1000Ausschalten();
+	TW39Ausschalten();
 	Aktivieren(true);
 	clr_LEDROT();
 	}
@@ -969,20 +924,12 @@ static void KonfigurationEnde()
 //! Kann durch Wahl einer entsprechenden Ziffernfolge aufgerufen werden oder
 //! durch Tastendruck an der Platine.
 	
-static void KommendSperren(TSperreGrund Grund)
+static void KommendSperren()
 	{
 	TMsTimer BlinkTimer;
-	uint8_t BlinkTaktFaktor;
 	
 	StartTimer(&BlinkTimer);
 	Aktivieren(false);
-	
-	if (Grund == SperreTaste || Grund == SperreWahl)
-		BlinkTaktFaktor = 2;
-	else if (Grund == SperreZeit)
-		BlinkTaktFaktor = 4;
-	else
-		BlinkTaktFaktor = 1;
 	
 	while (true)
 		{
@@ -990,31 +937,19 @@ static void KommendSperren(TSperreGrund Grund)
 		if (Tastendruck != NichtGedr)
 			{
 			Tastendruck = NichtGedr;
-			//! \todo Zeitgesteuerte Sperre begrenzt deaktivieren
 			break;
 			}
 			
-		ED1000IO();
+		TW39IO();
 		if (MeldungEingeschaltet)
 			break;
 			
-		if (TimerVal(&BlinkTimer) > 500 * BlinkTaktFaktor)
+		if (TimerVal(&BlinkTimer) > 1000)
 			StartTimer(&BlinkTimer);
-		else if (TimerVal(&BlinkTimer) > 200 * BlinkTaktFaktor)
+		else if (TimerVal(&BlinkTimer) > 500)
 			set_LEDBLAU();
 		else
 			clr_LEDBLAU();
-		
-		if (RundsendAnzDaten > 0)
-			{
-			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
-				{
-				if (Grund == SperreZeit && !SperrzeitAktiv())
-					break;
-				}
-			// else Daten anderwertig auswerten
-			}
-		
 		}
 		
 	clr_LEDBLAU();
@@ -1031,6 +966,7 @@ static void KommendSperren(TSperreGrund Grund)
 //! Kann nur durch Tastendruck an der Platine aktiviert werden.
 	
 static void Deaktivieren(bool WegenTimeout)
+// wird nach kurzem Tastendruck aufgerufen
 	{
 	set_LEDBLAU();
 	Aktivieren(false);
@@ -1041,59 +977,67 @@ static void Deaktivieren(bool WegenTimeout)
 
 	Aktivieren(true);
 	clr_LEDBLAU();
-	clr_LEDROT();
 
 	if (!WegenTimeout)
-		KommendSperren(SperreTaste);
-		
+		{
+		clr_LEDROT();
+		KommendSperren();
+		}
 	} // Deaktivieren
 
 
 /////////////////////////////////////////////////////////////
 
-//! Das Hauptprogramm der ED1000-Fernschreiber-Schnittstelle.
-//----------------------------------------------------------
+//! Das Hauptprogramm der TW39-Fernschreiber-Schnittstelle.
+//---------------------------------------------------------
 
-int main()
+__attribute__ ((noreturn)) int main()
 	{
 #ifndef NOWATCHDOG
 	wdt_enable(WDTO_2S);
 #endif //NOWATCHDOG
+
+	// nur für den Simulator:
+	PINB = 0xFF;
+	PINC = 0xFF;
+	PIND = 0xFF;
 
 	// Ports initialisieren
 	init_LEDROT();
 	init_LEDGELB();
 	init_LEDGRUEN();
 	init_LEDBLAU();
-	init_SIGAUS0();
-	init_SIGAUS1();
-	init_SIGAUS2();
-	init_SIGAUS3();
-	init_SIGAUS4();
-	init_SIGAUS5();
-	init_SIGEIN();
+	init_FS_AUSG();
+	init_FS_AKTIV();
+	init_FS_EING(); 
+#ifdef PARALLELAUSGABE
+	init_FS2_AUSG();
+	init_FS2_AKTIV();
+	init_FS2_EING(); 
+#endif //def PARALLELAUSGABE
 	init_TASTE();
 	//init_TASTE2();
 
 	set_LEDROT();
 
-	InitADC();
+	// Timer initialisieren
 	MsTimerInit();
-	ED1000Init();
-	InitTimer();
 	
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
-		BusEigenAdresse = 51 << 1; // Standardwert
+		BusEigenAdresse = 31 << 1; // Standardwert
 	BusEigenAdrMehrfach = 1;
-	RundsendEmpfFreig = true;
+	
+	MitWaehlscheibe = eeprom_read_byte(&MitWaehlscheibe_EE) != 0;
+	
+	WahlauffordImpulsLaenge = eeprom_read_byte(&WahlauffordImpulsLaenge_EE);
+	if (WahlauffordImpulsLaenge > 100 || WahlauffordImpulsLaenge == 0)
+		WahlauffordImpulsLaenge = 30;
 	
 	KommendSperreWahl = eeprom_read_byte(&KommendSperreWahl_EE);
 	if (KommendSperreWahl > 99)
 		KommendSperreWahl = 0;
 
-	SperrzeitLadeEeprom();
-	
 	BefehlEinschalten = false;
 	BefehlMark = true;
 	MeldungEingeschaltet = false;
@@ -1101,19 +1045,7 @@ int main()
 
 	KommInit();
 
-// Test der Berechnungsalgorithmen
-	EmpfBuf[EmpfBufSchreibI++] = 88;
-	EmpfBuf[EmpfBufSchreibI++] = 120;
-	EmpfBuf[EmpfBufSchreibI++] = 74;
-	EmpfBuf[EmpfBufSchreibI++] = -20;
-	EmpfBuf[EmpfBufSchreibI++] = -100;
-	EmpfBuf[EmpfBufSchreibI++] = -116;
-	EmpfBuf[EmpfBufSchreibI++] = -57;
-	EmpfBuf[EmpfBufSchreibI++] = 39;
-	EmpfBuf[EmpfBufSchreibI++] = 110;
-	EmpfBuf[EmpfBufSchreibI++] = 110;
-	ED1000IO();
-// Ende Test der Berechnungsalgorithmen */
+	TW39IO();
 	
 	TMsTimer Timer;
 	StartTimer(&Timer);
@@ -1123,13 +1055,16 @@ int main()
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 250)
 		;
-		
-	// Bei Tastendruck Selbsttest
-#ifdef TASTE_NACH_PLUS
-	bool SelbsttestAusfuehen = get_TASTE();
-#else
-	bool SelbsttestAusfuehen = !get_TASTE();
-#endif
+	
+	// Bei Tastendruck Watchdog AUS
+	if (!get_TASTE())
+		{ // Gedrückt = LOW	
+		wdt_disable();
+		while (!get_TASTE())
+			; // Warten, bis Taste wieder losgelassen
+		set_LEDGELB();
+		StartTimer(&Timer);
+		}
 
 	clr_LEDROT();
 	set_LEDGELB();
@@ -1158,56 +1093,42 @@ int main()
 		
 	TWCR = (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (1<<TWEN) | (1<<TWIE);
 
-	while (TimerVal(&Timer) < 1000 + BusEigenAdresse)
+	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
 
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
-	
-	if (SelbsttestAusfuehen)
+
+/*/ Selbsttest
+
+	BefehlEinschalten = false;
+	MeldungEingeschaltet = false;
+	BefehlMark = false;
+	MeldungMark = false;
+
+	while (1)
 		{
-		BefehlEinschalten = false;
-		MeldungEingeschaltet = false;
-		BefehlMark = false;
-		MeldungMark = false;
+		BefehlMark = BIT_IS_SET(TAST_IPORT, TAST_BIT);
+			// Gedrückt = LOW
 
-		StartTimer(&Timer);
-		while (1)
-			{
-#ifdef TASTE_NACH_PLUS
-			if (get_TASTE())
-				// Gedrückt = HIGH
-#else
-			if (!get_TASTE())
-				// Gedrückt = LOW
-#endif
-				{ // gedrückt
-				BefehlMark = false;
-				}
-			else
-				{ // nicht gedrückt
-				BefehlMark = true;
-				StartTimer(&Timer);
-				}
-				
-			ED1000IO();
+		TW39IO();
 
-			bset_LEDROT(BefehlEinschalten);
-			bset_LEDGELB(MeldungEingeschaltet);
-			bset_LEDGRUEN(BefehlMark);
-			bset_LEDBLAU(MeldungMark);
+		if (BefehlEinschalten) 		LED_EIN(ROT); 	else LED_AUS(ROT);
+		if (MeldungEingeschaltet) 	LED_EIN(GELB); 	else LED_AUS(GELB);
+		if (BefehlMark) 			LED_EIN(GRUEN); else LED_AUS(GRUEN);
+		if (MeldungMark)			LED_EIN(BLAU); 	else LED_AUS(BLAU);
 
-			BefehlEinschalten = MeldungEingeschaltet || (TimerVal(&Timer) > 1000);
+		BefehlEinschalten = MeldungEingeschaltet;
 
-			}
-		} // if SelbsttestAusfuehren
+		}
+
+// Selbsttest Ende */
 
 	BefehlEinschalten = false;
 	BefehlMark = true;
 
-	while (true)
+	while (1)
 		{
 		// aktueller Zustand: Ausgeschaltet
-
 		if (TimerVal(&Timer) <= 1200)
 			clr_LEDROT();
 		else if (TimerVal(&Timer) <= 1400)
@@ -1220,7 +1141,7 @@ int main()
 		clr_LEDBLAU();
 
 		TastePruefen();
-		ED1000IO();
+		TW39IO();
 
 		if (Tastendruck == Lang)
 			{
@@ -1244,22 +1165,7 @@ int main()
 			{
 			VerbindungKommend();
 			}
-
-		// Rundsendedaten auswerten:
-		if (RundsendAnzDaten > 0)
-			{
-			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
-				{
-				if (SperrzeitAktiv())
-					KommendSperren(SperreZeit);
-				}
-			else
-				; // keine Ahnung, was hier gesendet wurde, ist aber auch egal...
-				
-			RundsendAnzDaten = 0;
-			}
 		
-			
 		} // while (1)
 	} // main()
 

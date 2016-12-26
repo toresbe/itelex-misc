@@ -243,7 +243,7 @@ ISR(TWI_vect)
 
         case TwiEv_MT_DataACK		:
 #ifndef BUSKOMM_SPARVERSION
-			if (BusAuftrag == Rundsenden && RundsendPufferPos < RundsendMaxDaten)
+			if (BusAuftrag == Rundsenden && RundsendPufferPos < RundsendAnzDaten)
 				{
 				SendData = RundsendDaten[RundsendPufferPos++];
 #ifdef TWI_DEBUG
@@ -265,7 +265,7 @@ ISR(TWI_vect)
         case TwiEv_MT_DataNACK		:
 			//! \todo Senden Abbrechen
 #ifndef BUSKOMM_SPARVERSION
-			if (BusAuftrag == Rundsenden && RundsendPufferPos < RundsendMaxDaten)
+			if (BusAuftrag == Rundsenden && RundsendPufferPos < RundsendAnzDaten)
 				{
 				SendData = RundsendDaten[RundsendPufferPos++];
 #ifdef TWI_DEBUG
