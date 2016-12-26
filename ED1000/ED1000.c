@@ -587,6 +587,7 @@ char LokalZeichenLesen()
 
 static void LokalCodeAusgabe(uint8_t code)
 	{
+	SendeUmsetzModus = UmsetzLokal; // sicherheitshalber
 	SerUmSendDaten = code;
 	SerUmSendBitNr = SerUmSendStart;
 	while (SerUmSendBitNr != SerUmSendWarte)
@@ -1000,7 +1001,7 @@ static void KommendSperren(TSperreGrund Grund)
 			
 		if (TimerVal(&BlinkTimer) > 500 * BlinkTaktFaktor)
 			StartTimer(&BlinkTimer);
-		else if (TimerVal(&BlinkTimer) > 200 * BlinkTaktFaktor)
+		else if (TimerVal(&BlinkTimer) > 300 * BlinkTaktFaktor)
 			set_LEDBLAU();
 		else
 			clr_LEDBLAU();
@@ -1082,6 +1083,8 @@ int main()
 	ED1000Init();
 	InitTimer();
 	
+	SperrzeitInit();
+	
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
 		BusEigenAdresse = 51 << 1; // Standardwert
@@ -1158,7 +1161,7 @@ int main()
 		
 	TWCR = (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (1<<TWEN) | (1<<TWIE);
 
-	while (TimerVal(&Timer) < 1000 + BusEigenAdresse)
+	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
 
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
