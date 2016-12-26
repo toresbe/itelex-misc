@@ -5,9 +5,12 @@ make -C ED1000/V.21
 make -C FernschrOhneFSG/default
 make -C FernschrOhneFSG/English
 make -C FernschrOhneFSG/USTTY-45
+make -C FernschrTW39/AltePlatine
 make -C FernschrTW39/default
-make -C FernschrTW39/DoppelAusgabe
 make -C FernschrTW39/USTTY-45
+make -C FernschrTW39plus/AltePlatine
+make -C FernschrTW39plus/DoppelAusgabe
+make -C FernschrTW39plus/USTTY-45
 make -C Messgeraet/default
 make -C Messgeraet/USTTY-45
 make -C SeriellUndSpeicher/PlatVer13

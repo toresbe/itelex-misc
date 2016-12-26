@@ -1,6 +1,6 @@
 //================================================================
 // Fernschreiber-Schnittstelle TW39 für TxP2-System
-//	für ATmega8 auf Platine FernschrTW39
+//	für ATmega168 auf Platine FernschrTW39
 //================================================================
 //		
 #include <avr/io.h>
@@ -481,7 +481,7 @@ static void VerbindungKommend()
 	if (!TW39Einschalten())
 		{ // Timeout...
 		clr_LEDGRUEN();
-		GeAusschalten(true); // TODO wird von SeriellUndSpezial nicht quittiert!
+		GeAusschalten(true);
 		//Deaktivieren(true); //! \todo testen ob dies korrekt funktioniert.
 		KommendSperren(SperreStoerung);
 		return;
@@ -609,7 +609,7 @@ static bool WahlMitTastatur()
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
 	Falschziffern = 0;
-	BuZiMode = '\0';
+	BuZiMode = ZiMode;
 
 	while (true)
 		{
@@ -668,17 +668,19 @@ static bool WahlMitTastatur()
 
 static void VerbindungGehend()
 	{
-	set_LEDGELB();
-
 	if (BusEigenAdresse == BusAdrUngueltig)
 		{
 		TW39Ausschalten();
 		return;
 		}
+
+	set_LEDGELB();
 	
 	switch (GeEinschalten())
 		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
 		case GeEinschFehler:
+			clr_LEDGELB();
+			
 			return; 
 
 		case GeEinschWahl:
@@ -823,7 +825,11 @@ static void Konfiguration()
 	if (!TW39Einschalten())
 		return;
 	
-	LokalTextAusgabeP(PSTR("\r\n konfiguration tw39 version " SVNVERSION " datum " __DATE__));
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n configuration tw39plus version " SVNVERSION " date " __DATE__));
+#else
+	LokalTextAusgabeP(PSTR("\r\n konfiguration tw39plus version " SVNVERSION " datum " __DATE__));
+#endif //def SPRACHE_EN
 
 	// Durchwahl...
 	if (!KonfigurationAllgemein())

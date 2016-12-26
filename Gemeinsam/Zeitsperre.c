@@ -29,6 +29,13 @@ bool SperrzeitWochenendAbhaengig;
 extern EEMEM uint16_t Sperrzeit_EE[10];
 
 
+static void ZeitBereichKorrektur(uint16_t *x)
+	{
+	if (*x > 25*60)
+		*x = 24*60;
+	}
+
+	
 static bool InZeitspanne(uint8_t h, uint8_t m, TZeitspanne *zs)
 	{
 	if (zs->Anf == zs->End)
@@ -65,16 +72,30 @@ void SperrzeitInit()
 void SperrzeitLadeEeprom()
 	{
 	Sperrzeit[0].Anf = eeprom_read_word(&Sperrzeit_EE[0]);
+	ZeitBereichKorrektur(&Sperrzeit[0].Anf);
 	Sperrzeit[0].End = eeprom_read_word(&Sperrzeit_EE[1]);
+	ZeitBereichKorrektur(&Sperrzeit[0].End);
 	Sperrzeit[1].Anf = eeprom_read_word(&Sperrzeit_EE[2]);
+	ZeitBereichKorrektur(&Sperrzeit[1].Anf);
 	Sperrzeit[1].End = eeprom_read_word(&Sperrzeit_EE[3]);
-	SperrzeitWochenendAbhaengig = eeprom_read_byte(&Sperrzeit_EE[8]);
+	ZeitBereichKorrektur(&Sperrzeit[1].End);
+	SperrzeitWochenendAbhaengig = (eeprom_read_word(&Sperrzeit_EE[8]) == 1);
 	}
 
 
 
 void SperrzeitSpeicherEeprom()
 	{
+	if (Sperrzeit[0].Anf != eeprom_read_word(&Sperrzeit_EE[0]))
+		eeprom_write_word(&Sperrzeit_EE[0], Sperrzeit[0].Anf);
+	if (Sperrzeit[0].End != eeprom_read_word(&Sperrzeit_EE[1]))
+		eeprom_write_word(&Sperrzeit_EE[1], Sperrzeit[0].End);
+	if (Sperrzeit[1].Anf != eeprom_read_word(&Sperrzeit_EE[2]))
+		eeprom_write_word(&Sperrzeit_EE[2], Sperrzeit[1].Anf);
+	if (Sperrzeit[1].End != eeprom_read_word(&Sperrzeit_EE[3]))
+		eeprom_write_word(&Sperrzeit_EE[3], Sperrzeit[1].End);
+	if (SperrzeitWochenendAbhaengig != (eeprom_read_word(&Sperrzeit_EE[8]) == 1))
+		eeprom_write_word(&Sperrzeit_EE[8], SperrzeitWochenendAbhaengig ? 0 : 1);
 	}
 
 
@@ -84,6 +105,7 @@ static bool ZeitEingabe(uint16_t *hm)
 	{
 	uint8_t h;
 	uint8_t m;
+	uint16_t res;
 
 	h = *hm / 60;
 	m = *hm - h * 60;
@@ -91,11 +113,15 @@ static bool ZeitEingabe(uint16_t *hm)
 	LokalZahlAusgabe(m, 2);
 	LokalTextAusgabeP(PSTR(" neu:     "));
 	
-	if (LokalZahlEingabe(&h, 2) == 0)
+	res = LokalZahlEingabe(&h, 2);
+	if (res < 0) // abbruch
 		return false;
-	if (LokalZahlEingabe(&m, 2) == 0)
+	if (res == 0) // unverändert ( . eingegeben)
+		return true;
+	if (LokalZahlEingabe(&m, 2) < 0)
 		return false;
 	*hm = h * 60 + m;
+	ZeitBereichKorrektur(hm);
 	return true;
 	}
 
