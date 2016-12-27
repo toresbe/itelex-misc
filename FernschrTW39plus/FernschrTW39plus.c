@@ -79,7 +79,7 @@ EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< Eigene Busadresse auf d
 EEMEM uint8_t MitWaehlscheibe_EE = 1; //!< Hat das Gerät eine Wählscheibe
 EEMEM uint8_t WahlauffordImpulsLaenge_EE = 30; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
 EEMEM uint8_t KommendSperreWahl_EE = 0; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
-EEMEM uint16_t Sperrzeit_EE[10] = { 0 } ;
+EEMEM TSperrzeitDaten Sperrzeit_EE = { 10*60, 11*60, 22*60, 6*60 } ;
 
 
 // Typen
@@ -901,7 +901,7 @@ static void Konfiguration()
 	if (!SperrzeitEingabeDialog())
 		return;
 	
-	SperrzeitSpeicherEeprom();
+	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
 	
 	// weitere Eingaben
 
@@ -1016,7 +1016,7 @@ static void Deaktivieren(bool WegenTimeout)
 //! Das Hauptprogramm der TW39-Fernschreiber-Schnittstelle.
 //---------------------------------------------------------
 
-__attribute__ ((noreturn)) int main()
+int main()
 	{
 #ifndef NOWATCHDOG
 	wdt_enable(WDTO_2S);
@@ -1062,7 +1062,7 @@ __attribute__ ((noreturn)) int main()
 	if (KommendSperreWahl > 99)
 		KommendSperreWahl = 0;
 
-	SperrzeitLadeEeprom();
+	SperrzeitLadeEeprom(&Sperrzeit_EE);
 	
 	BefehlEinschalten = false;
 	BefehlMark = true;

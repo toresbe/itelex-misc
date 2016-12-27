@@ -26,7 +26,7 @@ void LokalUhrInit()
 //! Prüft empfangene Rundsendedaten, ob diese ein Uhrzeit-Stellkommando enthalten
 //---------------------------------------------------------------------
 	
-bool LokalUhrPruefeRundsendung(uint8_t *buf, uint8_t anz)
+bool LokalUhrPruefeRundsendung(volatile uint8_t *buf, uint8_t anz)
 	{
 	if (anz >= 8 
 		&& buf[0] == 'c'

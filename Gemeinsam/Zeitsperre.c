@@ -24,14 +24,9 @@ TZeitspanne Sperrzeit[2];
 bool SperrzeitWochenendAbhaengig;
 
 
-//! Sperrzeiten im EEPROM, mit Reserve
-//! extern, damit die Reihenfolge bestimmt werden kann
-extern EEMEM uint16_t Sperrzeit_EE[10];
-
-
 static void ZeitBereichKorrektur(uint16_t *x)
 	{
-	if (*x > 25*60)
+	if (*x > 24*60)
 		*x = 24*60;
 	}
 
@@ -69,33 +64,33 @@ void SperrzeitInit()
 	}
 
 
-void SperrzeitLadeEeprom()
+void SperrzeitLadeEeprom(TSperrzeitDaten *eedat)
 	{
-	Sperrzeit[0].Anf = eeprom_read_word(&Sperrzeit_EE[0]);
+	Sperrzeit[0].Anf = eeprom_read_word(&(*eedat)[0]);
 	ZeitBereichKorrektur(&Sperrzeit[0].Anf);
-	Sperrzeit[0].End = eeprom_read_word(&Sperrzeit_EE[1]);
+	Sperrzeit[0].End = eeprom_read_word(&(*eedat)[1]);
 	ZeitBereichKorrektur(&Sperrzeit[0].End);
-	Sperrzeit[1].Anf = eeprom_read_word(&Sperrzeit_EE[2]);
+	Sperrzeit[1].Anf = eeprom_read_word(&(*eedat)[2]);
 	ZeitBereichKorrektur(&Sperrzeit[1].Anf);
-	Sperrzeit[1].End = eeprom_read_word(&Sperrzeit_EE[3]);
+	Sperrzeit[1].End = eeprom_read_word(&(*eedat)[3]);
 	ZeitBereichKorrektur(&Sperrzeit[1].End);
-	SperrzeitWochenendAbhaengig = (eeprom_read_word(&Sperrzeit_EE[8]) == 1);
+	SperrzeitWochenendAbhaengig = (eeprom_read_word(&(*eedat)[8]) == 1);
 	}
 
 
 
-void SperrzeitSpeicherEeprom()
+void SperrzeitSpeicherEeprom(TSperrzeitDaten *eedat)
 	{
-	if (Sperrzeit[0].Anf != eeprom_read_word(&Sperrzeit_EE[0]))
-		eeprom_write_word(&Sperrzeit_EE[0], Sperrzeit[0].Anf);
-	if (Sperrzeit[0].End != eeprom_read_word(&Sperrzeit_EE[1]))
-		eeprom_write_word(&Sperrzeit_EE[1], Sperrzeit[0].End);
-	if (Sperrzeit[1].Anf != eeprom_read_word(&Sperrzeit_EE[2]))
-		eeprom_write_word(&Sperrzeit_EE[2], Sperrzeit[1].Anf);
-	if (Sperrzeit[1].End != eeprom_read_word(&Sperrzeit_EE[3]))
-		eeprom_write_word(&Sperrzeit_EE[3], Sperrzeit[1].End);
-	if (SperrzeitWochenendAbhaengig != (eeprom_read_word(&Sperrzeit_EE[8]) == 1))
-		eeprom_write_word(&Sperrzeit_EE[8], SperrzeitWochenendAbhaengig ? 0 : 1);
+	if (Sperrzeit[0].Anf != eeprom_read_word(&(*eedat)[0]))
+		eeprom_write_word(&(*eedat)[0], Sperrzeit[0].Anf);
+	if (Sperrzeit[0].End != eeprom_read_word(&(*eedat)[1]))
+		eeprom_write_word(&(*eedat)[1], Sperrzeit[0].End);
+	if (Sperrzeit[1].Anf != eeprom_read_word(&(*eedat)[2]))
+		eeprom_write_word(&(*eedat)[2], Sperrzeit[1].Anf);
+	if (Sperrzeit[1].End != eeprom_read_word(&(*eedat)[3]))
+		eeprom_write_word(&(*eedat)[3], Sperrzeit[1].End);
+	if (SperrzeitWochenendAbhaengig != (eeprom_read_word(&(*eedat)[8]) == 1))
+		eeprom_write_word(&(*eedat)[8], SperrzeitWochenendAbhaengig ? 0 : 1);
 	}
 
 

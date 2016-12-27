@@ -147,7 +147,7 @@ typedef struct
 	uint8_t WahlaufforderungZeichen[MaxCodefolgeLaenge+1];
 	uint8_t VerbindungHergestelltZeichen[MaxCodefolgeLaenge+1];
 	uint8_t EigeneKennung[MaxCodefolgeLaenge+1];
-	uint16_t Sperrzeit[10];
+	TSperrzeitDaten SperrzeitDaten;
 	} TEepromDaten;
 
 
@@ -1025,7 +1025,7 @@ static void Konfiguration()
 	if (!SperrzeitEingabeDialog())
 		return;
 	
-	SperrzeitSpeicherEeprom();
+	SperrzeitSpeicherEeprom(&EEDaten.SperrzeitDaten);
 	
 	// Ende-Kennung druckt FsAusschalten()
 	} // Konfiguration()
@@ -1214,6 +1214,10 @@ int main()
 	BefehlMark = true;
 	MeldungMark = true;
 	BreakSignal = false;
+
+	SperrzeitInit();
+
+	SperrzeitLadeEeprom(&EEDaten.SperrzeitDaten);
 
 	KommInit();
 

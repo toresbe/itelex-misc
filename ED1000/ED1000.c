@@ -108,10 +108,9 @@ const PROGMEM char Identifier[] = "___TxP2_ED1000___" __DATE__ "___" __TIME__ "_
 // Eeprom-Speicher
 // ---------------
 
-EEMEM uint8_t Platzhalter[4]; //!< Platzhalter, da Anfang des EEPROM gern von Störungen betroffen ist
 EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
 EEMEM uint8_t KommendSperreWahl_EE = 0; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
-EEMEM uint16_t Sperrzeit_EE[10] = { 0 } ;
+EEMEM TSperrzeitDaten Sperrzeit_EE = { 0 };
 
 
 // Typen
@@ -941,7 +940,7 @@ static void Konfiguration()
 	if (!SperrzeitEingabeDialog())
 		return;
 	
-	SperrzeitSpeicherEeprom();
+	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
 	
 	// weitere Eingaben
 
@@ -1095,7 +1094,7 @@ int main()
 	if (KommendSperreWahl > 99)
 		KommendSperreWahl = 0;
 
-	SperrzeitLadeEeprom();
+	SperrzeitLadeEeprom(&Sperrzeit_EE);
 	
 	BefehlEinschalten = false;
 	BefehlMark = true;
