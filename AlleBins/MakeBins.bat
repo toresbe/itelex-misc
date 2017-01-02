@@ -18,7 +18,7 @@ C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\SeriellUndSpeicher\P
 C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\SeriellUndSpeicher\PlatVer21\SeriellUndSpeicher.hex .\itlx_SeriellUndSpeicher2.bin
 rem OhneSpeicher wird nicht vertrieben
 C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\SeriellUndSpeicher\USTTY-45_21\SeriellUndSpeicher.hex .\itlx_SeriellUndSpeicher2-US45.bin
-C:\WinAVR-20100110\avr\bin\objcopy.exe -I ihex -O binary ..\UniversalIF\RS232-Hex\UniversalIF.hex .\itlx_UniIF-RS232-Hex.bin
+rem UniIF wird nicht vertrieben
 rem Wahlbrücke wird nicht vertrieben
 rem Fuer alte Versionen des i-Telex mit Nachschlage-Tabelle:
 copy .\itlx_LeitungAnalog2.bin AnalogModem.bin
