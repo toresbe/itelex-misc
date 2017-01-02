@@ -1,10 +1,6 @@
 #include "LokalAusgabe.h"
 
 
-extern void LokalZeichenAusgabe(char c); 
-// muss vom Anwendung beigestellt werden!
-
-
 //! Gibt einen Text auf dem angeschlossenen Fernschreiber aus.
 //------------------------------------------------------------
 //! \param s Zeiger auf Text im Programmspeicher.
