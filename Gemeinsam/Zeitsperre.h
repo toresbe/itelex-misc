@@ -13,6 +13,8 @@ extern bool SperrzeitAktiv();
 
 extern void SperrzeitInit();
 
+extern void SperrzeitAussetzen();
+
 extern bool SperrzeitEingabeDialog();
 
 extern void SperrzeitLadeEeprom(TSperrzeitDaten *eedat);

@@ -721,6 +721,8 @@ static void VerbindungGehend()
 		return;
 		}
 
+	SperrzeitAussetzen();
+		
 	set_LEDGELB();
 	
 	switch (GeEinschalten())
@@ -752,8 +754,10 @@ static void VerbindungGehend()
 			return;
 		}
 
-	// HACK VerbindungSteht(true); // automatische Kennungsgeber-Abfrage
-	VerbindungSteht(false); // HACK aufblenden zur Fehlersuche.
+	VerbindungSteht(true); // automatische Kennungsgeber-Abfrage
+	// VerbindungSteht(false); // HACK aufblenden zur Fehlersuche.
+	
+	SperrzeitAussetzen(); // am Ende nochmal das Flag setzen.
 
 	}
 
@@ -1051,7 +1055,8 @@ static void KonfigurationEnde()
 //! Schaltet das Modul in einen Modus, der keine kommenden Verbindungen zulässt.
 //------------------------------------------------------------------------------
 //! Kann durch Wahl einer entsprechenden Ziffernfolge aufgerufen werden oder
-//! durch Tastendruck an der Platine.
+//! durch Tastendruck an der Platine oder durch die Zeitsperre oder durch eine 
+//! Nichterreichbarkeit des Geräts
 	
 static void KommendSperren(TSperreGrund Grund)
 	{
@@ -1074,7 +1079,7 @@ static void KommendSperren(TSperreGrund Grund)
 		if (Tastendruck != NichtGedr)
 			{
 			Tastendruck = NichtGedr;
-			//! \todo Zeitgesteuerte Sperre begrenzt deaktivieren
+			SperrzeitAussetzen();
 			break;
 			}
 			

@@ -23,6 +23,27 @@ TZeitspanne Sperrzeit[2];
 //! bei true gilt Mo-Fr Sperrzeit[0] und Samstag/Sonntag Sperrzeit[1].
 bool SperrzeitWochenendAbhaengig;
 
+//! Wird gesetzt wenn wärend der Sperrzeit eine Bedienung vorgenommen wird.
+//! nach der nächsten Zeit-Aktualisierung wird dann für 10 Minuten die Sperre 
+//! ausgesetzt
+static bool AussetzenAktivieren;
+
+//! Speichert den Zeitraum der Aussetzung der Zeitsperre.
+static TZeitspanne Aussetzung;
+
+void SperrzeitInit()
+	{
+	Sperrzeit[0].Anf = 0;
+	Sperrzeit[0].End = 0;
+	Sperrzeit[1].Anf = 0;
+	Sperrzeit[1].End = 0;
+	SperrzeitWochenendAbhaengig = false;
+	AussetzenAktivieren = false;
+	Aussetzung.Anf = 0;
+	Aussetzung.End = 0;
+	}
+
+
 
 static void ZeitBereichKorrektur(uint16_t *x)
 	{
@@ -45,6 +66,20 @@ static bool InZeitspanne(uint8_t h, uint8_t m, TZeitspanne *zs)
 	
 bool SperrzeitAktiv()
 	{
+	if (AussetzenAktivieren)
+	{
+		AussetzenAktivieren = false;
+		Aussetzung.Anf = Stunde * 60 + Minute;
+		Aussetzung.End = Aussetzung.Anf + 10; // Dauer in Minuten
+		if (Aussetzung.End > 24*60) 
+			Aussetzung.End -= 24*60;
+		return false; // da auf jeden Fall jetzt die Aussetzung wirkt
+	}
+	if (InZeitspanne(Stunde, Minute, &Aussetzung)
+		return false; // Aussetzung wirkt noch
+	else
+		Aussetzung.Anf = 0, Aussetzung.End = 0; // keine erneute Wirksamkeit der Aussetzung
+	
 	if (!SperrzeitWochenendAbhaengig)
 		return InZeitspanne(Stunde, Minute, &(Sperrzeit[0])) || InZeitspanne(Stunde, Minute, &(Sperrzeit[1]));
 	else if (Wochentag >= 6) // Samstag/Sonntag
@@ -54,16 +89,12 @@ bool SperrzeitAktiv()
 	}
 
 	
-void SperrzeitInit()
+void SperrzeitAussetzen()
 	{
-	Sperrzeit[0].Anf = 0;
-	Sperrzeit[0].End = 0;
-	Sperrzeit[1].Anf = 0;
-	Sperrzeit[1].End = 0;
-	SperrzeitWochenendAbhaengig = false;
+	AussetzenAktivieren = true;
 	}
 
-
+	
 void SperrzeitLadeEeprom(TSperrzeitDaten *eedat)
 	{
 	Sperrzeit[0].Anf = eeprom_read_word(&(*eedat)[0]);

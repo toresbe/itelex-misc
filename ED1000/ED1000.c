@@ -765,13 +765,15 @@ static bool WahlMitTastatur()
 
 static void VerbindungGehend()
 	{
-	set_LEDGELB();
-
 	if (BusEigenAdresse == BusAdrUngueltig)
 		{
 		ED1000Ausschalten();
 		return;
 		}
+
+	SperrzeitAussetzen();
+	
+	set_LEDGELB();
 	
 	switch (GeEinschalten())
 		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
@@ -815,6 +817,8 @@ static void VerbindungGehend()
 
 	VerbindungSteht(true); // mit automatischer Kennungsgeber-Abfrage
 
+	SperrzeitAussetzen(); // am Ende nochmal das Flag setzen.
+	
 	}
 
 
@@ -967,7 +971,8 @@ static void KonfigurationEnde()
 //! Schaltet das Modul in einen Modus, der keine kommenden Verbindungen zulässt.
 //------------------------------------------------------------------------------
 //! Kann durch Wahl einer entsprechenden Ziffernfolge aufgerufen werden oder
-//! durch Tastendruck an der Platine.
+//! durch Tastendruck an der Platine oder durch die Zeitsperre oder durch eine 
+//! Nichterreichbarkeit des Geräts
 	
 static void KommendSperren(TSperreGrund Grund)
 	{
@@ -990,7 +995,7 @@ static void KommendSperren(TSperreGrund Grund)
 		if (Tastendruck != NichtGedr)
 			{
 			Tastendruck = NichtGedr;
-			//! \todo Zeitgesteuerte Sperre begrenzt deaktivieren
+			SperrzeitAussetzen();
 			break;
 			}
 			
@@ -1103,7 +1108,7 @@ int main()
 
 	KommInit();
 
-// Test der Berechnungsalgorithmen
+/*/ Test der Berechnungsalgorithmen
 	EmpfBuf[EmpfBufSchreibI++] = 88;
 	EmpfBuf[EmpfBufSchreibI++] = 120;
 	EmpfBuf[EmpfBufSchreibI++] = 74;
@@ -1163,8 +1168,6 @@ int main()
 	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
 
-	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
-	
 	if (SelbsttestAusfuehen)
 		{
 		BefehlEinschalten = false;
@@ -1203,6 +1206,8 @@ int main()
 			}
 		} // if SelbsttestAusfuehren
 
+	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
+		
 	BefehlEinschalten = false;
 	BefehlMark = true;
 
