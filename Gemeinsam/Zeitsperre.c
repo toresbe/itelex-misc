@@ -79,7 +79,7 @@ bool SperrzeitAktiv()
 	if (InZeitspanne(Stunde, Minute, &Aussetzung))
 		return false; // Aussetzung wirkt noch
 	else
-		Aussetzung.Anf = 0, Aussetzung.End = 0; // keine erneute Wirksamkeit der Aussetzung, jetzt die gesetzten Sperrzeiten prüfen
+		Aussetzung.Anf = 0, Aussetzung.End = 0; // keine erneute Wirksamkeit der Aussetzung, jetzt die gesetzten Sperrzeiten prÃ¼fen
 	
 	if (!SperrzeitWochenendAbhaengig)
 		return InZeitspanne(Stunde, Minute, &(Sperrzeit[0])) || InZeitspanne(Stunde, Minute, &(Sperrzeit[1]));
@@ -138,7 +138,11 @@ static bool ZeitEingabe(uint16_t *hm)
 	m = *hm - h * 60;
 	LokalZahlAusgabe(h, 2);
 	LokalZahlAusgabe(m, 2);
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(" new:     "));
+#else
 	LokalTextAusgabeP(PSTR(" neu:     "));
+#endif
 	
 	res = LokalZahlEingabe(&h, 2);
 	if (res < 0) // abbruch
@@ -157,22 +161,45 @@ bool SperrzeitEingabeDialog()
 	{
 	uint8_t i;
 	
-	LokalTextAusgabeP(PSTR("\r\n zeiten vierstellig eingeben"));
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n enter times with 4 digits without punctuation"));
+#else
+	LokalTextAusgabeP(PSTR("\r\n zeiten vierstellig ohne punkt und komma eingeben"));
+#endif
+
 	for (i = 0 ; i < 2 ; i++)
 		{
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("\r\n lock time "));
+		LokalZeichenAusgabe('a' + i);
+		LokalTextAusgabeP(PSTR(" starting at: "));
+#else
 		LokalTextAusgabeP(PSTR("\r\n sperrzeit "));
 		LokalZeichenAusgabe('a' + i);
-		LokalTextAusgabeP(PSTR(" von:     "));
+		LokalTextAusgabeP(PSTR(" von: "));
+#endif
+
 		if (!ZeitEingabe(&Sperrzeit[i].Anf))
 			return false;
 		LokalTextAusgabeP(OkStrP);
-		LokalTextAusgabeP(PSTR("\r\n ... bis:     "));
+
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("\r\n ... until: "));
+#else
+		LokalTextAusgabeP(PSTR("\r\n ... bis: "));
+#endif
+
 		if (!ZeitEingabe(&Sperrzeit[i].End))
 			return false;
 		LokalTextAusgabeP(OkStrP);
+		
 		}
 
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n lock times depending on weekend?      "));
+#else
 	LokalTextAusgabeP(PSTR("\r\n sperrzeit wochenend-abhaengig?      "));
+#endif
 
 	if (LokalBoolEingabe(&SperrzeitWochenendAbhaengig) == 0)
 		return false;
