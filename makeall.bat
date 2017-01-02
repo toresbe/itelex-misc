@@ -9,6 +9,7 @@ make -C FernschrTW39/AltePlatine
 make -C FernschrTW39/default
 make -C FernschrTW39/USTTY-45
 make -C FernschrTW39plus/AltePlatine
+make -C FernschrTW39plus/default
 make -C FernschrTW39plus/DoppelAusgabe
 make -C FernschrTW39plus/USTTY-45
 make -C Messgeraet/default

@@ -1,11 +1,11 @@
 ###############################################################################
-# Makefile for the project SeriellUndSpeicher
+# Makefile for the project FernschrTW39plus
 ###############################################################################
 
 ## General Flags
-PROJECT = SeriellUndSpeicher
+PROJECT = FernschrTW39plus
 MCU = atmega168
-TARGET = SeriellUndSpeicher.elf
+TARGET = FernschrTW39plus.elf
 CC = avr-gcc
 
 CPP = avr-g++
@@ -15,7 +15,7 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -fgnu89-inline   -DPLATINE_VERSION=21                                     -DF_CPU=6144000UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -fgnu89-inline -DPLATINE_VERSION=13 -DBIT_LENGTH=22 -DUSTTY -DPROGIDZUSATZ=\"US45\"       -DF_CPU=6144000UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 
 ## Assembly specific flags
@@ -25,7 +25,7 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 
 ## Linker flags
 LDFLAGS = $(COMMON)
-LDFLAGS +=  -Wl,-Map=SeriellUndSpeicher.map
+LDFLAGS +=  -Wl,-Map=FernschrTW39plus.map
 
 
 ## Intel Hex file production flags
@@ -37,23 +37,23 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Include Directories
-INCLUDES = -I"D:\Daten\AvrProgs\TxP2\SeriellUndSpeicher\..\Gemeinsam" -I"D:\Daten\AvrProgs\TxP2\SeriellUndSpeicher\..\..\C-Libs" 
+INCLUDES = -I"D:\Daten\AvrProgs\TxP2\FernschrTW39plus\..\..\C-Libs" -I"D:\Daten\AvrProgs\TxP2\FernschrTW39plus\..\Gemeinsam" 
 
 ## Objects that must be built in order to link
-OBJECTS = SeriellUndSpeicher.o Taste.o TxP2-Endgeraet.o BaudotCode.o BusKomm.o FifoPuffer.o KonfigDialog.o LokalAusgabe.o SeriellUmsetz.o EepromTools.o SwTwi.o MsTimer.o LokalUhr.o 
+OBJECTS = FernschrTW39plus.o TxP2-Endgeraet.o FifoPuffer.o BaudotCode.o BusKomm.o Taste.o SeriellUmsetz.o KonfigDialog.o LokalAusgabe.o MsTimer.o LokalUhr.o Zeitsperre.o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
 
 ## Build
-all: $(TARGET) SeriellUndSpeicher.hex SeriellUndSpeicher.eep SeriellUndSpeicher.lss## Compile
-SeriellUndSpeicher.o: ../SeriellUndSpeicher.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
-
-Taste.o: ../Taste.c
+all: $(TARGET) FernschrTW39plus.hex FernschrTW39plus.eep FernschrTW39plus.lss## Compile
+FernschrTW39plus.o: ../FernschrTW39plus.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 TxP2-Endgeraet.o: ../../Gemeinsam/TxP2-Endgeraet.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+FifoPuffer.o: ../../Gemeinsam/FifoPuffer.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 BaudotCode.o: ../../Gemeinsam/BaudotCode.c
@@ -62,7 +62,10 @@ BaudotCode.o: ../../Gemeinsam/BaudotCode.c
 BusKomm.o: ../../Gemeinsam/BusKomm.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-FifoPuffer.o: ../../Gemeinsam/FifoPuffer.c
+Taste.o: ../Taste.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+SeriellUmsetz.o: ../../Gemeinsam/SeriellUmsetz.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 KonfigDialog.o: ../../Gemeinsam/KonfigDialog.c
@@ -71,19 +74,13 @@ KonfigDialog.o: ../../Gemeinsam/KonfigDialog.c
 LokalAusgabe.o: ../../Gemeinsam/LokalAusgabe.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-SeriellUmsetz.o: ../../Gemeinsam/SeriellUmsetz.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
-
-EepromTools.o: ../../../C-Libs/EepromTools.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
-
-SwTwi.o: ../SwTwi.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
-
 MsTimer.o: ../../../C-Libs/MsTimer.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 LokalUhr.o: ../../Gemeinsam/LokalUhr.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+Zeitsperre.o: ../../Gemeinsam/Zeitsperre.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
@@ -102,7 +99,7 @@ $(TARGET): $(OBJECTS)
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) SeriellUndSpeicher.elf dep/* SeriellUndSpeicher.hex SeriellUndSpeicher.eep SeriellUndSpeicher.lss SeriellUndSpeicher.map
+	-rm -rf $(OBJECTS) FernschrTW39plus.elf dep/* FernschrTW39plus.hex FernschrTW39plus.eep FernschrTW39plus.lss FernschrTW39plus.map
 
 
 ## Other dependencies
