@@ -58,7 +58,7 @@
 
 
 //! Identifikation im Programmspeicher
-const PROGMEM char Identifier[] = "___TxP2_Hellschreiber___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const PROGMEM char Identifier[] = "___itlx_Hellschreiber___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 
 
 #include "timercs.h"

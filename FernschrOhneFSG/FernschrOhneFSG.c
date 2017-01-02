@@ -63,10 +63,10 @@
 
 #ifdef PROGIDZUSATZ
 //! Marker im Code als Identifikation
-PROGMEM const char Identifier[] = "___TxP2_OhneFSG-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+PROGMEM const char Identifier[] = "___itlx_OhneFSG-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #else
 //! Marker im Code als Identifikation
-PROGMEM const char Identifier[] = "___TxP2_OhneFSG___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+PROGMEM const char Identifier[] = "___itlx_OhneFSG___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif
 
 

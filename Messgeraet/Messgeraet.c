@@ -89,10 +89,10 @@
 
 #ifdef PROGIDZUSATZ
 //! Identifikation im Programmspeicher
-const PROGMEM char Identifier[] = "___TxP2_Messgeraet-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const PROGMEM char Identifier[] = "___itlx_Messgeraet-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #else
 //! Identifikation im Programmspeicher
-const PROGMEM char Identifier[] = "___TxP2_Messgeraet___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const PROGMEM char Identifier[] = "___itlx_Messgeraet___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif
 
 

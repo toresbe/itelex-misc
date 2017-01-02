@@ -69,7 +69,7 @@
 
 
 //! Identificator in flash memory
-const char PROGMEM Identifier[] = "___TxP2_UniIF-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const char PROGMEM Identifier[] = "___itlx_UniIF-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 
 
 // Constants

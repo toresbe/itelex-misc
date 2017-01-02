@@ -67,18 +67,19 @@ static bool InZeitspanne(uint8_t h, uint8_t m, TZeitspanne *zs)
 bool SperrzeitAktiv()
 	{
 	if (AussetzenAktivieren)
-	{
+		{
 		AussetzenAktivieren = false;
 		Aussetzung.Anf = Stunde * 60 + Minute;
 		Aussetzung.End = Aussetzung.Anf + 10; // Dauer in Minuten
 		if (Aussetzung.End > 24*60) 
 			Aussetzung.End -= 24*60;
 		return false; // da auf jeden Fall jetzt die Aussetzung wirkt
-	}
-	if (InZeitspanne(Stunde, Minute, &Aussetzung)
+		}
+
+	if (InZeitspanne(Stunde, Minute, &Aussetzung))
 		return false; // Aussetzung wirkt noch
 	else
-		Aussetzung.Anf = 0, Aussetzung.End = 0; // keine erneute Wirksamkeit der Aussetzung
+		Aussetzung.Anf = 0, Aussetzung.End = 0; // keine erneute Wirksamkeit der Aussetzung, jetzt die gesetzten Sperrzeiten prüfen
 	
 	if (!SperrzeitWochenendAbhaengig)
 		return InZeitspanne(Stunde, Minute, &(Sperrzeit[0])) || InZeitspanne(Stunde, Minute, &(Sperrzeit[1]));

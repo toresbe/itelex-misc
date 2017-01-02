@@ -97,20 +97,20 @@
 	
 #ifdef PROGIDZUSATZ
 //! Identifikation im Programmspeicher
-const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher2-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const char PROGMEM Identifier[] = "___itlx_SeriellUndSpeicher2-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #else
 //! Identifikation im Programmspeicher
-const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher2___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const char PROGMEM Identifier[] = "___itlx_SeriellUndSpeicher2___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif
 
 #else // PLATINE_VERSION < 20
 	
 #ifdef PROGIDZUSATZ
 //! Identifikation im Programmspeicher
-const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const char PROGMEM Identifier[] = "___itlx_SeriellUndSpeicher-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #else
 //! Identifikation im Programmspeicher
-const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const char PROGMEM Identifier[] = "___itlx_SeriellUndSpeicher___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif
 	
 #endif // PLATINE_VERSION
