@@ -458,7 +458,7 @@ void LokalZeichenAusgabe(char c)
 		
 static void VerbindungSteht(bool AutoKennungAbfrage);
 
-static void Deaktivieren(bool WegenTimeout);
+static void Deaktivieren();
 
 static void KommendSperren(TSperreGrund Grund);
 
@@ -482,8 +482,8 @@ static void VerbindungKommend()
 		{ // Timeout...
 		clr_LEDGRUEN();
 		GeAusschalten(true);
-		//Deaktivieren(true); //! \todo testen ob dies korrekt funktioniert.
 		KommendSperren(SperreStoerung);
+		clr_LEDROT();		
 		return;
 		}
 
@@ -996,7 +996,7 @@ static void KommendSperren(TSperreGrund Grund)
 //------------------------------------------------------------------------------
 //! Kann nur durch Tastendruck an der Platine aktiviert werden.
 	
-static void Deaktivieren(bool WegenTimeout)
+static void Deaktivieren()
 // wird nach kurzem Tastendruck aufgerufen
 	{
 	set_LEDBLAU();
@@ -1010,8 +1010,7 @@ static void Deaktivieren(bool WegenTimeout)
 	clr_LEDBLAU();
 	clr_LEDROT();
 
-	if (!WegenTimeout)
-		KommendSperren(SperreTaste);
+	KommendSperren(SperreTaste);
 		
 	} // Deaktivieren
 
@@ -1183,7 +1182,7 @@ int main()
 		if (Tastendruck == Kurz)
 			{
 			Tastendruck = NichtGedr;
-			Deaktivieren(false);
+			Deaktivieren();
 			}
 
 		if (MeldungEingeschaltet)

@@ -463,7 +463,7 @@ void LokalZeichenAusgabe(char c)
 		
 static void VerbindungSteht(bool AutoKennungAbfrage);
 
-static void Deaktivieren(bool WegenTimeout);
+static void KommendSperren();
 
 
 /////////////////////////////////////////////////////////////
@@ -484,8 +484,9 @@ static void VerbindungKommend()
 	if (!TW39Einschalten())
 		{ // Timeout...
 		clr_LEDGRUEN();
-		GeAusschalten(true); // TODO wird von SeriellUndSpezial nicht quittiert!
-		Deaktivieren(true);
+		GeAusschalten(true); 
+		KommendSperren();
+		clr_LEDROT();
 		return;
 		}
 
@@ -965,7 +966,7 @@ static void KommendSperren()
 //------------------------------------------------------------------------------
 //! Kann nur durch Tastendruck an der Platine aktiviert werden.
 	
-static void Deaktivieren(bool WegenTimeout)
+static void Deaktivieren()
 // wird nach kurzem Tastendruck aufgerufen
 	{
 	set_LEDBLAU();
@@ -978,11 +979,7 @@ static void Deaktivieren(bool WegenTimeout)
 	Aktivieren(true);
 	clr_LEDBLAU();
 
-	if (!WegenTimeout)
-		{
-		clr_LEDROT();
-		KommendSperren();
-		}
+	KommendSperren();
 	} // Deaktivieren
 
 
@@ -1153,7 +1150,7 @@ __attribute__ ((noreturn)) int main()
 		if (Tastendruck == Kurz)
 			{
 			Tastendruck = NichtGedr;
-			Deaktivieren(false);
+			Deaktivieren();
 			}
 
 		if (MeldungEingeschaltet)
