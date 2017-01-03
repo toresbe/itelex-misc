@@ -178,12 +178,11 @@ TPuffer SendePuffer;
 TPuffer EmpfPuffer;
 
 
-//! Wo werden die aus dem #SendePuffer auszugebenden Zeichen gedruckt.
+//! Wo werden die aus dem #SendePuffer auszugebenden Zeichen gedruckt. Wirkt nur im bei #FsBetriebsart = #Eingeschaltet.
 TUmsetzModus SendeUmsetzModus;
 
-//! Welche Seite wird ausgewertet um den #EmpfPuffer zu füllen.
+//! Welche Seite wird ausgewertet um den #EmpfPuffer zu füllen. Wirkt nur im bei #FsBetriebsart = #Eingeschaltet.
 TUmsetzModus EmpfUmsetzModus;
-
 
 
 //! Ist das Endgerät gerade ausgeschaltet?

@@ -753,6 +753,9 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 	GeSendeMark(true); 
 
+	SendeUmsetzModus = UmsetzFern;
+	EmpfUmsetzModus = UmsetzFern; 
+
 	while (true)
 		{
 		TW39IO();

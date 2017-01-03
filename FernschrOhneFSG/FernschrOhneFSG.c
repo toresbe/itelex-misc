@@ -785,7 +785,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 	GeSendeMark(true); 
 	BefehlMark = true;
 
-	SendeUmsetzModus = UmsetzLokalUndFern; // Für Sendung des "WerDa"
+	SendeUmsetzModus = UmsetzLokalUndFern; // Für Sendung des "WerDa" \todo das muss ich nochmal durchdenken...
 	EmpfUmsetzModus = UmsetzLokalUndFern; // Für Empfang von "Antworten" 
 
 	FernschrIO(true);

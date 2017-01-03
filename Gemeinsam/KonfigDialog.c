@@ -256,7 +256,7 @@ bool KonfigurationAllgemein()
 		LokalTextAusgabeP(PSTR(" neu:     "));
 #endif
 		
-		ZifferAnz = LokalZahlEingabe(&Durchwahl, 0);
+		ZifferAnz = LokalZahlEingabe(&Durchwahl, 2);
 		if (ZifferAnz < 0)
 			return false;
 
