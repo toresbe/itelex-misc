@@ -458,8 +458,6 @@ void LokalZeichenAusgabe(char c)
 		
 static void VerbindungSteht(bool AutoKennungAbfrage);
 
-static void Deaktivieren();
-
 static void KommendSperren(TSperreGrund Grund);
 
 
@@ -818,6 +816,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 //! Behandelt die Selbstkonfiguration des Moduls.
 //-----------------------------------------------
 //! Arbeitet mit dem angeschlossenen Endgerät zusammen.
+//! Alle 'Aufräumarbeiten' macht KonfigurationEnde()
 
 static void Konfiguration()
 	{
@@ -909,7 +908,7 @@ static void Konfiguration()
 	
 	// weitere Eingaben
 
-	LokalTextAusgabeP(PSTR("\r\n +++ \r\n"));
+	LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
 	}
 
 
