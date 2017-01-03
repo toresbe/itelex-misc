@@ -7,9 +7,6 @@
 #include "Defports.h"
 
 
-//! \todo Umstellung auf Defports.h
-
-
 // Platinen-Version
 // ================
 

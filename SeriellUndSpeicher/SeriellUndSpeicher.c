@@ -1196,7 +1196,14 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 				if (AufzeichnungEin)
 					AufzeichnungEnde();
 #endif //ndef OHNE_SPEICHER
-				GeAusschalten(true);
+
+				GeAusschalten(false);
+				while (!KoAusschalten())
+					{
+					DoSwTwi();
+					SeriellIO(); 
+					}
+				
 				if (SeriellEin)
 #ifdef SPRACHE_EN					
 					LokalTextAusgabeP(PSTR("\r\nDisconnected\r\n"));
@@ -1344,10 +1351,11 @@ static void KonfigurationEnde()
 	LED_AUS(ROT);
 	}
 	
-	
+
 //! Testfunktion zur Auflistung aller angeschlossenen Module	
 static void BusteilnehmerListen()
 	{
+/*/	
 	LokalTextAusgabeP(PSTR("\r\nStatus der angeschlossenen Module:\r\n"));
 	for (uint8_t AnzZif = 1 ; AnzZif <= 2 ; AnzZif++)
 		for (uint8_t Wahl = 0 ; Wahl <= ((AnzZif == 1) ? 9 : 99) ; Wahl++)
@@ -1362,8 +1370,10 @@ static void BusteilnehmerListen()
 				LokalTextAusgabeP(PSTR("\r\n"));
 				}
 			}
+//*/			
 	}
 
+	//
 
 /*/ nur für Debugging...
 

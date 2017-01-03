@@ -612,7 +612,7 @@ static bool WahlMitTastatur()
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
 	Falschziffern = 0;
-	BuZiMode = '\0';
+	BuZiMode = ZiMode;
 
 	while (true)
 		{
@@ -674,17 +674,19 @@ static void KommendSperren();
 
 static void VerbindungGehend()
 	{
-	set_LEDGELB();
-
 	if (BusEigenAdresse == BusAdrUngueltig)
 		{
 		TW39Ausschalten();
 		return;
 		}
 		
+	set_LEDGELB();
+	
 	switch (GeEinschalten())
 		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
 		case GeEinschFehler:
+			clr_LEDGELB();
+			
 			return; 
 
 		case GeEinschWahl:
@@ -832,7 +834,11 @@ static void Konfiguration()
 	if (!TW39Einschalten())
 		return;
 	
-	LokalTextAusgabeP(PSTR("\r\n konfiguration tw39 version " SVNVERSION " datum " __DATE__));
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n configuration tw39 ver " SVNVERSION " date " __DATE__));
+#else
+	LokalTextAusgabeP(PSTR("\r\n konfiguration tw39 ver " SVNVERSION " datum " __DATE__));
+#endif //def SPRACHE_EN
 
 	// Durchwahl...
 	if (!KonfigurationAllgemein())
@@ -842,7 +848,7 @@ static void Konfiguration()
 		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
 	
 	// Wählscheibe vorhanden?
-	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden?      "));
+	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden?      ")); // TODO English
 
 	if (LokalBoolEingabe(&MitWaehlscheibe) == 0)
 		return;
@@ -903,7 +909,7 @@ static void Konfiguration()
 	
 	// weitere Eingaben
 
-	LokalTextAusgabeP(PSTR("\r\n +++ \r\n"));
+	LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
 	}
 
 
@@ -981,6 +987,7 @@ static void Deaktivieren()
 
 	Aktivieren(true);
 	clr_LEDBLAU();
+	clr_LEDROT();
 
 	KommendSperren();
 	} // Deaktivieren

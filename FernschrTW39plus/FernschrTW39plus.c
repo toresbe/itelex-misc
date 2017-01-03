@@ -845,7 +845,7 @@ static void Konfiguration()
 		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
 	
 	// Wählscheibe vorhanden?
-	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden?      "));
+	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden?      ")); // TODO English
 
 	if (LokalBoolEingabe(&MitWaehlscheibe) == 0)
 		return;

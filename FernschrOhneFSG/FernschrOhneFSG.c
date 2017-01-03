@@ -785,7 +785,10 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 	GeSendeMark(true); 
 	BefehlMark = true;
 
-	SendeUmsetzModus = UmsetzLokalUndFern; // Für Sendung des "WerDa" \todo das muss ich nochmal durchdenken...
+	if (AutoKennungAbfrage)
+		SendeUmsetzModus = UmsetzFern; // Für Sendung des "WerDa" bei Verbindungsaufbau
+	else
+		SendeUmsetzModus = UmsetzLokalUndFern; // Für Sendung der simulierten Kennung 
 	EmpfUmsetzModus = UmsetzLokalUndFern; // Für Empfang von "Antworten" 
 
 	FernschrIO(true);
@@ -847,6 +850,10 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 				PufferSpeich(&SendePuffer, EigeneKennung[i]);
 				KennungAusgabePhase = 0;
 			}
+
+		if (!AutoKennungAbfrage && PufferLeer(&SendePuffer) && SerUmSendBitNr == SerUmSendWarte)
+			SendeUmsetzModus = UmsetzLokalUndFern; 
+			// sobald die Automatische Kennungsgeber-Abfrage beendet ist, wird auf beidseitig Senden umgestellt.
 		
 		// Test:
 		// bset_LEDROT(AutoKennungAbfrage);
