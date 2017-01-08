@@ -244,6 +244,7 @@ bool KonfigurationAllgemein()
 	while (true)
 		{ // solange Durchwahl abfragen, bis gültige Eingabe erfolgt
 		uint8_t ZifferAnz;
+		int8_t EingabeZifferAnz;
 		uint8_t Durchwahl = AdresseZuWahl(BusEigenAdresse, &ZifferAnz);
 
 #ifdef SPRACHE_EN
@@ -256,12 +257,14 @@ bool KonfigurationAllgemein()
 		LokalTextAusgabeP(PSTR(" neu:     "));
 #endif
 		
-		ZifferAnz = LokalZahlEingabe(&Durchwahl, 2);
-		if (ZifferAnz < 0)
+		EingabeZifferAnz = LokalZahlEingabe(&Durchwahl, 2);
+		if (EingabeZifferAnz < 0)
 			return false;
 
-		if (ZifferAnz == 0)
+		if (EingabeZifferAnz == 0)
 			Durchwahl = AdresseZuWahl(BusEigenAdresse, &ZifferAnz); // wiederherstellen
+		else
+			ZifferAnz = EingabeZifferAnz;
 		
 		Durchwahl &= ~(BusEigenAdrMehrfach - 1);
 			// erreicht, dass bei (Bsp.) 8 Adressen die Basisadresse 8, 16, 24, ...

@@ -835,9 +835,9 @@ static void Konfiguration()
 		return;
 	
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n configuration tw39 ver " SVNVERSION " date " __DATE__));
+	LokalTextAusgabeP(PSTR("\r\n config tw39 ver " SVNVERSION " / " __DATE__));
 #else
-	LokalTextAusgabeP(PSTR("\r\n konfiguration tw39 ver " SVNVERSION " datum " __DATE__));
+	LokalTextAusgabeP(PSTR("\r\n konfig. tw39 ver " SVNVERSION " / " __DATE__));
 #endif //def SPRACHE_EN
 
 	// Durchwahl...
