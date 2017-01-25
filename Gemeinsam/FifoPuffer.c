@@ -111,12 +111,7 @@ uint8_t PufferAnzahl(TPuffer *p)
 //! \returns Zeichen aus dem Puffer.
 uint8_t PufferZeig(TPuffer *p)
 	{
-	uint8_t SregTemp = SREG; // sichert Interrupt-Enable
-	cli();
-	uint8_t res = p->Puffer[p->AusgP];
-	p->AusgP = PufferNP(p->AusgP);
-	SREG = SregTemp;
-	return res;
+	return p->Puffer[p->AusgP];
 	}
 	
 

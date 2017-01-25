@@ -28,6 +28,13 @@ int8_t HexNibbleOut;
 
 #endif //def HEX_FORMAT
 
+#ifdef SIMULATION
+
+char SimInput[] = "7F 01 8a ";
+char *SimInP = SimInput;
+
+#endif //def SIMULATION
+
 
 #ifdef HEX_FORMAT
 
@@ -74,7 +81,11 @@ void InitClientCom()
 	HexNibbleOut = -1;
 	HexNibbleIn = -1;
 #endif //else !HEX_FORMAT
+
 	}
+
+
+
 
 
 //! Doing the in- and output on the client interface. Data will be stored in #ClientInputBuffer 
@@ -112,6 +123,12 @@ void DoClientCommunication()
 			{
 #ifdef HEX_FORMAT
 			char c = UDR0;
+
+#ifdef SIMULATION
+			c = *SimInP;
+			if (c != '\0') SimInP++;
+#endif //def SIMULATION
+
 			int8_t x = CharToHexNibble(c);
 			if (x < 0) // not a valid hex nibble
 				{
