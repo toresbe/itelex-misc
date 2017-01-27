@@ -80,9 +80,14 @@ const char PROGMEM Identifier[] = "___itlx_UniIF-" PROGIDZUSATZ "___" __DATE__ "
 // internal Eeprom
 // ===============
 
-EEMEM uint8_t Spacer[20]; //!< Start of EEPROM sometimes disturbed
-EEMEM uint8_t OwnAddress_EE = 99 << 1; //!< copy of #BusEigenAdresse in EEPROM
-EEMEM uint8_t DefaultStatus_EE = 0xB0; //!< copy of #DefaultStatus in EEPROM
+typedef struct {
+	uint8_t Spacer[20]; //!< Start of EEPROM sometimes disturbed
+	uint8_t OwnAddress; //!< copy of #BusEigenAdresse in EEPROM
+	uint8_t DefaultStatus; //!< copy of #DefaultStatus in EEPROM
+	} TEEData;
+
+
+EEMEM TEEData EE = { {0}, 99 << 1, 0xB0 } ;
 
 
 // Variables
@@ -124,15 +129,15 @@ static void InitVariables()
 	{
 	// Init from EEPROM
 	// ----------------
-	BusEigenAdresse = eeprom_read_byte(&Spacer[0]) & 0xFE;
+	//BusEigenAdresse = eeprom_read_byte(&EE.Spacer[0]) & 0xFE;
 		// Dummy Read to "use" Spacer
 
-	BusEigenAdresse = eeprom_read_byte(&OwnAddress_EE) & 0xFE;
+	BusEigenAdresse = eeprom_read_byte(&EE.OwnAddress) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
 		BusEigenAdresse = 99 << 1; // default
 	BusEigenAdrMehrfach = 1; // no multi Adress mode supported yet.
 	
-	DefaultStatus = (1 << StatBit_Frei) | (eeprom_read_byte(&DefaultStatus_EE) & 0x30);
+	DefaultStatus = (1 << StatBit_Frei) | (eeprom_read_byte(&EE.DefaultStatus) & 0x30);
 	Status = DefaultStatus;
 	
 	// Init other variables (static)
@@ -229,11 +234,13 @@ static void SetParameter(uint8_t addr, uint8_t val)
 		{
 		case Txi_Param_OwnAddress:			
 			BusEigenAdresse = val & 0xFE; // gets active after an reset
+			eeprom_update_byte(&EE.OwnAddress, BusEigenAdresse);
 			break;
 			
 		case Txi_Param_DefaultStatus:		
 			DefaultStatus = (val & 0x30) | (1 << StatBit_Frei);
 				// only bits 4 and 5 allowed
+			eeprom_update_byte(&EE.DefaultStatus, DefaultStatus);
 			break;
 			
 		case Txi_Param_ErrorCode:			
@@ -347,7 +354,7 @@ static void ProcessClientToTWI()
 			if (PufferAnzahl(&ClientInputBuffer) < 2)
 				return; // needs at least code + address
 
-			if (PufferAnzahl(&ClientOutputBuffer) < MaxPuffer - 4)
+			if (PufferAnzahl(&ClientOutputBuffer) > MaxPuffer - 4)
 				return; // not ready to send the result
 			
 			PufferAusg(&ClientInputBuffer); // deletes command code from buffer
@@ -383,7 +390,7 @@ static void ProcessClientToTWI()
 			if (PufferAnzahl(&ClientInputBuffer) < 2)
 				return; // needs at least code + address
 
-			if (PufferAnzahl(&ClientOutputBuffer) < MaxPuffer - 4)
+			if (PufferAnzahl(&ClientOutputBuffer) > MaxPuffer - 4)
 				return; // not ready to send the result
 			
 			PufferAusg(&ClientInputBuffer); // deletes command code from buffer

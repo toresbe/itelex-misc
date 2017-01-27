@@ -10,6 +10,7 @@
 #include "ClientComDefs.h"
 #include "ClientCommunication.h"
 
+// -------------------------------------------------------------------------------
 
 //! Buffer for data coming from the client interface to be sent to the TWI bus.
 TPuffer ClientInputBuffer;
@@ -17,6 +18,7 @@ TPuffer ClientInputBuffer;
 //! Buffer for data to be sent to the client interface
 TPuffer ClientOutputBuffer;
 
+// -------------------------------------------------------------------------------
 
 #ifdef HEX_FORMAT
 
@@ -28,13 +30,16 @@ int8_t HexNibbleOut;
 
 #endif //def HEX_FORMAT
 
+// -------------------------------------------------------------------------------
+
 #ifdef SIMULATION
 
-char SimInput[] = "7F 01 8a ";
+char SimInput[] = "7E01BC";
 char *SimInP = SimInput;
 
 #endif //def SIMULATION
 
+// -------------------------------------------------------------------------------
 
 #ifdef HEX_FORMAT
 
@@ -60,6 +65,7 @@ static char HexNibbleToChar(uint8_t x)
 	
 #endif //def HEX_FORMAT
 
+// -------------------------------------------------------------------------------
 
 //! Any initialisation 
 void InitClientCom()
@@ -83,8 +89,6 @@ void InitClientCom()
 #endif //else !HEX_FORMAT
 
 	}
-
-
 
 
 
