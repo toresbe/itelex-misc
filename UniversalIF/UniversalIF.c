@@ -80,7 +80,7 @@ const char PROGMEM Identifier[] = "___itlx_UniIF-" PROGIDZUSATZ "___" __DATE__ "
 // internal Eeprom
 // ===============
 
-EEMEM uint8_t Spacer[4]; //!< Start of EEPROM sometimes disturbed
+EEMEM uint8_t Spacer[20]; //!< Start of EEPROM sometimes disturbed
 EEMEM uint8_t OwnAddress_EE = 99 << 1; //!< copy of #BusEigenAdresse in EEPROM
 EEMEM uint8_t DefaultStatus_EE = 0xB0; //!< copy of #DefaultStatus in EEPROM
 
@@ -124,6 +124,9 @@ static void InitVariables()
 	{
 	// Init from EEPROM
 	// ----------------
+	BusEigenAdresse = eeprom_read_byte(&Spacer[0]) & 0xFE;
+		// Dummy Read to "use" Spacer
+
 	BusEigenAdresse = eeprom_read_byte(&OwnAddress_EE) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
 		BusEigenAdresse = 99 << 1; // default
