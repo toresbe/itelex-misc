@@ -1,0 +1,31 @@
+mkdir AlleBins
+echo Inhalt:<br> >AlleBins\index.html
+call MakeBin1.bat itlx_LeitungAnalog2 AnalogModem2\default\AnalogModem2.hex Mega168_ExtTakt
+call MakeBin1.bat itlx_ED1000 ED1000\default\ED1000.hex Mega168_Quarz
+call MakeBin1.bat itlx_ED1000-PROTO ED1000\FuerPrototyp\ED1000.hex Mega168_Quarz
+call MakeBin1.bat itlx_V21 ED1000\V.21\ED1000.hex Mega168_Quarz
+call MakeBin1.bat itlx_OhneFSG FernschrOhneFSG\default\FernschrOhneFSG.hex Mega168_Quarz
+call MakeBin1.bat itlx_OhneFSG-EN FernschrOhneFSG\English\FernschrOhneFSG.hex Mega168_Quarz
+call MakeBin1.bat itlx_OhneFSG-US45 FernschrOhneFSG\USTTY-45\FernschrOhneFSG.hex Mega168_Quarz
+call MakeBin1.bat itlx_TW39-PL10 FernschrTW39\AltePlatine\FernschrTW39.hex Mega8_Quarz
+call MakeBin1.bat itlx_TW39 FernschrTW39\default\FernschrTW39.hex Mega8_Quarz
+call MakeBin1.bat itlx_TW39-US45 FernschrTW39\USTTY-45\FernschrTW39.hex Mega8_Quarz
+call MakeBin1.bat itlx_TW39plus-PL10 FernschrTW39Plus\AltePlatine\FernschrTW39plus.hex Mega168_Quarz
+call MakeBin1.bat itlx_TW39plus FernschrTW39Plus\default\FernschrTW39plus.hex Mega168_Quarz
+call MakeBin1.bat itlx_TW39plus-DOPAUS FernschrTW39Plus\DoppelAusgabe\FernschrTW39plus.hex Mega168_Quarz
+call MakeBin1.bat itlx_TW39plus-US45 FernschrTW39Plus\USTTY-45\FernschrTW39plus.hex Mega168_Quarz
+call MakeBin1.bat itlx_Messgeraet Messgeraet\default\Messgeraet.hex Mega168_Quarz
+call MakeBin1.bat itlx_Messgeraet-US45 Messgeraet\USTTY-45\Messgeraet.hex Mega168_Quarz
+call MakeBin1.bat itlx_SeriellUndSpeicher SeriellUndSpeicher\PlatVer13\SeriellUndSpeicher.hex Mega168_Quarz
+call MakeBin1.bat itlx_SeriellUndSpeicher2 SeriellUndSpeicher\PlatVer21\SeriellUndSpeicher.hex Mega168_Quarz
+rem OhneSpeicher wird nicht vertrieben
+call MakeBin1.bat itlx_SeriellUndSpeicher2-US45 SeriellUndSpeicher\USTTY-45_21\SeriellUndSpeicher.hex Mega168_Quarz
+rem UniIF wird nicht vertrieben
+rem Wahlbrücke wird nicht vertrieben
+rem Fuer alte Versionen des i-Telex mit Nachschlage-Tabelle:
+copy AlleBins\itlx_LeitungAnalog2.bin AlleBins\AnalogModem.bin
+copy AlleBins\itlx_ED1000.bin AlleBins\ED1000.bin
+copy AlleBins\itlx_TW39.bin AlleBins\FernschrTW39.bin
+copy AlleBins\itlx_Messgeraet.bin AlleBins\Messgeraet.bin
+copy AlleBins\itlx_SeriellUndSpeicher.bin AlleBins\SeriellUndSpeicher.bin
+pause
