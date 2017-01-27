@@ -1,5 +1,5 @@
 mkdir AlleBins
-echo Inhalt:<br> >AlleBins\index.html
+echo Inhalt:^<br^> >AlleBins\index.html
 call MakeBin1.bat itlx_LeitungAnalog2 AnalogModem2\default\AnalogModem2.hex Mega168_ExtTakt
 call MakeBin1.bat itlx_ED1000 ED1000\default\ED1000.hex Mega168_Quarz
 call MakeBin1.bat itlx_ED1000-PROTO ED1000\FuerPrototyp\ED1000.hex Mega168_Quarz
