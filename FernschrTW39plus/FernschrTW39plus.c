@@ -1237,11 +1237,11 @@ int main()
 			Tastendruck = NichtGedr;
 			switch (TasteFunktion)
 				{
-				case Deaktivierung:
-					Deaktivieren();
-					break;
 				case DemoBetriebStarten:
 					DemoBetrieb();
+					break;
+				default:
+					Deaktivieren();
 					break;
 				}	
 			}
