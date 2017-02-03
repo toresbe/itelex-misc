@@ -93,6 +93,9 @@ typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrun
 bool MitWaehlscheibe; //!< Gerät het eine Wählscheibe
 uint8_t WahlauffordImpulsLaenge; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
 
+typedef enum { Deaktivierung, DemoBetriebStarten } TTasteFunktion;
+
+TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb
 
 bool BefehlEinschalten; //!< Fs soll laufen
 bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
@@ -816,6 +819,52 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 /////////////////////////////////////////////////////////////
 
+//! Demo-Betrieb
+// ----------------------------------------------------------
+//! Ein fester Text wird gedruckt, bis die Taste gedrückt wird
+//! oder der Fs mit der Schlusstaste abgeschaltet wird.
+
+PROGMEM const char DemoText[] = 
+"\r\n Demo demo demo 1"
+;
+
+static void DemoBetrieb()
+	{
+	PGM_P p;
+	
+	SeriellUmsetzInit();
+	BuZiMode = '\0';
+	Aktivieren(false);
+	
+	if (!TW39Einschalten())
+		return;
+	
+	set_LEDBLAU();
+	
+	p = DemoText;
+	
+	while (pgm_read_byte(p) != '\0')
+		{
+		LokalZeichenAusgabe(pgm_read_byte(p));	
+			// macht intern TW39IO also auch Schlusstaste-Erkennung
+		p++;
+		TastePruefen();
+		if (Tastendruck != NichtGedr)
+			break;
+		if (!MeldungEingeschaltet)
+			break;
+		}
+
+	Tastendruck = NichtGedr;
+	TW39Ausschalten();
+	Aktivieren(true);
+	clr_LEDBLAU();
+	
+	}
+
+
+/////////////////////////////////////////////////////////////
+
 //! Behandelt die Selbstkonfiguration des Moduls.
 //-----------------------------------------------
 //! Arbeitet mit dem angeschlossenen Endgerät zusammen.
@@ -1069,6 +1118,8 @@ int main()
 
 	SperrzeitLadeEeprom(&Sperrzeit_EE);
 	
+	TasteFunktion = DemoBetriebStarten;
+	
 	BefehlEinschalten = false;
 	BefehlMark = true;
 	MeldungEingeschaltet = false;
@@ -1184,7 +1235,15 @@ int main()
 		if (Tastendruck == Kurz)
 			{
 			Tastendruck = NichtGedr;
-			Deaktivieren();
+			switch (TasteFunktion)
+				{
+				case Deaktivierung:
+					Deaktivieren();
+					break;
+				case DemoBetriebStarten:
+					DemoBetrieb();
+					break;
+				}	
 			}
 
 		if (MeldungEingeschaltet)
