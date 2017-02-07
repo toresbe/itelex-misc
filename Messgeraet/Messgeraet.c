@@ -1106,17 +1106,14 @@ int main()
 
 	init_TASTE();
 
-	LED_EIN(ROT);
-	SET_BIT(LED_ROT_DDR, LED_ROT_BIT);
-
-	LED_AUS(GELB);
-	SET_BIT(LED_GELB_DDR, LED_GELB_BIT);
-
-	LED_AUS(GRUEN);
-	SET_BIT(LED_GRUEN_DDR, LED_GRUEN_BIT);
-
-	LED_AUS(BLAU);
-	SET_BIT(LED_BLAU_DDR, LED_BLAU_BIT);
+	init_LED_ROT(); 
+	clr_LED_ROT();
+	init_LED_GELB();
+	clr_LED_GELB();
+	init_LED_GRUEN();
+	clr_LED_GRUEN();
+	init_LED_BLAU();
+	clr_LED_BLAU();
 
 	// Timer initialisieren
 	MsTimerInit();

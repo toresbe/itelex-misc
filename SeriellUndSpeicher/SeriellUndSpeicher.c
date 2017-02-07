@@ -742,13 +742,14 @@ static void LEDAktualisieren()
 	}
 	
 	
-//! Schaltet LED entspechend der Status-Bits an.
+//! Sendet einen Ascii-Text
 static void GeSendeText(char* s)
 	{
 	GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
 	while (*s != '\0')
 		{
 		GeSendeZeichen(*s);
+		LokalZeichenAusgabeKlar(*s);
 		s++;
 		}
 	}
@@ -1055,6 +1056,7 @@ static void GeSendeTextP(PGM_P s)
 	while (pgm_read_byte(s) != '\0')
 		{
 		GeSendeZeichen(pgm_read_byte(s));
+		LokalZeichenAusgabeKlar(pgm_read_byte(s));
 		s++;
 		}
 	}
@@ -1669,6 +1671,23 @@ int main()
 
 #endif //ndef OHNE_SPEICHER
 
+				case CTRL('l'): 'Lokalbetrieb
+					Aktivieren(false);
+#ifdef SPRACHE_EN				
+					LokalTextAusgabeP(PSTR("\r\nLokalbetrieb\r\n"));
+#else
+					LokalTextAusgabeP(PSTR("\r\nlocal mode\r\n"));
+#endif					
+					while (true)
+						{
+						SeriellIO();
+						if (!PufferLeer(&SerInBuf) && PufferAusg(&SerInBuf) == CTRL('s'))
+							break;
+						}
+					Aktivieren(true);
+					HauptmenueAusgeben = true;
+					break;
+					
 //HACK:
 				case CTRL('r'):
 					wdt_enable(WDTO_1S);
@@ -1678,7 +1697,7 @@ int main()
 					// wird beendet durch Watchdog-Reset
 //:HACK
 					
-				case CTRL('l'):
+				case CTRL('i'):
 					Aktivieren(false);
 					BusteilnehmerListen();
 					Aktivieren(true);

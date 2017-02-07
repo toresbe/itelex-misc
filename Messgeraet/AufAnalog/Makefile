@@ -15,7 +15,7 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99        -fgnu89-inline              -DF_CPU=14745600UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
+CFLAGS += -Wall -gdwarf-2 -std=gnu99        -fgnu89-inline                  -DF_CPU=14745600UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 
 ## Assembly specific flags
@@ -40,7 +40,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 INCLUDES = -I"D:\Daten\AvrProgs\TxP2\Messgeraet\..\..\C-Libs" -I"D:\Daten\AvrProgs\TxP2\Messgeraet\..\Gemeinsam" 
 
 ## Objects that must be built in order to link
-OBJECTS = Messgeraet.o Taste.o BaudotCode.o BusKomm.o EepromTools.o FifoPuffer.o SeriellUmsetz.o TxP2-Endgeraet.o MsTimer.o 
+OBJECTS = Messgeraet.o Taste.o BaudotCode.o BusKomm.o EepromTools.o FifoPuffer.o SeriellUmsetz.o TxP2-Endgeraet.o MsTimer.o BusKomm2.o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -72,6 +72,9 @@ TxP2-Endgeraet.o: ../../Gemeinsam/TxP2-Endgeraet.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 MsTimer.o: ../../../C-Libs/MsTimer.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+BusKomm2.o: ../../Gemeinsam/BusKomm2.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
