@@ -132,9 +132,6 @@ static void TW39IO()
 		bset_FS2_AUSG(BefehlMark);
 	#endif //def PARALLELAUSGABE
 
-#define NEU
-
-#ifdef NEU
 	// Schleifenstrom auswerten: Einschaltung oder nicht
 	// -------------------------------------------------
 	if (get_FS_EING())
@@ -189,68 +186,6 @@ static void TW39IO()
 			} // else !get_FS_EING() == Schleifenstrom fließt
 		} // else BefehlMark && MeldungEingeschaltet
 	
-#else
-	// Schleifenstrom auswerten
-	// ------------------------
-	if (BefehlMark || !MeldungEingeschaltet)
-		{
-		if (get_FS_EING())
-			{ // Strom ist aus --> Space
-			if (!MeldungEingeschaltet || TimerVal(&AusschaltungTimer) > 500)
-				{ // mehr als 0,5 s Stromunterbrechung --> Ausschalten
-				MeldungEingeschaltet = false;
-				MeldungMark = true;
-				StartTimer(&EntprellungTimer);
-				}
-			else if (MeldungMark)
-				{ // der Applikation wird noch Mark gemeldet
-				if (TimerVal(&EntprellungTimer) > 3)
-					{ // mindestens 3 ms konstant Space --> Space melden
-					MeldungMark = false;
-					}
-				}
-			else // !MeldungMark
-				{ // Regelzustand bei Space: Space wird auch gemeldet
-				StartTimer(&EntprellungTimer);
-				}
-			} // Strom ist aus
-		else // !get_FS_EING
-			{ // Schleifenstrom fließt
-			if (!MeldungMark)
-				{ // der Applikation wird noch Space gemeldet
-				if (TimerVal(&EntprellungTimer) > 3)
-					{ // mindestens 3 ms konstant Mark --> Mark melden
-					MeldungMark = true;
-					}
-				}
-			else // MeldungMark
-				{ // Regelzustand bei Mark: Mark wird auch gemeldet
-				if (!MeldungEingeschaltet)
-					{ // erst mal stabile Einschaltung abwarten...
-					if (TimerVal(&EntprellungTimer) > 100)
-						{
-						MeldungEingeschaltet = true;
-						StartTimer(&AusschaltungTimer);
-						}
-					else
-						; // warten
-					}
-				else // ist schon Eingeschaltet (Meldung)
-					{ 
-					StartTimer(&AusschaltungTimer);
-					StartTimer(&EntprellungTimer);
-					}
-				}
-			} // else !get_FS_EING
-		} // else FsSendMark --> Schleife ist Schnittstellen-Ausgabeseitig ein
-	else // !BefehlMark && MeldungEingeschaltet
-		{
-		MeldungMark = true; // nur Simplex-Modus
-		StartTimer(&EntprellungTimer);
-		StartTimer(&AusschaltungTimer);
-		}
-#endif
-
 	if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
 		bset_LEDGELB(!MeldungMark);
 	else // !BIT_IS_SET(Status, StatBit_AngerufenBelegt))
@@ -598,6 +533,7 @@ static bool WahlMitTastatur()
 	char c;
 	TMsTimer WahlendeTimer;
 	bool EsWurdeGewaehlt;
+	bool Lokalbetrieb;
 	int Falschziffern;
 	
 	if (!TW39Einschalten())
@@ -609,6 +545,7 @@ static bool WahlMitTastatur()
 
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
+	Lokalbetrieb = false;
 	Falschziffern = 0;
 	BuZiMode = ZiMode;
 
@@ -617,28 +554,49 @@ static bool WahlMitTastatur()
 		TW39IO();
 		
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
-		if (SerUmEmpfBitNr == SerUmEmpfFertig)
+
+		if (!Lokalbetrieb)
 			{
-			c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
-			SerUmEmpfBitNr = SerUmEmpfWarte;
-			if (c >= '0' && c <= '9')
+			if (SerUmEmpfBitNr == SerUmEmpfFertig)
 				{
-				GeWaehlen(c - '0');
-				EsWurdeGewaehlt = true;
-				}
-			else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
-				{
-				Falschziffern++;
+				c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
+				SerUmEmpfBitNr = SerUmEmpfWarte;
+				if (c >= '0' && c <= '9')
+					{
+					GeWaehlen(c - '0');
+					EsWurdeGewaehlt = true;
+					}
+				else if (c == 'l')
+					{
+					Lokalbetrieb = true;
+					LokalZeichenAusgabe('o');
+					LokalZeichenAusgabe('c');
+					}
+				else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
+					{
+					Falschziffern++;
+					}
+
+				StartTimer(&WahlendeTimer);
 				}
 
-			StartTimer(&WahlendeTimer);
-			}
+			while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 100)
+				{
+				LokalZeichenAusgabe('?');
+				Falschziffern--;
+				}
 
-		while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 100)
-			{
-			LokalZeichenAusgabe('?');
-			Falschziffern--;
-			}
+			if (KoEinschalten())
+				{
+				return true;
+				}
+
+			if (TimerVal(&WahlendeTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 15 / 45 Sekunden nicht gewählt
+				{ // auf das Ausschalten durch die Schlusstaste warten
+				AbschaltungZuLangeWahlpause(EsWurdeGewaehlt);
+				return false;
+				}
+			} // if (!Lokalbetrieb)
 
 		if (!MeldungEingeschaltet || KoAusschalten())
 			{
@@ -646,17 +604,6 @@ static bool WahlMitTastatur()
 			return false;
 			}
 			
-		if (KoEinschalten())
-			{
-			return true;
-			}
-
-		if (TimerVal(&WahlendeTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 15 / 45 Sekunden nicht gewählt
-			{ // auf das Ausschalten durch die Schlusstaste warten
-			AbschaltungZuLangeWahlpause(EsWurdeGewaehlt);
-			return false;
-			}
-
 		} // while (true)
 	}
 	
