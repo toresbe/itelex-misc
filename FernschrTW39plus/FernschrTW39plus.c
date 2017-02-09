@@ -80,6 +80,7 @@ EEMEM uint8_t MitWaehlscheibe_EE = 1; //!< Hat das Gerät eine Wählscheibe
 EEMEM uint8_t WahlauffordImpulsLaenge_EE = 30; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
 EEMEM uint8_t KommendSperreWahl_EE = 0; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 EEMEM TSperrzeitDaten Sperrzeit_EE = { 10*60, 11*60, 22*60, 6*60 } ;
+EEMEM uint8_t TasteFunktion_EE = 0 ; //!< Was macht die Taste
 
 
 // Typen
@@ -772,7 +773,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 //! oder der Fs mit der Schlusstaste abgeschaltet wird.
 
 PROGMEM const char DemoText[] = 
-"\r\n Demo demo demo 1"
+#include "DemoText.h"
 ;
 
 static void DemoBetrieb()
@@ -904,6 +905,29 @@ static void Konfiguration()
 		return;
 	
 	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
+	
+	// Modus für Tastendruck
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n module button function (cur. "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n funktion taste am modul: (akt. "));
+#endif //def SPRACHE_EN
+
+	LokalZahlAusgabe(TasteFunktion, 0);
+
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(") new:     "));
+#else
+	LokalTextAusgabeP(PSTR(") neu:     "));
+#endif //def SPRACHE_EN
+
+	if (LokalZahlEingabe(&TasteFunktion, 0) < 0)
+		return;
+
+	if (TasteFunktion != eeprom_read_byte(&TasteFunktion_EE))
+		eeprom_write_byte(&TasteFunktion_EE, TasteFunktion);
+
+	LokalTextAusgabeP(OkStrP);
 	
 	// weitere Eingaben
 
@@ -1064,8 +1088,8 @@ int main()
 		KommendSperreWahl = 0;
 
 	SperrzeitLadeEeprom(&Sperrzeit_EE);
-	
-	TasteFunktion = DemoBetriebStarten;
+
+	TasteFunktion = eeprom_read_byte(&TasteFunktion_EE);
 	
 	BefehlEinschalten = false;
 	BefehlMark = true;

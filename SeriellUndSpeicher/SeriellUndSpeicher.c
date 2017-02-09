@@ -1595,23 +1595,29 @@ int main()
 #endif				
 				SerSendFlush();
 #ifdef SPRACHE_EN				
+				LokalTextAusgabeP(PSTR(", Ctrl-L: local mode"));
+#else
+				LokalTextAusgabeP(PSTR(", Ctrl-L: Lokalbetrieb"));
+#endif				
+				SerSendFlush();
+#ifdef SPRACHE_EN				
 				LokalTextAusgabeP(PSTR(", Ctrl-K: config"));
 #else
 				LokalTextAusgabeP(PSTR(", Ctrl-K: Konfiguration"));
 #endif				
-#ifdef BUSDEBUG_DIALOG
 				SerSendFlush();
+#ifdef BUSDEBUG_DIALOG
 				LokalTextAusgabeP(PSTR(", Ctrl-D: Debug"));
+				SerSendFlush();
 #endif
 #ifndef OHNE_SPEICHER
-				SerSendFlush();
 #ifdef SPRACHE_EN				
 				LokalTextAusgabeP(PSTR(", Ctrl-Q: read messages"));
 #else
 				LokalTextAusgabeP(PSTR(", Ctrl-Q: AB-Wiedergabe"));
 #endif				
-#endif //ndef OHNE_SPEICHER
 				SerSendFlush();
+#endif //ndef OHNE_SPEICHER
 				LokalTextAusgabeP(PSTR(" --> "));
 				} // if (SeriellBereit())
 			HauptmenueAusgeben = false;
@@ -1671,7 +1677,7 @@ int main()
 
 #endif //ndef OHNE_SPEICHER
 
-				case CTRL('l'): 'Lokalbetrieb
+				case CTRL('l'): //Lokalbetrieb
 					Aktivieren(false);
 #ifdef SPRACHE_EN				
 					LokalTextAusgabeP(PSTR("\r\nLokalbetrieb\r\n"));
