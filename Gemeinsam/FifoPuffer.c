@@ -106,7 +106,7 @@ uint8_t PufferAnzahl(TPuffer *p)
 //! Liest das erste Zeichen im Puffer, belässt es aber dort
 // --------------------------------------------------------
 //! Vorher \b muss geprüft werden, dass mindestens ein Zeichen im Puffer ist.
-//! Geeignet ist \code if (!PufferLeer(p)) _irgendwas_(PufferAusg(p)); \endcode
+//! Geeignet ist \code if (!PufferLeer(p)) _irgendwas_(PufferZeig(p)); \endcode
 //! \param p Zeiger auf den Puffer.
 //! \returns Zeichen aus dem Puffer.
 uint8_t PufferZeig(TPuffer *p)
