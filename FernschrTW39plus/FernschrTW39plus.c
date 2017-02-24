@@ -567,7 +567,7 @@ static bool WahlMitTastatur()
 					GeWaehlen(c - '0');
 					EsWurdeGewaehlt = true;
 					}
-				else if (c == 'l')
+				else if (c == 'l' && !EsWurdeGewaehlt)
 					{
 					Lokalbetrieb = true;
 					LokalZeichenAusgabe('o');

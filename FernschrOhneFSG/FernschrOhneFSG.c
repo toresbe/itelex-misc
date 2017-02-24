@@ -624,6 +624,12 @@ static bool WahlMitTastatur()
 				GeWaehlen(c - '0');
 				EsWurdeGewaehlt = true;
 				}
+			else if (c == 'l' && !EsWurdeGewaehlt)
+				{
+				Lokalbetrieb = true;
+				LokalZeichenAusgabe('o');
+				LokalZeichenAusgabe('c');
+				}
 			else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
 				{
 				Falschziffern++;
