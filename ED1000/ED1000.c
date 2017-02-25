@@ -692,6 +692,7 @@ static bool WahlMitTastatur()
 	TMsTimer WahlendeTimer;
 	bool EsWurdeGewaehlt;
 	int Falschziffern;
+	bool Lokalbetrieb;
 	
 	if (!ED1000Einschalten())
 		return false;
