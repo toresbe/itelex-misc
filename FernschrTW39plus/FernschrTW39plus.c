@@ -581,7 +581,7 @@ static bool WahlMitTastatur()
 				StartTimer(&WahlendeTimer);
 				}
 
-			while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 100)
+			while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 200)
 				{
 				LokalZeichenAusgabe('?');
 				Falschziffern--;
@@ -1201,6 +1201,7 @@ int main()
 			Tastendruck = NichtGedr;
 			Konfiguration();
 			KonfigurationEnde();
+			Tastendruck = NichtGedr;
 			}
 
 		if (Tastendruck == Kurz)

@@ -480,7 +480,7 @@ static bool WahlMitTastatur()
 
 			}
 
-		while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 100)
+		while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 200)
 			{
 			LokalZeichenAusgabe('?');
 			Falschziffern--;

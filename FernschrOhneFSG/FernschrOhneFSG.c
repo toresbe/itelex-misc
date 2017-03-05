@@ -590,6 +590,7 @@ static bool WahlMitTastatur()
 	{
 	char c;
 	bool EsWurdeGewaehlt;
+	bool Lokalbetrieb;
 	int Falschziffern;
 	
 	if (!FsEinschalten())
@@ -604,6 +605,7 @@ static bool WahlMitTastatur()
 	// Wahlziffern entgegennehmen, Break bricht ab
 	// -------------------------------------------
 	EsWurdeGewaehlt = false;
+	Lokalbetrieb = false;
 	Falschziffern = 0;
 	BuZiMode = ZiMode; // Annehmen, dass die Ziffern-Ebene aktiv ist.
 
@@ -615,32 +617,43 @@ static bool WahlMitTastatur()
 		FernschrIO(true);
 		
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
-		if (SerUmEmpfBitNr == SerUmEmpfFertig)
+		
+		if (!Lokalbetrieb)
 			{
-			c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
-			SerUmEmpfBitNr = SerUmEmpfWarte;
-			if (c >= '0' && c <= '9')
+			if (SerUmEmpfBitNr == SerUmEmpfFertig)
 				{
-				GeWaehlen(c - '0');
-				EsWurdeGewaehlt = true;
+				c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
+				SerUmEmpfBitNr = SerUmEmpfWarte;
+				if (c >= '0' && c <= '9')
+					{
+					GeWaehlen(c - '0');
+					EsWurdeGewaehlt = true;
+					}
+				else if (c == 'l' && !EsWurdeGewaehlt)
+					{
+					Lokalbetrieb = true;
+					LokalZeichenAusgabe('o');
+					LokalZeichenAusgabe('c');
+					}
+				else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
+					{
+					Falschziffern++;
+					}
 				}
-			else if (c == 'l' && !EsWurdeGewaehlt)
-				{
-				Lokalbetrieb = true;
-				LokalZeichenAusgabe('o');
-				LokalZeichenAusgabe('c');
-				}
-			else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
-				{
-				Falschziffern++;
-				}
-			}
 
-		while (Falschziffern > 0 && TimerVal(&RuheTimer) >= 100)
-			{
-			LokalZeichenAusgabe('?');
-			Falschziffern--;
-			}
+			while (Falschziffern > 0 && TimerVal(&RuheTimer) >= 200)
+				{
+				LokalZeichenAusgabe('?');
+				Falschziffern--;
+				}
+
+			if (TimerVal(&RuheTimer) > (EsWurdeGewaehlt ? 30000 : 15000)) // 15 / 30 Sekunden nicht gewählt
+				{ 
+				// GeAusschalten() und FsAusschalten() macht die aufrufende Routine
+				return false;
+				}
+
+			} // if !Lokalbetrieb
 
 		if (BreakSignal || KoAusschalten())
 			{
@@ -698,12 +711,6 @@ static bool WahlMitTastatur()
 			clr_LEDROT();
 			
 			return true;
-			}
-
-		if (TimerVal(&RuheTimer) > (EsWurdeGewaehlt ? 30000 : 15000)) // 15 / 30 Sekunden nicht gewählt
-			{ 
-			// GeAusschalten() und FsAusschalten() macht die aufrufende Routine
-			return false;
 			}
 
 		} // while (true)
@@ -854,7 +861,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			{
 			for (uint8_t i = 0 ; i < MaxCodefolgeLaenge && EigeneKennung[i] <= 0x1F; i++)
 				PufferSpeich(&SendePuffer, EigeneKennung[i]);
-				KennungAusgabePhase = 0;
+			KennungAusgabePhase = 0;
 			}
 
 		if (!AutoKennungAbfrage && PufferLeer(&SendePuffer) && SerUmSendBitNr == SerUmSendWarte)
@@ -1208,6 +1215,8 @@ int main()
 	// Timer initialisieren
 	MsTimerInit();
 	
+	SperrzeitInit();
+
 	BusEigenAdresse = eeprom_read_byte(&EEDaten.BusEigenAdresse) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
 		BusEigenAdresse = 35 << 1; // Standardwert 
@@ -1217,6 +1226,8 @@ int main()
 	KommendSperreWahl = eeprom_read_byte(&EEDaten.KommendSperreWahl);
 	if (KommendSperreWahl > 99)
 		KommendSperreWahl = 0;
+
+	SperrzeitLadeEeprom(&EEDaten.SperrzeitDaten);
 
 	CodefolgeLadenPruefenInitialisieren(AusschaltZeichen, sizeof(AusschaltZeichen), EEDaten.AusschaltZeichen, 
 										AusschaltZeichenDefault, sizeof(AusschaltZeichenDefault));
@@ -1229,10 +1240,6 @@ int main()
 	BefehlMark = true;
 	MeldungMark = true;
 	BreakSignal = false;
-
-	SperrzeitInit();
-
-	SperrzeitLadeEeprom(&EEDaten.SperrzeitDaten);
 
 	KommInit();
 
