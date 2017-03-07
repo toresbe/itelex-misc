@@ -1004,6 +1004,11 @@ static void Konfiguration()
 	
 	LokalTextAusgabeP(OkStrP);
 
+	if (!SperrzeitEingabeDialog())
+		return;
+	
+	SperrzeitSpeicherEeprom(&EEDaten.SperrzeitDaten);
+	
 #ifdef SPRACHE_EN
 	Res = LokalCodefolgeEingabe(PSTR("\r\n software answerback:      "), EigeneKennung, MaxCodefolgeLaenge);
 #else
@@ -1044,11 +1049,6 @@ static void Konfiguration()
 	if (Res == 0 || BreakSignal)
 		return;
 
-	if (!SperrzeitEingabeDialog())
-		return;
-	
-	SperrzeitSpeicherEeprom(&EEDaten.SperrzeitDaten);
-	
 	// Ende-Kennung druckt FsAusschalten()
 	} // Konfiguration()
 
