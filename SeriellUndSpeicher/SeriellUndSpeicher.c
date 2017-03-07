@@ -1296,11 +1296,11 @@ static void Konfiguration()
 #else
 	LokalTextAusgabeP(PSTR(" neu:         "));
 #endif	
-	if (LokalZahlEingabe(&Tag, 0) < 0
-		|| LokalZahlEingabe(&Monat, 0) < 0
-		|| LokalZahlEingabe(&Jahr, 0) < 0
-		|| LokalZahlEingabe(&Stunde, 0) < 0
-		|| LokalZahlEingabe(&Minute, 0) < 0)
+	if (LokalZahlEingabe(&Tag, 2) < 0
+		|| LokalZahlEingabe(&Monat, 2) < 0
+		|| LokalZahlEingabe(&Jahr, 2) < 0
+		|| LokalZahlEingabe(&Stunde, 2) < 0
+		|| LokalZahlEingabe(&Minute, 2) < 0)
 		return;
 		
 	Timer1OvfC = 0;

@@ -899,7 +899,7 @@ static void Konfiguration()
 	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
 #endif //def SPRACHE_EN
 
-	if (LokalZahlEingabe(&KommendSperreWahl, 0) < 0)
+	if (LokalZahlEingabe(&KommendSperreWahl, 2) < 0)
 		return;
 
 	if (KommendSperreWahl != eeprom_read_byte(&KommendSperreWahl_EE))

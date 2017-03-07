@@ -151,7 +151,7 @@ typedef struct
 	} TEepromDaten;
 
 
-EEMEM TEepromDaten EEDaten = { { 0 }, 1, 33, 0, EndeNurBreak, { 255 }, { 255 }, { 255 }, { 255 } } ;
+EEMEM TEepromDaten EEDaten = { { 0 }, 1, BusAdrUngueltig, 0, EndeNurBreak, { 255 }, { 255 }, { 255 }, { 255 } } ;
 
 	
 ///////////////////////////////////////////////////////////////////////////////
@@ -996,7 +996,7 @@ static void Konfiguration()
 	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
 #endif //def SPRACHE_EN
 
-	if (LokalZahlEingabe(&KommendSperreWahl, 0) < 0)
+	if (LokalZahlEingabe(&KommendSperreWahl, 2) < 0)
 		return;
 
 	if (KommendSperreWahl != eeprom_read_byte(&EEDaten.KommendSperreWahl))
