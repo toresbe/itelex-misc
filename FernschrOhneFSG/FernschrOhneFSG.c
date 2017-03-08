@@ -607,6 +607,7 @@ static bool WahlMitTastatur()
 	EsWurdeGewaehlt = false;
 	Lokalbetrieb = false;
 	Falschziffern = 0;
+	BreakSignal = false;
 	BuZiMode = ZiMode; // Annehmen, dass die Ziffern-Ebene aktiv ist.
 
 	SendeUmsetzModus = UmsetzLokal;
@@ -767,8 +768,8 @@ static void VerbindungGehend()
 			return;
 		}
 
-	VerbindungSteht(true); // automatische Kennungsgeber-Abfrage
-	// VerbindungSteht(false); // HACK aufblenden zur Fehlersuche.
+	// VerbindungSteht(true); // automatische Kennungsgeber-Abfrage ist in Abstimmung mit dem Kunden gestrichen
+	VerbindungSteht(false); 
 	
 	SperrzeitAussetzen(); // am Ende nochmal das Flag setzen.
 
