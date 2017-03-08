@@ -1,22 +1,35 @@
-make -C AnalogModem2/default
-make -C ED1000/default
-make -C ED1000/FuerPrototyp
-make -C ED1000/V.21
-make -C FernschrOhneFSG/default
-make -C FernschrOhneFSG/English
-make -C FernschrOhneFSG/USTTY-45
-make -C FernschrTW39/AltePlatine
-make -C FernschrTW39/default
-make -C FernschrTW39/USTTY-45
-make -C FernschrTW39plus/AltePlatine
-make -C FernschrTW39plus/default
-make -C FernschrTW39plus/DoppelAusgabe
-make -C FernschrTW39plus/USTTY-45
-make -C Messgeraet/default
-make -C Messgeraet/USTTY-45
-make -C SeriellUndSpeicher/PlatVer13
-make -C SeriellUndSpeicher/PlatVer21
-make -C SeriellUndSpeicher/OhneSpeicher13
-make -C SeriellUndSpeicher/USTTY-45_21
-make -C UniversalIF/RS232-Hex
-make -C Wahlbruecke/default
+cd AnalogModem2
+call makeall.bat
+cd ..
+
+cd ED1000
+call makeall.bat
+cd ..
+
+cd FernschrOhneFSG
+call makeall.bat
+cd ..
+
+cd FernschrTW39
+call makeall.bat
+cd ..
+
+cd FernschrTW39plus
+call makeall.bat
+cd ..
+
+cd Messgeraet
+call makeall.bat
+cd ..
+
+cd SeriellUndSpeicher
+call makeall.bat
+cd ..
+
+cd UniversalIF
+call makeall.bat
+cd ..
+
+cd Wahlbruecke
+call makeall.bat
+cd ..
