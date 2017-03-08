@@ -979,7 +979,7 @@ static void BusKomm()
 			FsAusgMark = BusEmpfMark; // wird vielleicht gleich wieder überschrieben.
 			BusSendMark = FsEingMark;
 			
-			if (SerUmSendBitNr != SerUmSendWarte)
+			if (SerUmSendBitNr != SerUmSendWarte && SerUmSendBitNr != SerUmSendStart)
 				{
 				if (SendeUmsetzModus == UmsetzLokal)
 					FsAusgMark = SerUmSendMark;

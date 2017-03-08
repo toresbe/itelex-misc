@@ -662,7 +662,7 @@ static bool WahlMitTastatur()
 			}
 			
 		if (KoEinschalten())
-			{
+			{ // jetzt die Kennung "VerbindungHergestellt" lokal drucken, beim Zeichenempfang aber sofort abbrechen
 			uint8_t i; // index in die "Verbunden"-Zeichenfolge
 			bool Abbruch;
 
@@ -707,6 +707,8 @@ static bool WahlMitTastatur()
 					// das Bitefolge von VerbindungHergestelltZeichen an den Fs weitergegeben.
 				FernschrIO(true);
 				}
+
+			// SendeUmsetzModus und EmpfUmsetzModus wird in der aufrufenden Funktion neu gesetzt.
 
 			clr_LEDROT();
 			
@@ -802,7 +804,9 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		SendeUmsetzModus = UmsetzFern; // Für Sendung des "WerDa" bei Verbindungsaufbau
 	else
 		SendeUmsetzModus = UmsetzLokalUndFern; // Für Sendung der simulierten Kennung 
+	
 	EmpfUmsetzModus = UmsetzLokalUndFern; // Für Empfang von "Antworten" 
+		// MARKE: Hier nur Lokal testen, wenn es weiterhin Probleme gibt beim Sofortigen Schreiben von der Gegenseite,
 
 	FernschrIO(true);
 	
