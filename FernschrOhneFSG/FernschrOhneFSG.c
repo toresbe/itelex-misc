@@ -220,75 +220,6 @@ static void FernschrIO(bool TasteMachtBreak)
 	
 	
 
-/////////////////////////////////////////////////////////////////////////////////////////7
-
-//! Modul / Schnittstelle irreversibel stoppen.
-//---------------------------------------------
-//! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
-
-__attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ ) 
-	// Fehler-Codes: 
-	// 1: Bus-Empfang trotz Sperre
-	// 2: General Call ohne entsprechende Freigabe
-	// 3: Kommando über I²C in falschem Kontext
-	// 7: Interner Fehler bei FsBetriebsart
-	// 8: unerlaubte Einschaltung
-	// 9: unerlaubte Wahl
-	// 10: unerlaubte Aktivierung / Deaktivierung
-	{
-	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWEN) | (0<<TWIE);
-	
-	uint8_t TasteZ = 0;
-	bool TasteWirk = false;
-	TMsTimer TasteTimer;
-	StartTimer(&TasteTimer);
-	while (1)
-		{
-		wdt_reset();
-
-		if (TimerVal(&TasteTimer) > 400)
-			{
-			StartTimer(&TasteTimer);
-			if (get_TASTE()) //! \todo umgekehrte Tastenpolarität prüfen
-				{ // Taste nicht gedrückt
-				if (TasteZ > 0)
-					{
-					TasteZ--;
-					if (TasteZ == 0 && TasteWirk)
-						{
-						cli();
-						wdt_enable(WDTO_1S);
-						while (1)
-							;
-						}
-					}
-				} // Taste nicht gedrückt
-			else
-				{ // Taste gedrückt
-				if (TasteZ < 5)
-					TasteZ++;
-				else
-					TasteWirk = true;
-				}
-			}
-		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
-		    {
-		    bset_LEDROT(BIT_IS_SET(Nummer, 0));
-			bset_LEDGELB(BIT_IS_SET(Nummer, 1));
-		    bset_LEDGRUEN(BIT_IS_SET(Nummer, 2));
-		    bset_LEDBLAU(BIT_IS_SET(Nummer, 3));
-			}
-		else
-			{
-			clr_LEDROT();
-			clr_LEDGELB();
-			clr_LEDGRUEN();
-			clr_LEDBLAU();
-			}
-		}
-	}	
-
-
 //////////////////////////////////////////////////////////////////
 
 //! Einschaltung des Fs auslösen.
@@ -358,6 +289,79 @@ static void FsAusschalten()
 	}
 		
 	
+/////////////////////////////////////////////////////////////////////////////////////////7
+
+//! Modul / Schnittstelle irreversibel stoppen.
+//---------------------------------------------
+//! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
+
+__attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ ) 
+	// Fehler-Codes: 
+	// 1: Bus-Empfang trotz Sperre
+	// 2: General Call ohne entsprechende Freigabe
+	// 3: Kommando über I²C in falschem Kontext
+	// 7: Interner Fehler bei FsBetriebsart
+	// 8: unerlaubte Einschaltung
+	// 9: unerlaubte Wahl
+	// 10: unerlaubte Aktivierung / Deaktivierung
+	{
+	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWEN) | (0<<TWIE);
+	
+	uint8_t TasteZ = 0;
+	bool TasteWirk = false;
+	TMsTimer TasteTimer;
+	StartTimer(&TasteTimer);
+	while (1)
+		{
+		wdt_reset();
+
+		if (TimerVal(&TasteTimer) > 400)
+			{
+			StartTimer(&TasteTimer);
+#ifdef TASTE_NACH_PLUS
+			if (get_TASTE()) 
+#else
+			if (!get_TASTE()) 
+#endif
+				{ // Taste gedrückt
+				if (TasteZ < 5)
+					TasteZ++;
+				else
+					TasteWirk = true;
+				}
+			else // Taste nicht gedrückt
+				{ 
+				if (TasteZ > 0)
+					{
+					TasteZ--;
+					if (TasteZ == 0 && TasteWirk)
+						{
+						cli();
+						wdt_enable(WDTO_1S);
+						while (1)
+							;
+						}
+					}
+				}
+			}
+		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
+		    {
+		    bset_LEDROT(BIT_IS_SET(Nummer, 0));
+			bset_LEDGELB(BIT_IS_SET(Nummer, 1));
+		    bset_LEDGRUEN(BIT_IS_SET(Nummer, 2));
+		    bset_LEDBLAU(BIT_IS_SET(Nummer, 3));
+			}
+		else
+			{
+			clr_LEDROT();
+			clr_LEDGELB();
+			clr_LEDGRUEN();
+			clr_LEDBLAU();
+			}
+		}
+	}	
+
+
 /////////////////////////////////////////////////////////////
 
 //! Liest ein Zeichen vom angeschlossenen Fs ein.
@@ -817,7 +821,8 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 		BefehlMark = KoEmpfMark();
 	
-		GeSendeMark(MeldungMark); 
+		if (SerUmSendBitNr <= SerUmSendStart) // Start oder Warten...
+			GeSendeMark(MeldungMark); // Nur Fs-Pegel direkt auf Bus, wenn nicht seriell gesendet wird...
 			
 		// Auswertung des Empfangspuffers: 
 		// a) Jedes Zeichen außer Buchstaben-Umschaltung beendet die Abfrage des 'fernen' Kennungsgebers.
@@ -1227,6 +1232,7 @@ int main()
 		BusEigenAdresse = 35 << 1; // Standardwert 
 		//! \todo Besser BusAdrUngueltig testen
 	BusEigenAdrMehrfach = 1;
+	RundsendEmpfFreig = true;
 	
 	KommendSperreWahl = eeprom_read_byte(&EEDaten.KommendSperreWahl);
 	if (KommendSperreWahl > 99)
@@ -1259,15 +1265,18 @@ int main()
 	while (TimerVal(&Timer) < 250)
 		;
 	
-	// Bei Tastendruck Watchdog AUS
-	if (!get_TASTE())
-		{ // Gedrückt = LOW	
+	/*/ Bei Tastendruck Watchdog AUS
+#ifdef TASTE_NACH_PLUS
+	if (get_TASTE()) 
+#else
+	if (!get_TASTE()) 
+#endif
+		{ 
 		wdt_disable();
-		while (!get_TASTE())
-			; // Warten, bis Taste wieder losgelassen
 		set_LEDGELB();
 		StartTimer(&Timer);
 		}
+	//*/
 
 	clr_LEDROT();
 	set_LEDGELB();
@@ -1299,8 +1308,6 @@ int main()
 	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
 
-	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
-
 /*/ Selbsttest
 
 	BefehlEinschalten = false;
@@ -1326,9 +1333,11 @@ int main()
 
 // Selbsttest Ende */
 
+	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
+
 	BefehlMark = true;
 
-	while (1)
+	while (true)
 		{
 		// aktueller Zustand: Ausgeschaltet
 		if (TimerVal(&Timer) <= 1200)

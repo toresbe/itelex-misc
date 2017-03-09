@@ -122,9 +122,6 @@ static void TW39IO()
 		bset_FS2_AUSG(BefehlMark);
 	#endif //def PARALLELAUSGABE
 
-#define NEU
-
-#ifdef NEU
 	// Schleifenstrom auswerten: Einschaltung oder nicht
 	// -------------------------------------------------
 	if (get_FS_EING())
@@ -179,68 +176,6 @@ static void TW39IO()
 			} // else !get_FS_EING() == Schleifenstrom fließt
 		} // else BefehlMark && MeldungEingeschaltet
 	
-#else
-	// Schleifenstrom auswerten
-	// ------------------------
-	if (BefehlMark || !MeldungEingeschaltet)
-		{
-		if (get_FS_EING())
-			{ // Strom ist aus --> Space
-			if (!MeldungEingeschaltet || TimerVal(&AusschaltungTimer) > 500)
-				{ // mehr als 0,5 s Stromunterbrechung --> Ausschalten
-				MeldungEingeschaltet = false;
-				MeldungMark = true;
-				StartTimer(&EntprellungTimer);
-				}
-			else if (MeldungMark)
-				{ // der Applikation wird noch Mark gemeldet
-				if (TimerVal(&EntprellungTimer) > 3)
-					{ // mindestens 3 ms konstant Space --> Space melden
-					MeldungMark = false;
-					}
-				}
-			else // !MeldungMark
-				{ // Regelzustand bei Space: Space wird auch gemeldet
-				StartTimer(&EntprellungTimer);
-				}
-			} // Strom ist aus
-		else // !get_FS_EING
-			{ // Schleifenstrom fließt
-			if (!MeldungMark)
-				{ // der Applikation wird noch Space gemeldet
-				if (TimerVal(&EntprellungTimer) > 3)
-					{ // mindestens 3 ms konstant Mark --> Mark melden
-					MeldungMark = true;
-					}
-				}
-			else // MeldungMark
-				{ // Regelzustand bei Mark: Mark wird auch gemeldet
-				if (!MeldungEingeschaltet)
-					{ // erst mal stabile Einschaltung abwarten...
-					if (TimerVal(&EntprellungTimer) > 100)
-						{
-						MeldungEingeschaltet = true;
-						StartTimer(&AusschaltungTimer);
-						}
-					else
-						; // warten
-					}
-				else // ist schon Eingeschaltet (Meldung)
-					{ 
-					StartTimer(&AusschaltungTimer);
-					StartTimer(&EntprellungTimer);
-					}
-				}
-			} // else !get_FS_EING
-		} // else FsSendMark --> Schleife ist Schnittstellen-Ausgabeseitig ein
-	else // !BefehlMark && MeldungEingeschaltet
-		{
-		MeldungMark = true; // nur Simplex-Modus
-		StartTimer(&EntprellungTimer);
-		StartTimer(&AusschaltungTimer);
-		}
-#endif
-
 	if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
 		bset_LEDGELB(!MeldungMark);
 	else // !BIT_IS_SET(Status, StatBit_AngerufenBelegt))
@@ -339,8 +274,19 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
-			if (get_TASTE()) //! \todo umgekehrte Tastenpolarität prüfen
-				{ // Taste nicht gedrückt
+#ifdef TASTE_NACH_PLUS
+			if (get_TASTE()) 
+#else
+			if (!get_TASTE()) 
+#endif
+				{ // Taste gedrückt
+				if (TasteZ < 5)
+					TasteZ++;
+				else
+					TasteWirk = true;
+				}
+			else // Taste nicht gedrückt
+				{ 
 				if (TasteZ > 0)
 					{
 					TasteZ--;
@@ -352,13 +298,6 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 							;
 						}
 					}
-				} // Taste nicht gedrückt
-			else
-				{ // Taste gedrückt
-				if (TasteZ < 5)
-					TasteZ++;
-				else
-					TasteWirk = true;
 				}
 			}
 		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
@@ -848,7 +787,11 @@ static void Konfiguration()
 		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
 	
 	// Wählscheibe vorhanden?
-	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden?      ")); // TODO English
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n has rotary dial?      ")); 
+#else	
+	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden?      ")); 
+#endif //def SPRACHE_EN
 
 	if (LokalBoolEingabe(&MitWaehlscheibe) == 0)
 		return;
@@ -1004,11 +947,6 @@ __attribute__ ((noreturn)) int main()
 	wdt_enable(WDTO_2S);
 #endif //NOWATCHDOG
 
-	// nur für den Simulator:
-	PINB = 0xFF;
-	PINC = 0xFF;
-	PIND = 0xFF;
-
 	// Ports initialisieren
 	init_LEDROT();
 	init_LEDGELB();
@@ -1063,15 +1001,18 @@ __attribute__ ((noreturn)) int main()
 	while (TimerVal(&Timer) < 250)
 		;
 	
-	// Bei Tastendruck Watchdog AUS
-	if (!get_TASTE())
-		{ // Gedrückt = LOW	
+	/*/ Bei Tastendruck Watchdog AUS
+#ifdef TASTE_NACH_PLUS
+	if (get_TASTE()) 
+#else
+	if (!get_TASTE()) 
+#endif
+		{ 
 		wdt_disable();
-		while (!get_TASTE())
-			; // Warten, bis Taste wieder losgelassen
 		set_LEDGELB();
 		StartTimer(&Timer);
 		}
+	//*/
 
 	clr_LEDROT();
 	set_LEDGELB();
@@ -1103,8 +1044,6 @@ __attribute__ ((noreturn)) int main()
 	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
 
-	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
-
 /*/ Selbsttest
 
 	BefehlEinschalten = false;
@@ -1130,10 +1069,12 @@ __attribute__ ((noreturn)) int main()
 
 // Selbsttest Ende */
 
+	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
+
 	BefehlEinschalten = false;
 	BefehlMark = true;
 
-	while (1)
+	while (true)
 		{
 		// aktueller Zustand: Ausgeschaltet
 		if (TimerVal(&Timer) <= 1200)

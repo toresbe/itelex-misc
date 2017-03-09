@@ -285,8 +285,19 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
-			if (get_TASTE()) //! \todo umgekehrte Tastenpolarität prüfen
-				{ // Taste nicht gedrückt
+#ifdef TASTE_NACH_PLUS
+			if (get_TASTE()) 
+#else
+			if (!get_TASTE()) 
+#endif
+				{ // Taste gedrückt
+				if (TasteZ < 5)
+					TasteZ++;
+				else
+					TasteWirk = true;
+				}
+			else // Taste nicht gedrückt
+				{ 
 				if (TasteZ > 0)
 					{
 					TasteZ--;
@@ -298,14 +309,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 							;
 						}
 					}
-				} // Taste nicht gedrückt
-			else
-				{ // Taste gedrückt
-				if (TasteZ < 5)
-					TasteZ++;
-				else
-					TasteWirk = true;
-				}
+				} 
 			}
 		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
 		    {
@@ -842,7 +846,11 @@ static void Konfiguration()
 		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
 	
 	// Wählscheibe vorhanden?
-	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden?      ")); // TODO English
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n has rotary dial?      ")); 
+#else	
+	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden?      ")); 
+#endif //def SPRACHE_EN
 
 	if (LokalBoolEingabe(&MitWaehlscheibe) == 0)
 		return;
@@ -1109,15 +1117,18 @@ int main()
 	while (TimerVal(&Timer) < 250)
 		;
 	
-	// Bei Tastendruck Watchdog AUS
-	if (!get_TASTE())
-		{ // Gedrückt = LOW	
+	/*/ Bei Tastendruck Watchdog AUS
+#ifdef TASTE_NACH_PLUS
+	if (get_TASTE()) 
+#else
+	if (!get_TASTE()) 
+#endif
+		{ 
 		wdt_disable();
-		while (!get_TASTE())
-			; // Warten, bis Taste wieder losgelassen
 		set_LEDGELB();
 		StartTimer(&Timer);
 		}
+	//*/
 
 	clr_LEDROT();
 	set_LEDGELB();
@@ -1149,8 +1160,6 @@ int main()
 	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
 
-	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
-
 /*/ Selbsttest
 
 	BefehlEinschalten = false;
@@ -1176,10 +1185,12 @@ int main()
 
 // Selbsttest Ende */
 
+	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
+
 	BefehlEinschalten = false;
 	BefehlMark = true;
 
-	while (1)
+	while (true)
 		{
 		// aktueller Zustand: Ausgeschaltet
 		if (TimerVal(&Timer) <= 1200)
@@ -1242,7 +1253,7 @@ int main()
 			RundsendAnzDaten = 0;
 			}
 		
-		} // while (1)
+		} // while (true)
 	} // main()
 
 

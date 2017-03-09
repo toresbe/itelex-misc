@@ -482,7 +482,7 @@ static void ED1000Ausschalten()
 //---------------------------------------------
 //! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
 
-void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ )
+__attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ ) 
 	// Fehler-Codes: 
 	// 1: Bus-Empfang trotz Sperre
 	// 2: General Call ohne entsprechende Freigabe
@@ -510,6 +510,13 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 #else
 			if (!get_TASTE())
 #endif
+				{ // Taste gedrückt
+				if (TasteZ < 5)
+					TasteZ++;
+				else
+					TasteWirk = true;
+				}
+			else
 				{ // Taste nicht gedrückt
 				if (TasteZ > 0)
 					{
@@ -523,13 +530,6 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 						}
 					}
 				} // Taste nicht gedrückt
-			else
-				{ // Taste gedrückt
-				if (TasteZ < 5)
-					TasteZ++;
-				else
-					TasteWirk = true;
-				}
 			}
 		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
 		    {
@@ -560,6 +560,7 @@ char LokalZeichenLesen()
 	{
 	char c;
 
+	EmpfUmsetzModus = UmsetzLokal; // sicherheitshalber
 	while (true)
 		{
 		ED1000IO();
@@ -691,8 +692,8 @@ static bool WahlMitTastatur()
 	char c;
 	TMsTimer WahlendeTimer;
 	bool EsWurdeGewaehlt;
-	int Falschziffern;
 	bool Lokalbetrieb;
+	int Falschziffern;
 	
 	if (!ED1000Einschalten())
 		return false;
@@ -703,42 +704,58 @@ static bool WahlMitTastatur()
 
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
+	Lokalbetrieb = false;
 	Falschziffern = 0;
-	BuZiMode = '\0';
+	BuZiMode = ZiMode;
 
 	while (true)
 		{
 		ED1000IO();
 		
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
-		if (SerUmEmpfBitNr == SerUmEmpfFertig)
+
+		if (!Lokalbetrieb)
 			{
-			c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
-			SerUmEmpfBitNr = SerUmEmpfWarte;
-			if (c >= '0' && c <= '9')
+			if (SerUmEmpfBitNr == SerUmEmpfFertig)
 				{
-				GeWaehlen(c - '0');
-				EsWurdeGewaehlt = true;
-				}
-			else if (c == 'l' && !EsWurdeGewaehlt)
-				{
-				Lokalbetrieb = true;
-				LokalZeichenAusgabe('o');
-				LokalZeichenAusgabe('c');
-				}
-			else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
-				{
-				Falschziffern++;
+				c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
+				SerUmEmpfBitNr = SerUmEmpfWarte;
+				if (c >= '0' && c <= '9')
+					{
+					GeWaehlen(c - '0');
+					EsWurdeGewaehlt = true;
+					}
+				else if (c == 'l' && !EsWurdeGewaehlt)
+					{
+					Lokalbetrieb = true;
+					LokalZeichenAusgabe('o');
+					LokalZeichenAusgabe('c');
+					}
+				else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
+					{
+					Falschziffern++;
+					}
+
+				StartTimer(&WahlendeTimer);
 				}
 
-			StartTimer(&WahlendeTimer);
-			}
+			while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 200)
+				{
+				LokalZeichenAusgabe('?');
+				Falschziffern--;
+				}
 
-		while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 200)
-			{
-			LokalZeichenAusgabe('?');
-			Falschziffern--;
-			}
+			if (KoEinschalten())
+				{
+				return true;
+				}
+
+			if (TimerVal(&WahlendeTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 15 / 45 Sekunden nicht gewählt
+				{ // auf das Ausschalten durch die Schlusstaste warten
+				AbschaltungZuLangeWahlpause(EsWurdeGewaehlt);
+				return false;
+				}
+			} // if (!Lokalbetrieb)
 
 		if (!MeldungEingeschaltet || KoAusschalten())
 			{
@@ -746,17 +763,6 @@ static bool WahlMitTastatur()
 			return false;
 			}
 			
-		if (KoEinschalten())
-			{
-			return true;
-			}
-
-		if (TimerVal(&WahlendeTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 15 / 45 Sekunden nicht gewählt
-			{ // auf das Ausschalten durch die Schlusstaste warten
-			AbschaltungZuLangeWahlpause(EsWurdeGewaehlt);
-			return false;
-			}
-
 		} // while (true)
 	}
 	
@@ -782,6 +788,7 @@ static void VerbindungGehend()
 	switch (GeEinschalten())
 		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
 		case GeEinschFehler:
+			clr_LEDGELB();
 			return; 
 
 		case GeEinschWahl:
@@ -845,6 +852,9 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 	GeSendeMark(true); 
 
+	SendeUmsetzModus = UmsetzFern;
+	EmpfUmsetzModus = UmsetzFern; 
+
 	while (true)
 		{
 		ED1000IO();
@@ -865,7 +875,6 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			GeAusschalten(false);
 			return;
 			}
-
 
 		BefehlMark = KoEmpfMark();
 	
@@ -920,7 +929,11 @@ static void Konfiguration()
 	if (!ED1000Einschalten())
 		return;
 	
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n configuration ed1000 version " SVNVERSION " date " __DATE__));
+#else
 	LokalTextAusgabeP(PSTR("\r\n konfiguration ed1000 version " SVNVERSION " datum " __DATE__));
+#endif //def SPRACHE_EN
 	
 	// Durchwahl...
 	if (!KonfigurationAllgemein())
@@ -930,12 +943,24 @@ static void Konfiguration()
 		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
 	
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
-	LokalTextAusgabeP(PSTR("\r\n kommend-sperre mit wahl: (akt. "));
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n block incoming calls by: (cur. "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n kommende anrufe sperren mit: (akt. "));
+#endif //def SPRACHE_EN
 	if (KommendSperreWahl != 0)
 		LokalZahlAusgabe(KommendSperreWahl, 2);
 	else
-		LokalTextAusgabeP(PSTR("nein"));
-	LokalTextAusgabeP(PSTR(") neu (0 = nein):     "));
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("off"));
+#else
+		LokalTextAusgabeP(PSTR("aus"));
+#endif //def SPRACHE_EN
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(") new (0 = off):     "));
+#else
+	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
+#endif //def SPRACHE_EN
 
 	if (LokalZahlEingabe(&KommendSperreWahl, 2) < 0)
 		return;
@@ -1183,10 +1208,8 @@ int main()
 			{
 #ifdef TASTE_NACH_PLUS
 			if (get_TASTE())
-				// Gedrückt = HIGH
 #else
 			if (!get_TASTE())
-				// Gedrückt = LOW
 #endif
 				{ // gedrückt
 				BefehlMark = false;
@@ -1237,6 +1260,7 @@ int main()
 			Tastendruck = NichtGedr;
 			Konfiguration();
 			KonfigurationEnde();
+			Tastendruck = NichtGedr;
 			}
 
 		if (Tastendruck == Kurz)
@@ -1269,8 +1293,7 @@ int main()
 			RundsendAnzDaten = 0;
 			}
 		
-			
-		} // while (1)
+		} // while (true)
 	} // main()
 
 
