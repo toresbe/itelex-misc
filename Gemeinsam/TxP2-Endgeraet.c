@@ -185,6 +185,10 @@ TUmsetzModus SendeUmsetzModus;
 TUmsetzModus EmpfUmsetzModus;
 
 
+//! Bestimmt, ob in Grundstellung #StatBit_SpezialGeraetKennung gesetzt ist.
+bool SpezialGeraet;
+
+
 //! Ist das Endgerät gerade ausgeschaltet?
 bool BetriebsartAusgeschaltet()
 	{
@@ -220,8 +224,9 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 		case Ausgeschaltet:
 			Status &= (1<<StatBit_BusKdoEmpfangen); // alle anderen Bits löschen
 			SET_BIT(Status, StatBit_Frei); // kein SET_BIT_Status, weil sonst das Interrupt-Flag wieder gesetzt wird
-			CLR_BIT(Status, StatBit_LeitungKennung); // es ist keine Leitung, löscht auch ggf. StatBit_AngerufenBelegt
-				// StatBit_SpezialGeraetKennung muss vom Hauptprogramm gesetzt werden!
+			if (SpezialGeraet)
+				SET_BIT(Status, StatBit_LeitungKennung); 
+				// wenn nicht, war es fünf Zeilen weiter oben gelöscht worden
 			FsEingMark = true;
 			FsAusgMark = true;
 			BusVerbPartner = 0;
@@ -305,6 +310,8 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 
 
 //! Initialisierung der Schnittstelle.
+// ----------------------------------
+//! #SpezialGeraet sollte vorher korrekt gesetzt sein
 void KommInit()
 	{
 #ifdef TCCR0A
@@ -317,7 +324,10 @@ void KommInit()
 #endif //def TCCR0A
 
 	// sonstige Initialisierungen
-	Status = (1 << StatBit_Frei); // StatBit_SpezialGeraetKennung muss vom Hauptprogramm gesetzt werden
+	Status = (1 << StatBit_Frei); 
+	if (SpezialGeraet)
+		SET_BIT(Status, StatBit_SpezialGeraetKennung);
+	
 	SeriellUmsetzInit();
 	BetriebsartWechsel(Ausgeschaltet);
 	PufferInit(&SendePuffer);

@@ -1252,6 +1252,8 @@ int main()
 	MeldungMark = true;
 	BreakSignal = false;
 
+	SpezialGeraet = false; //! \todo aus Konfig laden
+	
 	KommInit();
 
 	FernschrIO(false);

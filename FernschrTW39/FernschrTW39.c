@@ -988,6 +988,8 @@ __attribute__ ((noreturn)) int main()
 	MeldungEingeschaltet = false;
 	MeldungMark = true;
 
+	SpezialGeraet = false; //! \todo aus Konfig laden
+	
 	KommInit();
 
 	TW39IO();

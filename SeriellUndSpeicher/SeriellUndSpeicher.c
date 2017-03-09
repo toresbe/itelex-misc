@@ -1485,6 +1485,8 @@ int main()
 
 	SerIOInit();
 
+	SpezialGeraet = false; //! \todo aus Konfig laden
+	
 	KommInit();
 
 	sei();

@@ -768,6 +768,8 @@ int main()
 	MeldungEingeschaltet = false;
 	MeldungMark = true;
 
+	SpezialGeraet = true;
+	
 	KommInit();
 
 	TW39IO();

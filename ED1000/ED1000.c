@@ -1134,6 +1134,8 @@ int main()
 	MeldungEingeschaltet = false;
 	MeldungMark = true;
 
+	SpezialGeraet = false; //! \todo aus Konfig laden
+	
 	KommInit();
 
 /*/ Test der Berechnungsalgorithmen

@@ -45,6 +45,11 @@ typedef enum { UmsetzLokal, UmsetzFern, UmsetzLokalUndFern } TUmsetzModus;
 
 extern TUmsetzModus SendeUmsetzModus, EmpfUmsetzModus;
 
+extern bool SpezialGeraet;
+
+// Funktionen
+// ==========
+
 extern void FehlerStop(int Nummer);
 
 extern void KommInit();

@@ -378,14 +378,14 @@ int main()
 
 	eeprom_read_string(Kennung, Kennung_EE);
 
+	SpezialGeraet = false; //! \todo aus Konfig laden
+	
 	KommInit();
 
 	HellInit();
 
 	sei();
 
-	SET_BIT_Status(StatBit_SpezialGeraetKennung);
-	
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 250)
 		;
@@ -452,9 +452,6 @@ int main()
 		
 		eeprom_write_string_noblock(Kennung_EE, Kennung);
 
-		if (BIT_IS_SET(Status, StatBit_Frei))
-			SET_BIT_Status(StatBit_SpezialGeraetKennung);
-		
 		} // while (1)
 	} // main()
 
