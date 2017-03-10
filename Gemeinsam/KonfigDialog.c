@@ -292,13 +292,13 @@ bool KonfigurationAllgemein()
 		} // abfrage Durchwahl
 
 	// Rufumleitungen annehmen = UmleitungAbweisen
-	// ---------------------------------------
+	// -------------------------------------------
 #ifndef FUER_TW39
 
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n has rotary dial?      ")); 
+	LokalTextAusgabeP(PSTR("\r\n decline redirects?      ")); 
 #else	
-	LokalTextAusgabeP(PSTR("\r\n umleitungen annehmen?      ")); 
+	LokalTextAusgabeP(PSTR("\r\n umleitungen abweisen?      ")); 
 #endif //def SPRACHE_EN
 
 	if (LokalBoolEingabe(&UmleitungAbweisen) == 0)

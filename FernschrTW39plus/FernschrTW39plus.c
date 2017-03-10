@@ -1093,7 +1093,7 @@ int main()
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
 	
-	UmleitungAbweisen = eeprom_read_byte(&UmleitungAbweisen_EE) != 0;
+	UmleitungAbweisen = eeprom_read_byte(&UmleitungAbweisen_EE) == true; // damit bei "leerem" EEPROM eher "nein" das Ergebnis ist.
 
 	MitWaehlscheibe = eeprom_read_byte(&MitWaehlscheibe_EE) != 0;
 
@@ -1114,8 +1114,6 @@ int main()
 	MeldungEingeschaltet = false;
 	MeldungMark = true;
 
-	UmleitungAbweisen = false; //! \todo aus Konfig laden
-	
 	KommInit();
 
 	TW39IO();

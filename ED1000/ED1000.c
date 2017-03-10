@@ -1131,7 +1131,7 @@ int main()
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
 
-	UmleitungAbweisen = eeprom_read_byte(&UmleitungAbweisen_EE) != 0;
+	UmleitungAbweisen = eeprom_read_byte(&UmleitungAbweisen_EE) == true; // damit bei "leerem" EEPROM eher "nein" das Ergebnis ist.
 	
 	KommendSperreWahl = eeprom_read_byte(&KommendSperreWahl_EE);
 	if (KommendSperreWahl > 99)
@@ -1144,8 +1144,6 @@ int main()
 	MeldungEingeschaltet = false;
 	MeldungMark = true;
 
-	UmleitungAbweisen = false; //! \todo aus Konfig laden
-	
 	KommInit();
 
 /*/ Test der Berechnungsalgorithmen

@@ -1459,7 +1459,7 @@ int main()
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
 	
-	UmleitungAbweisen = eeprom_read_byte(&UmleitungAbweisen_EE) != 0;
+	UmleitungAbweisen = eeprom_read_byte(&UmleitungAbweisen_EE) == true; // damit bei "leerem" EEPROM eher "nein" das Ergebnis ist.
 	
 	Jahr = eeprom_read_byte(&Jahr_EE);
 	Monat = eeprom_read_byte(&Monat_EE);
@@ -1495,8 +1495,6 @@ int main()
 
 	SerIOInit();
 
-	UmleitungAbweisen = false; //! \todo aus Konfig laden
-	
 	KommInit();
 
 	sei();
