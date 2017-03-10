@@ -22,7 +22,7 @@
 // Schalter für Code-Varianten
 // ===========================
 
-#define EXTEEPROM_DEBUG
+//#define EXTEEPROM_DEBUG
 	//!< Wenn definiert, kann interaktiv das Externe EEPROM ausgelesen werden.
 
 //#define SWTWI_SHOWMSG

@@ -1,5 +1,5 @@
 cd AnalogModem2
-call makeall.bat
+make -C default
 cd ..
 
 cd ED1000
@@ -31,5 +31,5 @@ call makeall.bat
 cd ..
 
 cd Wahlbruecke
-call makeall.bat
+make -C default
 cd ..

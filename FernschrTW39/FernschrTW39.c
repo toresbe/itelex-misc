@@ -992,7 +992,7 @@ __attribute__ ((noreturn)) int main()
 	MeldungEingeschaltet = false;
 	MeldungMark = true;
 
-	UmleitungAbweisen = false; //! \todo aus Konfig laden
+	UmleitungAbweisen = false; // Bei der Basisversion nicht Optional.
 	
 	KommInit();
 
