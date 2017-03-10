@@ -296,9 +296,9 @@ bool KonfigurationAllgemein()
 #ifndef FUER_TW39
 
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n decline redirects?      ")); 
+	LokalTextAusgabeP(PSTR("\r\n decline forwarded calls?      ")); 
 #else	
-	LokalTextAusgabeP(PSTR("\r\n umleitungen abweisen?      ")); 
+	LokalTextAusgabeP(PSTR("\r\n weiterleitungen abweisen?      ")); 
 #endif //def SPRACHE_EN
 
 	if (LokalBoolEingabe(&UmleitungAbweisen) == 0)
