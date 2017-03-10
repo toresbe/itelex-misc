@@ -64,7 +64,7 @@
 
 #ifdef PROGIDZUSATZ
 //! Marker im Code als Identifikation
-PROGMEM const char Identifier[] = "___itlx_TW39-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+PROGMEM const char Identifier[] = "___itlx_TW39-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION ;
 #else
 //! Marker im Code als Identifikation
 PROGMEM const char Identifier[] = "___itlx_TW39___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
