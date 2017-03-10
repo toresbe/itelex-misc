@@ -148,10 +148,11 @@ typedef struct
 	uint8_t VerbindungHergestelltZeichen[MaxCodefolgeLaenge+1];
 	uint8_t EigeneKennung[MaxCodefolgeLaenge+1];
 	TSperrzeitDaten SperrzeitDaten;
+	uint8_t UmleitungAbweisen;
 	} TEepromDaten;
 
 
-EEMEM TEepromDaten EEDaten = { { 0 }, 1, BusAdrUngueltig, 0, EndeNurBreak, { 255 }, { 255 }, { 255 }, { 255 } } ;
+EEMEM TEepromDaten EEDaten = { { 0 }, 1, BusAdrUngueltig, 0, EndeNurBreak, { 255 }, { 255 }, { 255 }, { 255 }, 0 } ;
 
 	
 ///////////////////////////////////////////////////////////////////////////////
@@ -961,6 +962,7 @@ static bool KonfigTextEingabeA(PGM_P Prompt, uint8_t* CodeBuf, uint8_t MaxCodes)
 static void Konfiguration()
 	{
 	uint8_t Res;
+	bool Abbruch;
 	
 	SeriellUmsetzInit();
 	BuZiMode = '\0';
@@ -978,11 +980,16 @@ static void Konfiguration()
 
 	
 	// Durchwahl...
-	if (!KonfigurationAllgemein())
-		return;
+	Abbruch = !KonfigurationAllgemein();
 
 	if (BusEigenAdresse != eeprom_read_byte(&EEDaten.BusEigenAdresse))
 		eeprom_update_byte(&EEDaten.BusEigenAdresse, BusEigenAdresse);
+
+	if (UmleitungAbweisen != eeprom_read_byte(&EEDaten.UmleitungAbweisen))
+		eeprom_update_byte(&EEDaten.UmleitungAbweisen, UmleitungAbweisen);
+	
+	if (Abbruch) 
+		return;
 	
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
 #ifdef SPRACHE_EN
@@ -1234,6 +1241,8 @@ int main()
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
 	
+	UmleitungAbweisen = eeprom_read_byte(&EEDaten.UmleitungAbweisen) != 0;
+	
 	KommendSperreWahl = eeprom_read_byte(&EEDaten.KommendSperreWahl);
 	if (KommendSperreWahl > 99)
 		KommendSperreWahl = 0;
@@ -1252,7 +1261,7 @@ int main()
 	MeldungMark = true;
 	BreakSignal = false;
 
-	SpezialGeraet = false; //! \todo aus Konfig laden
+	UmleitungAbweisen = false; //! \todo aus Konfig laden
 	
 	KommInit();
 

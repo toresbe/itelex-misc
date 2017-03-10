@@ -378,7 +378,7 @@ int main()
 
 	eeprom_read_string(Kennung, Kennung_EE);
 
-	SpezialGeraet = false; //! \todo aus Konfig laden
+	UmleitungAbweisen = true;
 	
 	KommInit();
 

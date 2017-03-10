@@ -156,6 +156,7 @@ EEMEM uint8_t Tag_EE = 13;  //!< #Tag, Kopie im EEPROM
 EEMEM uint8_t Stunde_EE[31] = { 0 } ; //!< #Stunde, Kopie im EEPROM. Je Tag eine andere Speicherstelle, damit die Abnutzung nicht so groß ist.
 EEMEM uint8_t Minute_EE = 0; //!< #Minute, Kopie im EEPROM, wird nur bei besonderer Bedienung gespeichert.
 EEMEM uint16_t BeginnErsteMeldung2_EE = 0xEEEE; //!< #BeginnErsteMeldung2, Kopie im EEPROM
+EEMEM uint8_t UmleitungAbweisen_EE = 0 ; //!< Bei true wird in Grundstellung Status 90 gemeldet.
 
 // Uhr
 // ---
@@ -1252,6 +1253,8 @@ static void Deaktivieren()
 //! wird nach langem Tastendruck aufgerufen
 static void Konfiguration()
 	{
+	bool Abbruch;
+	
 	LED_EIN(ROT);
 	LED_AUS(GELB);
 	LED_AUS(GRUEN);
@@ -1278,12 +1281,17 @@ static void Konfiguration()
 	LokalTextAusgabeP(PSTR("\r\n konfiguration seriell+speicher version " SVNVERSION " datum " __DATE__));
 #endif	
 
-	if (!KonfigurationAllgemein())
-		return;
+	Abbruch = !KonfigurationAllgemein();
 
 	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
 		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
 
+	if (UmleitungAbweisen != eeprom_read_byte(&UmleitungAbweisen_EE))
+		eeprom_write_byte(&UmleitungAbweisen_EE, UmleitungAbweisen);
+	
+	if (Abbruch) 
+		return;
+	
 #ifdef SPRACHE_EN	
 	LokalTextAusgabeP(PSTR("\r\n date/time: "));
 #else
@@ -1451,6 +1459,8 @@ int main()
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
 	
+	UmleitungAbweisen = eeprom_read_byte(&UmleitungAbweisen_EE) != 0;
+	
 	Jahr = eeprom_read_byte(&Jahr_EE);
 	Monat = eeprom_read_byte(&Monat_EE);
 	Tag = eeprom_read_byte(&Tag_EE);
@@ -1485,7 +1495,7 @@ int main()
 
 	SerIOInit();
 
-	SpezialGeraet = false; //! \todo aus Konfig laden
+	UmleitungAbweisen = false; //! \todo aus Konfig laden
 	
 	KommInit();
 

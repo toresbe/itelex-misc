@@ -765,6 +765,8 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 static void Konfiguration()
 	{
+	bool Abbruch;
+	
 	SeriellUmsetzInit();
 	BuZiMode = '\0';
 	Aktivieren(false);
@@ -780,11 +782,13 @@ static void Konfiguration()
 #endif //def SPRACHE_EN
 
 	// Durchwahl...
-	if (!KonfigurationAllgemein())
-		return;
+	Abbruch = !KonfigurationAllgemein();
 
 	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
 		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
+
+	if (Abbruch) 
+		return;
 	
 	// Wählscheibe vorhanden?
 #ifdef SPRACHE_EN
@@ -988,7 +992,7 @@ __attribute__ ((noreturn)) int main()
 	MeldungEingeschaltet = false;
 	MeldungMark = true;
 
-	SpezialGeraet = false; //! \todo aus Konfig laden
+	UmleitungAbweisen = false; //! \todo aus Konfig laden
 	
 	KommInit();
 

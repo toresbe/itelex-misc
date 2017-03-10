@@ -1152,7 +1152,7 @@ int main()
 	else
 		Kennwort[sizeof(Kennwort)-1] = '\0'; // sicherheitshalber
 
-	SpezialGeraet = false; //! \todo aus Konfig laden
+	UmleitungAbweisen = true;
 	
 	KommInit();
 

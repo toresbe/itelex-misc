@@ -45,7 +45,7 @@ typedef enum { UmsetzLokal, UmsetzFern, UmsetzLokalUndFern } TUmsetzModus;
 
 extern TUmsetzModus SendeUmsetzModus, EmpfUmsetzModus;
 
-extern bool SpezialGeraet;
+extern bool UmleitungAbweisen;
 
 // Funktionen
 // ==========

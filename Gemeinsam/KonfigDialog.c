@@ -218,7 +218,7 @@ extern void LokalZeichenAusgabe(char c);
 //-------------------------------------------------------------------
 //! Bisher nur Abfrage der eigenen Adresse = eigene Durchwahl.
 //! Eingegebene Adresse / Durchwahl wird auch im EEPROM gespeichert.
-//! \returns Erfolgreiche Eingabe der eigenen Adresse.
+//! \returns true, wenn kein Abbruch der Eingabe erfolgte
 
 bool KonfigurationAllgemein()
 	{
@@ -281,7 +281,7 @@ bool KonfigurationAllgemein()
 		if (BusEigenAdressePruefenUndSetzen(WahlZuAdresse(Durchwahl, ZifferAnz)))
 			{
 			LokalTextAusgabeP(OkStrP);
-			return true;
+			break;
 			}
 
 #ifdef SPRACHE_EN
@@ -290,9 +290,24 @@ bool KonfigurationAllgemein()
 		LokalTextAusgabeP(PSTR(" schon vergeben oder ungueltig, andere waehlen!"));
 #endif
 		} // abfrage Durchwahl
-		
-	// sonstige allgemeine Konfigurationen... 
-	// keine
+
+	// Rufumleitungen annehmen = UmleitungAbweisen
+	// ---------------------------------------
+#ifndef FUER_TW39
+
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n has rotary dial?      ")); 
+#else	
+	LokalTextAusgabeP(PSTR("\r\n umleitungen annehmen?      ")); 
+#endif //def SPRACHE_EN
+
+	if (LokalBoolEingabe(&UmleitungAbweisen) == 0)
+		return false;
+
+#endif //ndef FUER_TW39
+
+	
+	return true;
 	
 	} // KonfigurationAllgemein()
 

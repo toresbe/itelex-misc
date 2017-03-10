@@ -111,6 +111,7 @@ const PROGMEM char Identifier[] = "___itlx_ED1000___" __DATE__ "___" __TIME__ "_
 EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
 EEMEM uint8_t KommendSperreWahl_EE = 0; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 EEMEM TSperrzeitDaten Sperrzeit_EE = { 0 };
+EEMEM uint8_t UmleitungAbweisen_EE = 0 ; //!< Bei true wird in Grundstellung Status 90 gemeldet.
 
 
 // Typen
@@ -921,6 +922,8 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 static void Konfiguration()
 	{
+	bool Abbruch;
+	
 	SeriellUmsetzInit();
 	BuZiMode = '\0';
 	Aktivieren(false);
@@ -936,11 +939,16 @@ static void Konfiguration()
 #endif //def SPRACHE_EN
 	
 	// Durchwahl...
-	if (!KonfigurationAllgemein())
-		return;
+	Abbruch = !KonfigurationAllgemein();
 
 	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
 		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
+
+	if (UmleitungAbweisen != eeprom_read_byte(&UmleitungAbweisen_EE))
+		eeprom_write_byte(&UmleitungAbweisen_EE, UmleitungAbweisen);
+	
+	if (Abbruch) 
+		return;
 	
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
 #ifdef SPRACHE_EN
@@ -1122,6 +1130,8 @@ int main()
 		BusEigenAdresse = 51 << 1; // Standardwert
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
+
+	UmleitungAbweisen = eeprom_read_byte(&UmleitungAbweisen_EE) != 0;
 	
 	KommendSperreWahl = eeprom_read_byte(&KommendSperreWahl_EE);
 	if (KommendSperreWahl > 99)
@@ -1134,7 +1144,7 @@ int main()
 	MeldungEingeschaltet = false;
 	MeldungMark = true;
 
-	SpezialGeraet = false; //! \todo aus Konfig laden
+	UmleitungAbweisen = false; //! \todo aus Konfig laden
 	
 	KommInit();
 

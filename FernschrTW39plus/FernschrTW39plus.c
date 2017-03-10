@@ -81,6 +81,7 @@ EEMEM uint8_t WahlauffordImpulsLaenge_EE = 30; //!< Länge des Wahlaufforderungsi
 EEMEM uint8_t KommendSperreWahl_EE = 0; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 EEMEM TSperrzeitDaten Sperrzeit_EE = { 10*60, 11*60, 22*60, 6*60 } ;
 EEMEM uint8_t TasteFunktion_EE = 0 ; //!< Was macht die Taste
+EEMEM uint8_t UmleitungAbweisen_EE = 0 ; //!< Bei true wird in Grundstellung Status 90 gemeldet.
 
 
 // Typen
@@ -824,6 +825,8 @@ static void DemoBetrieb()
 
 static void Konfiguration()
 	{
+	bool Abbruch;
+	
 	SeriellUmsetzInit();
 	BuZiMode = '\0';
 	Aktivieren(false);
@@ -839,11 +842,16 @@ static void Konfiguration()
 #endif //def SPRACHE_EN
 
 	// Durchwahl...
-	if (!KonfigurationAllgemein())
-		return;
+	Abbruch = !KonfigurationAllgemein();
 
 	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
 		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
+
+	if (UmleitungAbweisen != eeprom_read_byte(&UmleitungAbweisen_EE))
+		eeprom_write_byte(&UmleitungAbweisen_EE, UmleitungAbweisen);
+
+	if (Abbruch) 
+		return;
 	
 	// Wählscheibe vorhanden?
 #ifdef SPRACHE_EN
@@ -1085,8 +1093,10 @@ int main()
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
 	
+	UmleitungAbweisen = eeprom_read_byte(&UmleitungAbweisen_EE) != 0;
+
 	MitWaehlscheibe = eeprom_read_byte(&MitWaehlscheibe_EE) != 0;
-	
+
 	WahlauffordImpulsLaenge = eeprom_read_byte(&WahlauffordImpulsLaenge_EE);
 	if (WahlauffordImpulsLaenge > 100 || WahlauffordImpulsLaenge == 0)
 		WahlauffordImpulsLaenge = 30;
@@ -1104,7 +1114,7 @@ int main()
 	MeldungEingeschaltet = false;
 	MeldungMark = true;
 
-	SpezialGeraet = false; //! \todo aus Konfig laden
+	UmleitungAbweisen = false; //! \todo aus Konfig laden
 	
 	KommInit();
 

@@ -768,7 +768,7 @@ int main()
 	MeldungEingeschaltet = false;
 	MeldungMark = true;
 
-	SpezialGeraet = true;
+	UmleitungAbweisen = true;
 	
 	KommInit();
 

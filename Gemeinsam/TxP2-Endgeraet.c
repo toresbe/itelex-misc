@@ -186,7 +186,7 @@ TUmsetzModus EmpfUmsetzModus;
 
 
 //! Bestimmt, ob in Grundstellung #StatBit_SpezialGeraetKennung gesetzt ist.
-bool SpezialGeraet;
+bool UmleitungAbweisen;
 
 
 //! Ist das Endgerät gerade ausgeschaltet?
@@ -224,8 +224,8 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 		case Ausgeschaltet:
 			Status &= (1<<StatBit_BusKdoEmpfangen); // alle anderen Bits löschen
 			SET_BIT(Status, StatBit_Frei); // kein SET_BIT_Status, weil sonst das Interrupt-Flag wieder gesetzt wird
-			if (SpezialGeraet)
-				SET_BIT(Status, StatBit_LeitungKennung); 
+			if (UmleitungAbweisen)
+				SET_BIT(Status, StatBit_SpezialGeraetKennung); 
 				// wenn nicht, war es fünf Zeilen weiter oben gelöscht worden
 			FsEingMark = true;
 			FsAusgMark = true;
@@ -311,7 +311,7 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 
 //! Initialisierung der Schnittstelle.
 // ----------------------------------
-//! #SpezialGeraet sollte vorher korrekt gesetzt sein
+//! #UmleitungAbweisen sollte vorher korrekt gesetzt sein
 void KommInit()
 	{
 #ifdef TCCR0A
@@ -325,7 +325,7 @@ void KommInit()
 
 	// sonstige Initialisierungen
 	Status = (1 << StatBit_Frei); 
-	if (SpezialGeraet)
+	if (UmleitungAbweisen)
 		SET_BIT(Status, StatBit_SpezialGeraetKennung);
 	
 	SeriellUmsetzInit();
