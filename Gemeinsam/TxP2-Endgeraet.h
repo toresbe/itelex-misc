@@ -14,12 +14,41 @@
 
 #include "FifoPuffer.h"
 
+
+#ifdef TESTFUNKTIONEN
+
+extern uint8_t TestFunktion; 
+
+// Definierte Testfunktionen:
+enum { TestfnNormal 					=  0 } ; //!< Schnittstelle arbeitet normal
+enum { TestfnLebenszeichenAbstand		=  1 } ; //!< Abstand der Lebenszeichen wird durch #TestVerzoegerung bestimmt.
+enum { TestfnGeEinVerzoegerung			=  2 } ; //!< TODO Künstliche Pause zwischen Reservierung der Gegenstelle und EinschaltKommando an die Gegenstelle
+enum { TestfnEinschaltAblehnung 		=  3 } ; //!< EinschaltKommando wird nach Verzögerung 'abgelehnt' mit BusKdoSchluss 
+enum { TestfnEinschaltVerzoegerung 		=  4 } ; //!< EinschaltKommando wird erst nach Verzögerung quittiert
+enum { TestfnAusschaltOhneQuitt 		=  5 } ; //!< AusschaltKommando wird nicht quittiert
+enum { TestfnAusschaltQuittVerzoegerung	=  6 } ; //!< AusschaltKommando wird erst nach Verzögerung quittiert
+enum { TestfnAusschaltQuittStattKdo		=  7 } ; //!< statt AusschaltKommando wird AusschaltQuittung gesendet
+enum { TestfnMarkNichtWdh 				=  8 } ; //!< Wiederholungs-Meldung für Wechsel nach Mark wird nicht gesendet
+enum { TestfnSpaceNichtWdh 				=  9 } ; //!< Wiederholungs-Meldung für Wechsel nach Space wird nicht gesendet
+enum { TestfnMarkNurWdh 				= 10 } ; //!< Wechsel nach Mark wird nur als Wiederholung gemeldet (Simulation Verlust von BusKdoMark)
+enum { TestfnSpaceNurWdh 				= 11 } ; //!< Wechsel nach Space wird nur als Wiederholung gemeldet (Simulation Verlust von BusKdoMark)
+
+extern uint8_t TestVerzoegerung;
+
+#endif //def TESTFUNKTIONEN
+
+
 extern TPuffer SendePuffer, EmpfPuffer;
 
 //! Für Seriellumsetzung: Welche Seite der Verbindung wird ausgewertet bzw. beeinflusst.
 typedef enum { UmsetzLokal, UmsetzFern, UmsetzLokalUndFern } TUmsetzModus;
 
 extern TUmsetzModus SendeUmsetzModus, EmpfUmsetzModus;
+
+extern bool UmleitungAbweisen;
+
+// Funktionen
+// ==========
 
 extern void FehlerStop(int Nummer);
 
@@ -44,7 +73,7 @@ extern bool GeSendeZeichen(char c);
 extern bool GeSendePufferVoll();
 extern bool GeSendePufferLeer();
 extern bool KoAusschalten();
-extern void GeAusschalten();
+extern void GeAusschalten(bool WarteQuitt);
 
 extern void Aktivieren(bool Aktiv);
 	// Standard-Zustand ist Aktiv. Umschaltung nur im ausgeschalteten Zustand

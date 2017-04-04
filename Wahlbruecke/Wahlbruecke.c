@@ -376,7 +376,9 @@ static void VerbindungKommend()
 	if (!TW39Einschalten())
 		{ // Timeout...
 		clr_LEDGRUEN();
-		GeAusschalten(); // TODO wird von SeriellUndSpezial nicht quittiert!
+		GeAusschalten(true); // TODO wird von SeriellUndSpezial nicht quittiert!
+		while (!KoAusschalten())
+			TW39IO(); // wartet auf Quittung der Ausschaltung
 		Deaktivieren(true);
 		return;
 		}
@@ -385,7 +387,9 @@ static void VerbindungKommend()
 	
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
-		GeAusschalten();
+		GeAusschalten(true);
+		while (!KoAusschalten())
+			TW39IO(); // wartet auf Quittung der Ausschaltung
 		TW39Ausschalten();
 		}
 	else
@@ -403,12 +407,14 @@ static void VerbindungKommend()
 static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	{
 	set_LEDROT();
-	GeAusschalten();
+	GeAusschalten(true);
 	Aktivieren(false);
 	if (Abschaltimpuls)
 		TW39Ausschalten();
 	while (MeldungEingeschaltet)
 		TW39IO();
+	while (!KoAusschalten())
+		TW39IO(); // wartet auf Quittung der Ausschaltung
 	clr_LEDROT();
 	Aktivieren(true);
 	}
@@ -474,7 +480,7 @@ static bool WahlMitTastatur()
 
 			}
 
-		while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 100)
+		while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 200)
 			{
 			LokalZeichenAusgabe('?');
 			Falschziffern--;
@@ -545,8 +551,10 @@ static void VerbindungGehend()
 				// Einschalten ist nicht erforderlich, da schon eingeschaltet ist...
 				break; // ist jetzt verbunden
 
-			GeAusschalten();
+			GeAusschalten(true);
 			TW39Ausschalten();
+			while (!KoAusschalten())
+				TW39IO(); // wartet auf Quittung der Ausschaltung
 			
 			return;
 
@@ -597,10 +605,19 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		TW39IO();
 		TastePruefen();
 
-		if (!MeldungEingeschaltet || KoAusschalten())
+		if (!MeldungEingeschaltet)
+			{
+			GeAusschalten(false);
+			TW39Ausschalten();
+			while (!KoAusschalten())
+				TW39IO(); // wartet auf Quittung der Ausschaltung
+			return;
+			}
+
+		if (KoAusschalten())
 			{
 			TW39Ausschalten();
-			GeAusschalten();
+			GeAusschalten(false);
 			return;
 			}
 
@@ -751,6 +768,8 @@ int main()
 	MeldungEingeschaltet = false;
 	MeldungMark = true;
 
+	UmleitungAbweisen = true;
+	
 	KommInit();
 
 	TW39IO();

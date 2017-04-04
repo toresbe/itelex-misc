@@ -38,7 +38,7 @@ typedef enum { Ausgeschaltet,   //!< Grundstellung = Ausgeschaltet
 
 static char AusschaltCode; //!< Grund für Abschaltung
 
-static volatile TFsBetriebsart FsBetriebsart; //!< Aktuelle Phase der Verbindung.
+volatile TFsBetriebsart FsBetriebsart; //!< Aktuelle Phase der Verbindung.
 	
 static volatile bool FsEingMark; 
 	//!< wird von Schnittstellenprogramm gesetzt (vom Fernschreiber)
@@ -53,6 +53,35 @@ static volatile bool FsAusgMark;
 
 // nur lokal in Funktion BusKomm definiert: bool BusSendMark
 	// per TWI-Bus gesendetes Signal (vom Fernschreiber, gehend)
+
+
+// Variablen für Testfunktionen, die ein "spezielles" Verhalten des Endgeräts erzwingen
+// ------------------------------------------------------------------------------------
+
+#ifdef TESTFUNKTIONEN
+
+//! Index der Testfunktion (siehe #TestfnNormal und folgende).
+uint8_t TestFunktion; 
+
+#define TestfunktionAktiv(x) (TestFunktion == (x))
+
+
+//! Künstliche Verzögerungszeit in 0,1-Sekunden-Einheiten für 
+//! #TestfnEinschaltVerzoegerung 
+//! und #TestfnAusschaltVerzoegerung und #TestfnEinschaltAblehnung 
+uint8_t TestVerzoegerung;
+
+//! Zeitmesser für die künstlichen Verzögerungen bei Tests.
+TMsTimer TestVerzTimer;
+
+
+#else //!def TESTFUNKTIONEN
+
+#define TestfunktionAktiv(x) false
+
+#define TestVerzoegerung 0
+	
+#endif //def TESTFUNKTIONEN
 
 
 
@@ -138,6 +167,9 @@ static volatile enum { WahlGesperrt,  	//!< Wählen zur Zeit nicht erlaubt.
 //! Zeitgeber für die Sendung von BusKdoMarkWdh und BusKdoSpaceWdh.					   
 static TMsTimer PegelWdhTimer;
 
+//! Bei selbst initiierter Ausschaltung wird nur begrenzt auf die Bestätigung der Ausschaltung gewartet.
+static TMsTimer AusschaltQuittTimer;
+
 //! Puffert an die Gegenstelle zu sendende a) Wahlziffern und b) Baudot-Codes.
 TPuffer SendePuffer;
 
@@ -146,12 +178,15 @@ TPuffer SendePuffer;
 TPuffer EmpfPuffer;
 
 
-//! Wo werden die aus dem #SendePuffer auszugebenden Zeichen gedruckt.
+//! Wo werden die aus dem #SendePuffer auszugebenden Zeichen gedruckt. Wirkt nur im bei #FsBetriebsart = #Eingeschaltet.
 TUmsetzModus SendeUmsetzModus;
 
-//! Welche Seite wird ausgewertet um den #EmpfPuffer zu füllen.
+//! Welche Seite wird ausgewertet um den #EmpfPuffer zu füllen. Wirkt nur im bei #FsBetriebsart = #Eingeschaltet.
 TUmsetzModus EmpfUmsetzModus;
 
+
+//! Bestimmt, ob in Grundstellung #StatBit_SpezialGeraetKennung gesetzt ist.
+bool UmleitungAbweisen;
 
 
 //! Ist das Endgerät gerade ausgeschaltet?
@@ -189,8 +224,9 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 		case Ausgeschaltet:
 			Status &= (1<<StatBit_BusKdoEmpfangen); // alle anderen Bits löschen
 			SET_BIT(Status, StatBit_Frei); // kein SET_BIT_Status, weil sonst das Interrupt-Flag wieder gesetzt wird
-			CLR_BIT(Status, StatBit_LeitungKennung); // es ist keine Leitung, löscht auch ggf. StatBit_AngerufenBelegt
-				// StatBit_SpezialGeraetKennung muss vom Hauptprogramm gesetzt werden!
+			if (UmleitungAbweisen)
+				SET_BIT(Status, StatBit_SpezialGeraetKennung); 
+				// wenn nicht, war es fünf Zeilen weiter oben gelöscht worden
 			FsEingMark = true;
 			FsAusgMark = true;
 			BusVerbPartner = 0;
@@ -274,6 +310,8 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 
 
 //! Initialisierung der Schnittstelle.
+// ----------------------------------
+//! #UmleitungAbweisen sollte vorher korrekt gesetzt sein
 void KommInit()
 	{
 #ifdef TCCR0A
@@ -286,7 +324,10 @@ void KommInit()
 #endif //def TCCR0A
 
 	// sonstige Initialisierungen
-	Status = (1 << StatBit_Frei); // StatBit_SpezialGeraetKennung muss vom Hauptprogramm gesetzt werden
+	Status = (1 << StatBit_Frei); 
+	if (UmleitungAbweisen)
+		SET_BIT(Status, StatBit_SpezialGeraetKennung);
+	
 	SeriellUmsetzInit();
 	BetriebsartWechsel(Ausgeschaltet);
 	PufferInit(&SendePuffer);
@@ -295,13 +336,38 @@ void KommInit()
 	
 	SendeUmsetzModus = UmsetzFern;
 	EmpfUmsetzModus = UmsetzFern;
+	
+#ifdef TESTFUNKTIONEN
+	TestFunktion = 0;
+	TestVerzoegerung = 0;
+#endif //def TESTFUNKTIONEN
+	
 	}
 	
 
 //! Besteht ein Einschaltwunsch, der von einer Gegenstelle ausgelöst wurde?	
 bool KoEinschalten()
 	{
+#ifdef TESTFUNKTIONEN
+	if (FsBetriebsart == Eingeschaltet)
+		return true;
+	else if (FsBetriebsart == EinschaltungKo)
+		if (TestfunktionAktiv(TestfnEinschaltVerzoegerung))
+			return TimerVal(&TestVerzTimer) >= TestVerzoegerung * 100;
+				// solange Timer nicht abgelaufen ist vortäuschen,
+				// dass kein Einschaltauftrag anliegt
+		else if (TestfunktionAktiv(TestfnEinschaltAblehnung))
+			if (TimerVal(&TestVerzTimer) >= TestVerzoegerung * 100)
+				GeAusschalten(true); // TODO prüfen ob das reicht
+			else
+				return false; // vortäuschen dass kein Einschaltauftrag anliegt
+		else
+			return true;
+	else
+		return false;
+#else		
 	return (FsBetriebsart == EinschaltungKo || FsBetriebsart == Eingeschaltet);
+#endif 
 	}
 	
 
@@ -315,6 +381,29 @@ uint8_t KoAnwahlnummer()
 	}
 
 #endif //def FUER_TW39
+
+
+#ifdef TESTFUNKTIONEN
+
+// prüfen ob überhupt gebraucht
+/*
+static void TestVerzoegerungAbwarten()
+	{
+	TMsTimer VerzTimer;
+	StartTimer(&VerzTimer);
+	while (TimerVal(&VerzTimer) < TestVerzoegerung * 100)
+		;
+	}
+*/
+
+#else
+
+	/*
+#define	TestVerzoegerungAbwarten() while (0)
+	*/
+
+	
+#endif //def TESTFUNKTIONEN
 
 	
 //! Bestätigung der Einschaltung des eigenen Gerätes
@@ -395,15 +484,13 @@ static void InternWahlPruefen()
 	else
 		{ // Partner nicht existent
 		BusErgebnis = Ok; // um spätere Probleme zu vermeiden		
+		BusVerbPartner = 0; // weitere Kommunikation mit der gewählten Adresse sinnlos
 		if (WahlZifferAnzahl >= 2)
 			{ // hat keinen Sinn weiter zu wählen
 			AblaufMark(0x2d);
-			BusVerbPartner = 0;
 			BetriebsartWechsel(AusschaltungKo);
 			AusschaltCode = 'x'; // nicht existent
 			}
-		else
-			BusVerbPartner = 0; // sonst schläge der Watchdog zu
 		return;
 		}
 
@@ -621,40 +708,75 @@ bool GeSendePufferLeer()
 #endif //def FUER_TW39
 
 
+///////////////////////////////////////////////////////////////////////////
+
+
+static void BusKomm(); // wird gleich benötigt...
+
+
+///////////////////////////////////////////////////////////////////////////
+
 //! Bewirkt den Verbindungsabbau.
 //---------------------------------
 //! Funktion ist in zwei Situationen aufzurufen:
 //! 1. Als Bestätigung der Ausschaltung, wenn von der Gegenstelle diese
 //! angefordert wurde (dann war KoAusschalten() true).
 //! 2. Als Ausschaltwunsch des eigenen Geräts. 
-//! In beiden Situationen kehrt die Funktion erst nach beidseitig 
-//! durchgeführter Ausschaltung zurück.
-//! \todo nach Umstellung nicht mehr.
+//! Die Funktion kehrt sofort zurück, außer Parameter WarteQuitt ist wahr.
+//! Im Fall 2. kann mit KoAusschalten() abgefragt werden, ob die 
+//! Ausschaltung erfolgreich vollzogen wurde.
+//! Bei testweiser Verzögerung der Quittung wird die Verzögerung in 
+//! dieser Funktion abgewartet.
 
-void GeAusschalten()
+void GeAusschalten(bool WarteQuitt)
 	{
 	if (FsBetriebsart == Ausgeschaltet)
 		return;
+	
+	if (BusVerbPartner == 0)
+		{
+		BetriebsartWechsel(Ausgeschaltet); 
+		return; // nicht verbunden, also auch nicht trennen.
+		}
+	
 	BusKommSperre = true;
 	AblaufMark(0x49);
 	if (FsBetriebsart == AusschaltungKo)
 		{ // nur noch quittieren
-		BusSenden(BusQuittSchluss);
+#ifdef TESTFUNKTIONEN	
+		if (TestfunktionAktiv(TestfnAusschaltQuittVerzoegerung))
+			{
+			StartTimer(&TestVerzTimer);
+			while (TimerVal(&TestVerzTimer) < TestVerzoegerung * 100)
+				BusKomm(); // sicherheitshalber. TODO ungeprüft, was passieren kann.
+			}
+#endif //def TESTFUNKTIONEN	
+		if (!TestfunktionAktiv(TestfnAusschaltOhneQuitt))
+			BusSenden(BusQuittSchluss);
 		BusWarteFertig();
+		BetriebsartWechsel(Ausgeschaltet); 
 		}
 	else
 		{ // aktiv ausschalten
-		BusSenden(BusKdoSchluss);
-		WarteSchlussQuittung(3000); //! \todo Umstellen auf BetriebsartWechsel(AusschaltungGe);
+		if (TestfunktionAktiv(TestfnAusschaltQuittStattKdo))
+			BusSenden(BusQuittSchluss);  // Dies ist nur beim Testen
+		else
+			BusSenden(BusKdoSchluss); // korrektes Verhalten
+		BetriebsartWechsel(AusschaltungGe);
+		StartTimer(&AusschaltQuittTimer);
 		}
-	BetriebsartWechsel(Ausgeschaltet); //! \todo kommt dann in den if-teil
 	BusKommSperre = false;
+	
+	while (FsBetriebsart == AusschaltungGe && WarteQuitt)
+		BusKomm(); // Wartet auf Quittung oder Timeout.
+	
 	}
 
 
 //! Abfrage, ob ein Verbindungsabbau gewünscht wird.
 //--------------------------------------------------
-//! \retval true wenn die Gegenstelle einen Verbindungsabbau angefordert hat.
+//! \retval true wenn die Gegenstelle einen Verbindungsabbau angefordert hat
+//! oder der Verbindungsabbau erfolgreich vollzogen ist.
 
 bool KoAusschalten()
 	{
@@ -719,6 +841,10 @@ static void BusKomm()
 				if (FsBetriebsart == Reserviert)
 					{ 
 					AblaufMark(0xFF); 
+					#ifdef TESTFUNKTIONEN
+					if (TestfunktionAktiv(TestfnEinschaltVerzoegerung) || TestfunktionAktiv(TestfnEinschaltAblehnung))
+						StartTimer(&TestVerzTimer);
+					#endif //def TESTFUNKTIONEN
 					BetriebsartWechsel(EinschaltungKo);
 					Bearbeitet = true;
 					}					
@@ -732,8 +858,6 @@ static void BusKomm()
 					Bearbeitet = true;
 					}					
 				break; // case BusQuittEin
-
-			// case BusQuittKonfig: TODO: im neuen Konzept könnte es vorkommen...
 
 			case BusKdoWahlFreigabe:
 				if (FsBetriebsart == Wahl)
@@ -752,11 +876,16 @@ static void BusKomm()
 */
 
 			case BusKdoSchluss:
+				if (FsBetriebsart != Ausgeschaltet)
+					BetriebsartWechsel(AusschaltungKo);
+				Bearbeitet = true;
+				break;
+
 			case BusQuittSchluss:
 				if (FsBetriebsart == AusschaltungGe)
 					BetriebsartWechsel(Ausgeschaltet);
-				else if (FsBetriebsart != Ausgeschaltet)
-					BetriebsartWechsel(AusschaltungKo);
+				// sonst ignorieren, da es eine verspätete Meldung einer vorherigen 
+				// Ausschaltung sein kann.
 				Bearbeitet = true;
 				break;
 
@@ -860,7 +989,7 @@ static void BusKomm()
 			FsAusgMark = BusEmpfMark; // wird vielleicht gleich wieder überschrieben.
 			BusSendMark = FsEingMark;
 			
-			if (SerUmSendBitNr != SerUmSendWarte)
+			if (SerUmSendBitNr != SerUmSendWarte && SerUmSendBitNr != SerUmSendStart)
 				{
 				if (SendeUmsetzModus == UmsetzLokal)
 					FsAusgMark = SerUmSendMark;
@@ -887,9 +1016,19 @@ static void BusKomm()
 				if (BusSendMark)
 					{ // Mark
 					if (GesendeterPegelStatus == Space1 || GesendeterPegelStatus == Space2)
-						BusSenden(BusKdoMark);
+						{
+						if (!TestfunktionAktiv(TestfnMarkNurWdh))
+							BusSenden(BusKdoMark);
+						else 
+							BusSenden(BusKdoMarkWdh);
+						}
 					else if (GesendeterPegelStatus == Mark1)
-						BusSenden(BusKdoMarkWdh);
+						{
+						if (!TestfunktionAktiv(TestfnMarkNichtWdh))
+							BusSenden(BusKdoMarkWdh);
+						else
+							GesendeterPegelStatus = Mark2; // erfolgreiches Senden von BusKdoMarkWdh simulieren
+						}
 #ifdef WIEDERHOLUNGSSENDUNGEN
 					else if (TimerVal(&PegelWdhTimer) > 400) // mind. alle 0,4 Sek senden
 						BusSenden(BusKdoMarkWdh);
@@ -898,9 +1037,19 @@ static void BusKomm()
 				else
 					{ // Space
 					if (GesendeterPegelStatus == Mark1 || GesendeterPegelStatus == Mark2)
-						BusSenden(BusKdoSpace);
+						{
+						if (!TestfunktionAktiv(TestfnSpaceNurWdh))
+							BusSenden(BusKdoSpace);
+						else
+							BusSenden(BusKdoSpaceWdh);
+						}
 					else if (GesendeterPegelStatus == Space1)
-						BusSenden(BusKdoSpaceWdh);
+						{
+						if (!TestfunktionAktiv(TestfnSpaceNichtWdh))
+							BusSenden(BusKdoSpaceWdh);
+						else
+							GesendeterPegelStatus = Space2; // erfolgreiches Senden von BusKdoSpaceWdh simulieren
+						}
 #ifdef WIEDERHOLUNGSSENDUNGEN
 					else if (TimerVal(&PegelWdhTimer) > 400) // mind. alle 0,4 Sek senden
 						BusSenden(BusKdoSpaceWdh);
@@ -919,7 +1068,8 @@ static void BusKomm()
 			
 		case AusschaltungGe:
 			// Empfang von BusQuittSchluss wird oben bearbeitet.
-			//! \todo Timeout
+			if (TimerVal(&AusschaltQuittTimer) > 4000) // nach 4 Sekunden wird auch ohne Quittung ausgeschaltet.
+				BetriebsartWechsel(Ausgeschaltet);
 			break;
 			
 		} // switch Betriebsart
@@ -966,8 +1116,14 @@ static void BusKomm()
 		BusAuftrag = Nichts;
 		}
 
-	if (BusVerbPartner > 0) // ehem. && FsBetriebsart != FremdKonfig)
-		SendeLebenszeichen();
+	if (BusVerbPartner > 0 
+		&& BusFrei 
+		&& (BusAuftrag == Nichts || BusAuftrag == Fertig) 
+		&& TimerVal(&PegelWdhTimer) > (TestfunktionAktiv(TestfnLebenszeichenAbstand) ? (TestVerzoegerung * 100 + 10) : 785)) // mind. alle 0,785 Sek senden
+		{
+		BusSenden(BusLebenszeichen);
+		StartTimer(&PegelWdhTimer);
+		}
 	
 	if (BusVerbPartner == 0 || FsBetriebsart == AusschaltungGe || FsBetriebsart == AusschaltungKo)
 		wdt_reset();

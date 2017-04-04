@@ -99,7 +99,7 @@ extern void BusRundsenden(void);
 
 #endif //ndef BUSKOMM_SPARVERSION
 
-extern void WarteSchlussQuittung(uint16_t MaxTimer);
+extern void WarteSchlussQuittung(uint16_t MaxTimer); // wird noch von AnalogModem und FernDialog benutzt! TODO prüfen warum.
 
 extern int16_t GetStatus(uint8_t Adr);
 
@@ -109,7 +109,7 @@ extern uint8_t WahlZuAdresse(uint8_t Wahl, uint8_t AnzZiffern);
 
 extern uint8_t AdresseZuWahl(uint8_t Adresse, uint8_t *AnzZiffern);
 
-extern void SendeLebenszeichen(void);
+extern void SendeLebenszeichen(void); // wird noch von AnalogModem und FernDialog benutzt! TODO prüfen warum.
 
 extern bool GetEmpfByte(uint8_t *Code);
 	

@@ -25,6 +25,8 @@
 #include "BaudotCode.h"
 #include "KonfigDialog.h"
 #include "LokalAusgabe.h"
+#include "LokalUhr.h"
+#include "Zeitsperre.h"
 
 #include "WaveTab.h"
 
@@ -63,17 +65,17 @@
 #ifdef PROGIDZUSATZ
 
 #ifdef V21	
-const PROGMEM char Identifier[] = "___TxP2_V21-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const PROGMEM char Identifier[] = "___itlx_V21-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #else
-const PROGMEM char Identifier[] = "___TxP2_ED1000-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const PROGMEM char Identifier[] = "___itlx_ED1000-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif 
 
 #else
 
 #ifdef V21	
-const PROGMEM char Identifier[] = "___TxP2_V21___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const PROGMEM char Identifier[] = "___itlx_V21___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #else
-const PROGMEM char Identifier[] = "___TxP2_ED1000___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const PROGMEM char Identifier[] = "___itlx_ED1000___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif 
 
 #endif //def PROGIDZUSATZ
@@ -106,9 +108,16 @@ const PROGMEM char Identifier[] = "___TxP2_ED1000___" __DATE__ "___" __TIME__ "_
 // Eeprom-Speicher
 // ---------------
 
-EEMEM uint8_t Platzhalter[4]; //!< Platzhalter, da Anfang des EEPROM gern von Störungen betroffen ist
 EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
 EEMEM uint8_t KommendSperreWahl_EE = 0; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
+EEMEM TSperrzeitDaten Sperrzeit_EE = { 0 };
+EEMEM uint8_t UmleitungAbweisen_EE = 0 ; //!< Bei true wird in Grundstellung Status 90 gemeldet.
+
+
+// Typen
+// -----
+
+typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrund;
 
 
 // Variablen
@@ -131,6 +140,7 @@ static volatile uint8_t EmpfBufSchreibI;
 
 static uint8_t EmpfBufLeseI;
 	//!< Index für das Auslesen von Werten aus #EmpfBuf.
+
 
 //! Initialisiert Zeitgeber.
 void InitTimer()
@@ -473,7 +483,7 @@ static void ED1000Ausschalten()
 //---------------------------------------------
 //! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
 
-void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ )
+__attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ ) 
 	// Fehler-Codes: 
 	// 1: Bus-Empfang trotz Sperre
 	// 2: General Call ohne entsprechende Freigabe
@@ -501,6 +511,13 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 #else
 			if (!get_TASTE())
 #endif
+				{ // Taste gedrückt
+				if (TasteZ < 5)
+					TasteZ++;
+				else
+					TasteWirk = true;
+				}
+			else
 				{ // Taste nicht gedrückt
 				if (TasteZ > 0)
 					{
@@ -514,13 +531,6 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 						}
 					}
 				} // Taste nicht gedrückt
-			else
-				{ // Taste gedrückt
-				if (TasteZ < 5)
-					TasteZ++;
-				else
-					TasteWirk = true;
-				}
 			}
 		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
 		    {
@@ -551,6 +561,7 @@ char LokalZeichenLesen()
 	{
 	char c;
 
+	EmpfUmsetzModus = UmsetzLokal; // sicherheitshalber
 	while (true)
 		{
 		ED1000IO();
@@ -577,6 +588,7 @@ char LokalZeichenLesen()
 
 static void LokalCodeAusgabe(uint8_t code)
 	{
+	SendeUmsetzModus = UmsetzLokal; // sicherheitshalber
 	SerUmSendDaten = code;
 	SerUmSendBitNr = SerUmSendStart;
 	while (SerUmSendBitNr != SerUmSendWarte)
@@ -610,7 +622,7 @@ void LokalZeichenAusgabe(char c)
 		
 static void VerbindungSteht(bool AutoKennungAbfrage);
 
-static void Deaktivieren(bool WegenTimeout);
+static void KommendSperren(TSperreGrund Grund);
 
 
 /////////////////////////////////////////////////////////////
@@ -631,8 +643,8 @@ static void VerbindungKommend()
 	if (!ED1000Einschalten())
 		{ // Timeout...
 		clr_LEDGRUEN();
-		GeAusschalten(); // TODO wird von SeriellUndSpezial nicht quittiert!
-		Deaktivieren(true);
+		KommendSperren(SperreStoerung);
+		clr_LEDROT();
 		return;
 		}
 
@@ -640,8 +652,8 @@ static void VerbindungKommend()
 	
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
-		GeAusschalten();
-		ED1000Ausschalten();
+		GeAusschalten(true);
+		ED1000Ausschalten(true);
 		}
 	else
 		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
@@ -658,7 +670,7 @@ static void VerbindungKommend()
 static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	{
 	set_LEDROT();
-	GeAusschalten();
+	GeAusschalten(true);
 	Aktivieren(false);
 	if (Abschaltimpuls)
 		ED1000Ausschalten();
@@ -681,6 +693,7 @@ static bool WahlMitTastatur()
 	char c;
 	TMsTimer WahlendeTimer;
 	bool EsWurdeGewaehlt;
+	bool Lokalbetrieb;
 	int Falschziffern;
 	
 	if (!ED1000Einschalten())
@@ -692,36 +705,58 @@ static bool WahlMitTastatur()
 
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
+	Lokalbetrieb = false;
 	Falschziffern = 0;
-	BuZiMode = '\0';
+	BuZiMode = ZiMode;
 
 	while (true)
 		{
 		ED1000IO();
 		
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
-		if (SerUmEmpfBitNr == SerUmEmpfFertig)
+
+		if (!Lokalbetrieb)
 			{
-			c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
-			SerUmEmpfBitNr = SerUmEmpfWarte;
-			if (c >= '0' && c <= '9')
+			if (SerUmEmpfBitNr == SerUmEmpfFertig)
 				{
-				GeWaehlen(c - '0');
-				EsWurdeGewaehlt = true;
-				}
-			else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
-				{
-				Falschziffern++;
+				c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
+				SerUmEmpfBitNr = SerUmEmpfWarte;
+				if (c >= '0' && c <= '9')
+					{
+					GeWaehlen(c - '0');
+					EsWurdeGewaehlt = true;
+					}
+				else if (c == 'l' && !EsWurdeGewaehlt)
+					{
+					Lokalbetrieb = true;
+					LokalZeichenAusgabe('o');
+					LokalZeichenAusgabe('c');
+					}
+				else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
+					{
+					Falschziffern++;
+					}
+
+				StartTimer(&WahlendeTimer);
 				}
 
-			StartTimer(&WahlendeTimer);
-			}
+			while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 200)
+				{
+				LokalZeichenAusgabe('?');
+				Falschziffern--;
+				}
 
-		while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 100)
-			{
-			LokalZeichenAusgabe('?');
-			Falschziffern--;
-			}
+			if (KoEinschalten())
+				{
+				return true;
+				}
+
+			if (TimerVal(&WahlendeTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 15 / 45 Sekunden nicht gewählt
+				{ // auf das Ausschalten durch die Schlusstaste warten
+				AbschaltungZuLangeWahlpause(EsWurdeGewaehlt);
+				return false;
+				}
+			} // if (!Lokalbetrieb)
 
 		if (!MeldungEingeschaltet || KoAusschalten())
 			{
@@ -729,24 +764,10 @@ static bool WahlMitTastatur()
 			return false;
 			}
 			
-		if (KoEinschalten())
-			{
-			return true;
-			}
-
-		if (TimerVal(&WahlendeTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 15 / 45 Sekunden nicht gewählt
-			{ // auf das Ausschalten durch die Schlusstaste warten
-			AbschaltungZuLangeWahlpause(EsWurdeGewaehlt);
-			return false;
-			}
-
 		} // while (true)
 	}
 	
   
-static void KommendSperren();
-
-
 /////////////////////////////////////////////////////////////
 
 //! Wickelt ausgehende Verbdindungen vollständig ab.
@@ -755,17 +776,20 @@ static void KommendSperren();
 
 static void VerbindungGehend()
 	{
-	set_LEDGELB();
-
 	if (BusEigenAdresse == BusAdrUngueltig)
 		{
 		ED1000Ausschalten();
 		return;
 		}
+
+	SperrzeitAussetzen();
+	
+	set_LEDGELB();
 	
 	switch (GeEinschalten())
 		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
 		case GeEinschFehler:
+			clr_LEDGELB();
 			return; 
 
 		case GeEinschWahl:
@@ -773,13 +797,14 @@ static void VerbindungGehend()
 				// Einschalten ist nicht erforderlich, da schon eingeschaltet ist...
 				break; // ist jetzt verbunden
 
-			GeAusschalten();
+			GeAusschalten(true);
 			ED1000Ausschalten();
+
 			
 			if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
 				{
 				clr_LEDGELB();
-				KommendSperren();
+				KommendSperren(SperreWahl);
 				}
 				
 			return;
@@ -804,6 +829,8 @@ static void VerbindungGehend()
 
 	VerbindungSteht(true); // mit automatischer Kennungsgeber-Abfrage
 
+	SperrzeitAussetzen(); // am Ende nochmal das Flag setzen.
+	
 	}
 
 
@@ -826,15 +853,27 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 	GeSendeMark(true); 
 
+	SendeUmsetzModus = UmsetzFern;
+	EmpfUmsetzModus = UmsetzFern; 
+
 	while (true)
 		{
 		ED1000IO();
 		TastePruefen();
 
-		if (!MeldungEingeschaltet || KoAusschalten())
+		if (!MeldungEingeschaltet)
+			{
+			GeAusschalten(false);
+			ED1000Ausschalten();
+			while (!KoAusschalten())
+				ED1000IO();
+			return;
+			}
+
+		if (KoAusschalten())
 			{
 			ED1000Ausschalten();
-			GeAusschalten();
+			GeAusschalten(false);
 			return;
 			}
 
@@ -883,6 +922,8 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 static void Konfiguration()
 	{
+	bool Abbruch;
+	
 	SeriellUmsetzInit();
 	BuZiMode = '\0';
 	Aktivieren(false);
@@ -891,30 +932,56 @@ static void Konfiguration()
 	if (!ED1000Einschalten())
 		return;
 	
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n configuration ed1000 version " SVNVERSION " date " __DATE__));
+#else
 	LokalTextAusgabeP(PSTR("\r\n konfiguration ed1000 version " SVNVERSION " datum " __DATE__));
+#endif //def SPRACHE_EN
 	
 	// Durchwahl...
-	if (!KonfigurationAllgemein())
-		return;
+	Abbruch = !KonfigurationAllgemein();
 
 	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
 		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
+
+	if (UmleitungAbweisen != eeprom_read_byte(&UmleitungAbweisen_EE))
+		eeprom_write_byte(&UmleitungAbweisen_EE, UmleitungAbweisen);
+	
+	if (Abbruch) 
+		return;
 	
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
-	LokalTextAusgabeP(PSTR("\r\n kommend-sperre mit wahl: (akt. "));
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n block incoming calls by: (cur. "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n kommende anrufe sperren mit: (akt. "));
+#endif //def SPRACHE_EN
 	if (KommendSperreWahl != 0)
 		LokalZahlAusgabe(KommendSperreWahl, 2);
 	else
-		LokalTextAusgabeP(PSTR("nein"));
-	LokalTextAusgabeP(PSTR(") neu (0 = nein):     "));
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("off"));
+#else
+		LokalTextAusgabeP(PSTR("aus"));
+#endif //def SPRACHE_EN
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(") new (0 = off):     "));
+#else
+	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
+#endif //def SPRACHE_EN
 
-	if (LokalZahlEingabe(&KommendSperreWahl, 0) == 0)
+	if (LokalZahlEingabe(&KommendSperreWahl, 2) < 0)
 		return;
 
 	if (KommendSperreWahl != eeprom_read_byte(&KommendSperreWahl_EE))
 		eeprom_write_byte(&KommendSperreWahl_EE, KommendSperreWahl);
 
 	LokalTextAusgabeP(OkStrP);
+	
+	if (!SperrzeitEingabeDialog())
+		return;
+	
+	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
 	
 	// weitere Eingaben
 
@@ -941,14 +1008,23 @@ static void KonfigurationEnde()
 //! Schaltet das Modul in einen Modus, der keine kommenden Verbindungen zulässt.
 //------------------------------------------------------------------------------
 //! Kann durch Wahl einer entsprechenden Ziffernfolge aufgerufen werden oder
-//! durch Tastendruck an der Platine.
+//! durch Tastendruck an der Platine oder durch die Zeitsperre oder durch eine 
+//! Nichterreichbarkeit des Geräts
 	
-static void KommendSperren()
+static void KommendSperren(TSperreGrund Grund)
 	{
 	TMsTimer BlinkTimer;
+	uint8_t BlinkTaktFaktor;
 	
 	StartTimer(&BlinkTimer);
 	Aktivieren(false);
+	
+	if (Grund == SperreTaste || Grund == SperreWahl)
+		BlinkTaktFaktor = 2;
+	else if (Grund == SperreZeit)
+		BlinkTaktFaktor = 4;
+	else
+		BlinkTaktFaktor = 1;
 	
 	while (true)
 		{
@@ -956,6 +1032,7 @@ static void KommendSperren()
 		if (Tastendruck != NichtGedr)
 			{
 			Tastendruck = NichtGedr;
+			SperrzeitAussetzen();
 			break;
 			}
 			
@@ -963,12 +1040,23 @@ static void KommendSperren()
 		if (MeldungEingeschaltet)
 			break;
 			
-		if (TimerVal(&BlinkTimer) > 1000)
+		if (TimerVal(&BlinkTimer) > 500 * BlinkTaktFaktor)
 			StartTimer(&BlinkTimer);
-		else if (TimerVal(&BlinkTimer) > 500)
+		else if (TimerVal(&BlinkTimer) > 300 * BlinkTaktFaktor)
 			set_LEDBLAU();
 		else
 			clr_LEDBLAU();
+		
+		if (RundsendAnzDaten > 0)
+			{
+			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
+				{
+				if (Grund == SperreZeit && !SperrzeitAktiv())
+					break;
+				}
+			// else Daten anderwertig auswerten
+			}
+		
 		}
 		
 	clr_LEDBLAU();
@@ -984,7 +1072,7 @@ static void KommendSperren()
 //------------------------------------------------------------------------------
 //! Kann nur durch Tastendruck an der Platine aktiviert werden.
 	
-static void Deaktivieren(bool WegenTimeout)
+static void Deaktivieren()
 	{
 	set_LEDBLAU();
 	Aktivieren(false);
@@ -997,8 +1085,7 @@ static void Deaktivieren(bool WegenTimeout)
 	clr_LEDBLAU();
 	clr_LEDROT();
 
-	if (!WegenTimeout)
-		KommendSperren();
+	KommendSperren(SperreTaste);
 		
 	} // Deaktivieren
 
@@ -1036,15 +1123,22 @@ int main()
 	ED1000Init();
 	InitTimer();
 	
+	SperrzeitInit();
+	
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
 		BusEigenAdresse = 51 << 1; // Standardwert
 	BusEigenAdrMehrfach = 1;
+	RundsendEmpfFreig = true;
+
+	UmleitungAbweisen = eeprom_read_byte(&UmleitungAbweisen_EE) == true; // damit bei "leerem" EEPROM eher "nein" das Ergebnis ist.
 	
 	KommendSperreWahl = eeprom_read_byte(&KommendSperreWahl_EE);
 	if (KommendSperreWahl > 99)
 		KommendSperreWahl = 0;
 
+	SperrzeitLadeEeprom(&Sperrzeit_EE);
+	
 	BefehlEinschalten = false;
 	BefehlMark = true;
 	MeldungEingeschaltet = false;
@@ -1052,7 +1146,7 @@ int main()
 
 	KommInit();
 
-// Test der Berechnungsalgorithmen
+/*/ Test der Berechnungsalgorithmen
 	EmpfBuf[EmpfBufSchreibI++] = 88;
 	EmpfBuf[EmpfBufSchreibI++] = 120;
 	EmpfBuf[EmpfBufSchreibI++] = 74;
@@ -1109,11 +1203,9 @@ int main()
 		
 	TWCR = (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (1<<TWEN) | (1<<TWIE);
 
-	while (TimerVal(&Timer) < 1000 + BusEigenAdresse)
+	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
 
-	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
-	
 	if (SelbsttestAusfuehen)
 		{
 		BefehlEinschalten = false;
@@ -1126,10 +1218,8 @@ int main()
 			{
 #ifdef TASTE_NACH_PLUS
 			if (get_TASTE())
-				// Gedrückt = HIGH
 #else
 			if (!get_TASTE())
-				// Gedrückt = LOW
 #endif
 				{ // gedrückt
 				BefehlMark = false;
@@ -1152,6 +1242,8 @@ int main()
 			}
 		} // if SelbsttestAusfuehren
 
+	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
+		
 	BefehlEinschalten = false;
 	BefehlMark = true;
 
@@ -1178,12 +1270,13 @@ int main()
 			Tastendruck = NichtGedr;
 			Konfiguration();
 			KonfigurationEnde();
+			Tastendruck = NichtGedr;
 			}
 
 		if (Tastendruck == Kurz)
 			{
 			Tastendruck = NichtGedr;
-			Deaktivieren(false);
+			Deaktivieren();
 			}
 
 		if (MeldungEingeschaltet)
@@ -1195,8 +1288,22 @@ int main()
 			{
 			VerbindungKommend();
 			}
+
+		// Rundsendedaten auswerten:
+		if (RundsendAnzDaten > 0)
+			{
+			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
+				{
+				if (SperrzeitAktiv())
+					KommendSperren(SperreZeit);
+				}
+			else
+				; // keine Ahnung, was hier gesendet wurde, ist aber auch egal...
+				
+			RundsendAnzDaten = 0;
+			}
 		
-		} // while (1)
+		} // while (true)
 	} // main()
 
 

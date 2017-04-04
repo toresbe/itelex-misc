@@ -10,7 +10,7 @@
 
 extern PROGMEM char OkStrP[];
 
-extern uint8_t LokalZahlEingabe(uint8_t* z, uint8_t maxzif);
+extern int8_t LokalZahlEingabe(uint8_t* z, uint8_t maxzif);
 
 extern uint8_t LokalBoolEingabe(bool* b);
 

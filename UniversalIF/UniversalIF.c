@@ -68,13 +68,8 @@
 #include "ClientCommunication.h"
 
 
-#ifndef PROGIDZUSATZ 
-#define PROGIDZUSATZ ""
-#endif //ndef PROGIDZUSATZ 
-
-
 //! Identificator in flash memory
-const char PROGMEM Identifier[] = "___TxP2_UniversalIF-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const char PROGMEM Identifier[] = "___itlx_UniIF-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 
 
 // Constants
@@ -85,9 +80,14 @@ const char PROGMEM Identifier[] = "___TxP2_UniversalIF-" PROGIDZUSATZ "___" __DA
 // internal Eeprom
 // ===============
 
-EEMEM uint8_t Spacer[4]; //!< Start of EEPROM sometimes disturbed
-EEMEM uint8_t OwnAddress_EE = 99 << 1; //!< copy of #BusEigenAdresse in EEPROM
-EEMEM uint8_t DefaultStatus_EE = 0xB0; //!< copy of #DefaultStatus in EEPROM
+typedef struct {
+	uint8_t Spacer[20]; //!< Start of EEPROM sometimes disturbed
+	uint8_t OwnAddress; //!< copy of #BusEigenAdresse in EEPROM
+	uint8_t DefaultStatus; //!< copy of #DefaultStatus in EEPROM
+	} TEEData;
+
+
+EEMEM TEEData EE = { {0}, 99 << 1, 0xB0 } ;
 
 
 // Variables
@@ -129,12 +129,12 @@ static void InitVariables()
 	{
 	// Init from EEPROM
 	// ----------------
-	BusEigenAdresse = eeprom_read_byte(&OwnAddress_EE) & 0xFE;
+	BusEigenAdresse = eeprom_read_byte(&EE.OwnAddress) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
 		BusEigenAdresse = 99 << 1; // default
 	BusEigenAdrMehrfach = 1; // no multi Adress mode supported yet.
 	
-	DefaultStatus = (1 << StatBit_Frei) | (eeprom_read_byte(&DefaultStatus_EE) & 0x30);
+	DefaultStatus = (1 << StatBit_Frei) | (eeprom_read_byte(&EE.DefaultStatus) & 0x30);
 	Status = DefaultStatus;
 	
 	// Init other variables (static)
@@ -230,12 +230,14 @@ static void SetParameter(uint8_t addr, uint8_t val)
 	switch (addr)
 		{
 		case Txi_Param_OwnAddress:			
-			BusEigenAdresse = val & 0xFE; // gets active after an reset
+			BusEigenAdresse = val << 1; // gets active after an reset
+			eeprom_update_byte(&EE.OwnAddress, BusEigenAdresse);
 			break;
 			
 		case Txi_Param_DefaultStatus:		
 			DefaultStatus = (val & 0x30) | (1 << StatBit_Frei);
 				// only bits 4 and 5 allowed
+			eeprom_update_byte(&EE.DefaultStatus, DefaultStatus);
 			break;
 			
 		case Txi_Param_ErrorCode:			
@@ -243,7 +245,7 @@ static void SetParameter(uint8_t addr, uint8_t val)
 			break;
 			
 		case Txi_Param_CurrentPartner:		
-			BusVerbPartner = val & 0xFE; // use this with extreme care!
+			BusVerbPartner = val << 1; // use this with extreme care!
 			break;
 			
 		case Txi_Param_CurrentStatus:		
@@ -260,10 +262,10 @@ static uint8_t GetParameter(uint8_t addr)
 	{
 	switch (addr)
 		{
-		case Txi_Param_OwnAddress:			return BusEigenAdresse;
+		case Txi_Param_OwnAddress:			return BusEigenAdresse >> 1;
 		case Txi_Param_DefaultStatus:		return DefaultStatus;
 		case Txi_Param_ErrorCode:			return ErrorFlags;
-		case Txi_Param_CurrentPartner:		return BusVerbPartner;
+		case Txi_Param_CurrentPartner:		return BusVerbPartner >> 1;
 		case Txi_Param_CurrentStatus:		return Status;
 		default:							return 0;
 		}
@@ -271,7 +273,9 @@ static uint8_t GetParameter(uint8_t addr)
 
 
 //! Check the TWI code for need to update the Status bits.
-
+// -------------------------------------------------------
+//! Is called after successful send of any comamnd code on the TWI bus
+//! and after any reception of command codes from the TWI Bus
 static void UpdateStatusOnBusCode(uint8_t Code)
 	{
 	switch (Code)
@@ -349,14 +353,14 @@ static void ProcessClientToTWI()
 			if (PufferAnzahl(&ClientInputBuffer) < 2)
 				return; // needs at least code + address
 
-			if (PufferAnzahl(&ClientOutputBuffer) < MaxPuffer - 4)
+			if (PufferAnzahl(&ClientOutputBuffer) > MaxPuffer - 4)
 				return; // not ready to send the result
 			
 			PufferAusg(&ClientInputBuffer); // deletes command code from buffer
 			
 			Addr = PufferAusg(&ClientInputBuffer);
 			
-			Val = GetStatus(Addr); // check status of any unit on the bus
+			Val = GetStatus(Addr << 1); // check status of any unit on the bus
 			
 			if (Val >= 0)
 				{
@@ -385,7 +389,7 @@ static void ProcessClientToTWI()
 			if (PufferAnzahl(&ClientInputBuffer) < 2)
 				return; // needs at least code + address
 
-			if (PufferAnzahl(&ClientOutputBuffer) < MaxPuffer - 4)
+			if (PufferAnzahl(&ClientOutputBuffer) > MaxPuffer - 4)
 				return; // not ready to send the result
 			
 			PufferAusg(&ClientInputBuffer); // deletes command code from buffer
@@ -415,10 +419,7 @@ static void ProcessClientToTWI()
 			if (BusVerbPartner == 0)
 				RaiseError(Txi_ErrFlag_NotConnected);
 			else if (SerUmSendBitNr == SerUmSendWarte && BusFrei && BusAuftrag == Nichts)
-				{
 				BusSenden(Code);
-				UpdateStatusOnBusCode(Code);
-				}
 			else
 				return; // not yet ready to send the command;
 			
@@ -478,15 +479,8 @@ static void ProcessTWItoClient()
 				break;
 				
 			case Txi_DirectMin ... Txi_DirectMax:
-				if (BusVerbPartner != 0)
-					{ // standard procedure for incoming command code
-					PufferSpeich(&ClientOutputBuffer, Code);
-					UpdateStatusOnBusCode(Code);
-					}	
-				else // BusVerbPartner == 0
-					{
-					RaiseError(Txi_ErrFlag_TwiCodeError);
-					}
+				PufferSpeich(&ClientOutputBuffer, Code);
+				UpdateStatusOnBusCode(Code);
 				break;
 
 			default:
@@ -563,6 +557,9 @@ static void DoTWICommunication()
 					break;
 				case BusKdoMarkWdh:
 					SentLoopStatus = Mark2;
+					break;
+				default:
+					UpdateStatusOnBusCode(BusSendeDaten);
 					break;
 				} // switch BusSendeDaten
 			} // command successfully sent on twi bus

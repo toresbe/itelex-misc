@@ -15,7 +15,7 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=6144000UL -O2 -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums  -DPROGZUSATZ=RS232-Hex  -DRS232  -DHEX_FORMAT
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DRS232 -DHEX_FORMAT   -DPROGIDZUSATZ=\"RS232-Hex\"        -DF_CPU=6144000UL -O2 -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 
 ## Assembly specific flags

@@ -102,6 +102,7 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 					// Bildlich: 76543210 <-- Bit-Nr
 					//           ---DDDDD <-- zu sendende Datenbits for dem 'Start'
 					//           0DDDDD11 <-- zu sendende Bits nach dem 'Start'
+					//           ^   dieses Bit wird gesendet, danach wird nach links geschoben
 				}
 			break;
 

@@ -22,7 +22,7 @@
 // Schalter für Code-Varianten
 // ===========================
 
-#define EXTEEPROM_DEBUG
+//#define EXTEEPROM_DEBUG
 	//!< Wenn definiert, kann interaktiv das Externe EEPROM ausgelesen werden.
 
 //#define SWTWI_SHOWMSG
@@ -859,7 +859,7 @@ bool EeAbschliessen()
 
 #include "LokalAusgabe.h"
 
-uint8_t LokalZahlEingabe(uint8_t* z, uint8_t maxzif);
+int8_t LokalZahlEingabe(uint8_t* z, uint8_t maxzif);
 
 char LokalZeichenLesen();
 
@@ -915,10 +915,10 @@ void XEepromDebug()
 			case 'l':
 			case 'L':
 				LokalTextAusgabeP(PSTR(" Lesen von "));
-				if (LokalZahlEingabe(&Start, 0) != 2)
+				if (LokalZahlEingabe(&Start, 0) <= 0)
 					break;
 				LokalTextAusgabeP(PSTR(" bis "));
-				if (LokalZahlEingabe(&Ende, 0) != 2)
+				if (LokalZahlEingabe(&Ende, 0) <= 0)
 					break;
 				i = Start; 
 				while (i <= Ende)
@@ -950,13 +950,13 @@ void XEepromDebug()
 			case 's':
 			case 'S':
 				LokalTextAusgabeP(PSTR(" Schreiben von "));
-				if (LokalZahlEingabe(&Start, 0) != 2)
+				if (LokalZahlEingabe(&Start, 0) <= 0)
 					break;
 				LokalTextAusgabeP(PSTR(" bis "));
-				if (LokalZahlEingabe(&Ende, 0) != 2)
+				if (LokalZahlEingabe(&Ende, 0) <= 0)
 					break;
 				LokalTextAusgabeP(PSTR(" Wert "));
-				if (LokalZahlEingabe(&Wert, 0) != 2)
+				if (LokalZahlEingabe(&Wert, 0) <= 0)
 					break;
 
 				for (i = Start ; i <= Ende ; )
@@ -999,13 +999,13 @@ void XEepromDebug()
 				// das geht regelmäßig schief... warum auch immer...
 
 				LokalTextAusgabeP(PSTR(" 1. Adr "));
-				if (LokalZahlEingabe(&Start, 0) != 2)
+				if (LokalZahlEingabe(&Start, 0) <= 0)
 					break;
 				LokalTextAusgabeP(PSTR(" 2. Adr "));
-				if (LokalZahlEingabe(&Ende, 0) != 2)
+				if (LokalZahlEingabe(&Ende, 0) <= 0)
 					break;
 				LokalTextAusgabeP(PSTR(" Wert "));
-				if (LokalZahlEingabe(&Wert, 0) != 2)
+				if (LokalZahlEingabe(&Wert, 0) <= 0)
 					break;
 
 				i = Start;

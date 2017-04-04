@@ -4,7 +4,7 @@
 //================================================================
 // Fernschreiber muss über einen Zeitschalter (Motorschalter) verfügen.
 // Tastaturwahl, nach drücken der ersten Taste wird eine Wahlaufforderung in form von "ga" gesendet. 
-// Verbindungsende wahlweise durch "break"-Signal, durch NNNN oder durch +++
+// Verbindungsende wahlweise durch "break"-Signal, durch NNNN oder durch +++ [future]
 
 #include <avr/io.h>
 #include <avr/pgmspace.h>
@@ -28,6 +28,8 @@
 #include "BaudotCode.h"
 #include "KonfigDialog.h"
 #include "LokalAusgabe.h"
+#include "LokalUhr.h"
+#include "Zeitsperre.h"
 
 #include "../SvnVersion.h"
 
@@ -59,12 +61,21 @@
 	//!< Watchdog abgeschaltet
 
 
+#ifdef PROGIDZUSATZ
 //! Marker im Code als Identifikation
-PROGMEM const char Identifier[] = "___TxP2_OhneFSG___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+PROGMEM const char Identifier[] = "___itlx_OhneFSG-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#else
+//! Marker im Code als Identifikation
+PROGMEM const char Identifier[] = "___itlx_OhneFSG___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#endif
 
+
+// Typen
+// -----
+
+typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrund;
 
 typedef enum { EndeNurBreak, EndeNachNNNN, EndeNach3Plus } TVerbindungsEndeKriterium;
-
 
 enum { CodefolgeEndeMarke = 0x5A } ;
 	//!< Markierung des Endes einer Codefolge. Wert wurde abweichend von 255 gewählt, um uninitialisiertes EEPROM zu erkennen.
@@ -136,10 +147,12 @@ typedef struct
 	uint8_t WahlaufforderungZeichen[MaxCodefolgeLaenge+1];
 	uint8_t VerbindungHergestelltZeichen[MaxCodefolgeLaenge+1];
 	uint8_t EigeneKennung[MaxCodefolgeLaenge+1];
+	TSperrzeitDaten SperrzeitDaten;
+	uint8_t UmleitungAbweisen;
 	} TEepromDaten;
 
 
-EEMEM TEepromDaten EEDaten = { { 0 }, 1, 33, 0, EndeNurBreak, { 255 }, { 255 }, { 255 }, { 255 } } ;
+EEMEM TEepromDaten EEDaten = { { 0 }, 1, BusAdrUngueltig, 0, EndeNurBreak, { 255 }, { 255 }, { 255 }, { 255 }, 0 } ;
 
 	
 ///////////////////////////////////////////////////////////////////////////////
@@ -208,75 +221,6 @@ static void FernschrIO(bool TasteMachtBreak)
 	
 	
 
-/////////////////////////////////////////////////////////////////////////////////////////7
-
-//! Modul / Schnittstelle irreversibel stoppen.
-//---------------------------------------------
-//! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
-
-void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ )
-	// Fehler-Codes: 
-	// 1: Bus-Empfang trotz Sperre
-	// 2: General Call ohne entsprechende Freigabe
-	// 3: Kommando über I²C in falschem Kontext
-	// 7: Interner Fehler bei FsBetriebsart
-	// 8: unerlaubte Einschaltung
-	// 9: unerlaubte Wahl
-	// 10: unerlaubte Aktivierung / Deaktivierung
-	{
-	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWEN) | (0<<TWIE);
-	
-	uint8_t TasteZ = 0;
-	bool TasteWirk = false;
-	TMsTimer TasteTimer;
-	StartTimer(&TasteTimer);
-	while (1)
-		{
-		wdt_reset();
-
-		if (TimerVal(&TasteTimer) > 400)
-			{
-			StartTimer(&TasteTimer);
-			if (get_TASTE()) //! \todo umgekehrte Tastenpolarität prüfen
-				{ // Taste nicht gedrückt
-				if (TasteZ > 0)
-					{
-					TasteZ--;
-					if (TasteZ == 0 && TasteWirk)
-						{
-						cli();
-						wdt_enable(WDTO_1S);
-						while (1)
-							;
-						}
-					}
-				} // Taste nicht gedrückt
-			else
-				{ // Taste gedrückt
-				if (TasteZ < 5)
-					TasteZ++;
-				else
-					TasteWirk = true;
-				}
-			}
-		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
-		    {
-		    bset_LEDROT(BIT_IS_SET(Nummer, 0));
-			bset_LEDGELB(BIT_IS_SET(Nummer, 1));
-		    bset_LEDGRUEN(BIT_IS_SET(Nummer, 2));
-		    bset_LEDBLAU(BIT_IS_SET(Nummer, 3));
-			}
-		else
-			{
-			clr_LEDROT();
-			clr_LEDGELB();
-			clr_LEDGRUEN();
-			clr_LEDBLAU();
-			}
-		}
-	}	
-
-
 //////////////////////////////////////////////////////////////////
 
 //! Einschaltung des Fs auslösen.
@@ -290,6 +234,7 @@ static bool FsEinschalten()
 	TMsTimer AnlaufTimer;
 	TMsTimer AbbruchTimer;
 	
+	set_FS_AKTIV(); // optionalen Motorschalter einschalten
 	BefehlMark = false;
 	StartTimer(&AnlaufTimer);
 	while (TimerVal(&AnlaufTimer) < 20)
@@ -315,7 +260,7 @@ static bool FsEinschalten()
 
 static void LokalCodeAusgabe(uint8_t code); // kommt erst später...
 
-static void LokalCodeAusgabeS(uint8_t *codep); // kommt erst später...
+static void LokalCodeAusgabeS(uint8_t *codep, bool StopIfCalled); // kommt erst später...
 
 
 //////////////////////////////////////////////////////////////////
@@ -333,8 +278,10 @@ static void FsAusschalten()
 	while (TimerVal(&RuheTimer) < 500)
 		FernschrIO(false);
 
-	LokalCodeAusgabeS(AusschaltZeichen);
+	LokalCodeAusgabeS(AusschaltZeichen, true);
 
+	clr_FS_AKTIV(); // optionalen Motorschalter ausschalten
+	
 	// noch eine weitere 1/4 Sekunde warten
 	while (TimerVal(&RuheTimer) < 250)
 		FernschrIO(false);
@@ -343,6 +290,79 @@ static void FsAusschalten()
 	}
 		
 	
+/////////////////////////////////////////////////////////////////////////////////////////7
+
+//! Modul / Schnittstelle irreversibel stoppen.
+//---------------------------------------------
+//! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
+
+__attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ ) 
+	// Fehler-Codes: 
+	// 1: Bus-Empfang trotz Sperre
+	// 2: General Call ohne entsprechende Freigabe
+	// 3: Kommando über I²C in falschem Kontext
+	// 7: Interner Fehler bei FsBetriebsart
+	// 8: unerlaubte Einschaltung
+	// 9: unerlaubte Wahl
+	// 10: unerlaubte Aktivierung / Deaktivierung
+	{
+	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWEN) | (0<<TWIE);
+	
+	uint8_t TasteZ = 0;
+	bool TasteWirk = false;
+	TMsTimer TasteTimer;
+	StartTimer(&TasteTimer);
+	while (1)
+		{
+		wdt_reset();
+
+		if (TimerVal(&TasteTimer) > 400)
+			{
+			StartTimer(&TasteTimer);
+#ifdef TASTE_NACH_PLUS
+			if (get_TASTE()) 
+#else
+			if (!get_TASTE()) 
+#endif
+				{ // Taste gedrückt
+				if (TasteZ < 5)
+					TasteZ++;
+				else
+					TasteWirk = true;
+				}
+			else // Taste nicht gedrückt
+				{ 
+				if (TasteZ > 0)
+					{
+					TasteZ--;
+					if (TasteZ == 0 && TasteWirk)
+						{
+						cli();
+						wdt_enable(WDTO_1S);
+						while (1)
+							;
+						}
+					}
+				}
+			}
+		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
+		    {
+		    bset_LEDROT(BIT_IS_SET(Nummer, 0));
+			bset_LEDGELB(BIT_IS_SET(Nummer, 1));
+		    bset_LEDGRUEN(BIT_IS_SET(Nummer, 2));
+		    bset_LEDBLAU(BIT_IS_SET(Nummer, 3));
+			}
+		else
+			{
+			clr_LEDROT();
+			clr_LEDGELB();
+			clr_LEDGRUEN();
+			clr_LEDBLAU();
+			}
+		}
+	}	
+
+
 /////////////////////////////////////////////////////////////
 
 //! Liest ein Zeichen vom angeschlossenen Fs ein.
@@ -398,14 +418,21 @@ static void LokalCodeAusgabe(uint8_t code)
 //--------------------------------------------------
 //! \param code Zeichen im Baudot-Code
 
-static void LokalCodeAusgabeS(uint8_t *codep)
+static void LokalCodeAusgabeS(uint8_t *codep, bool StopIfCalled)
 	{
+	static uint8_t CRLFCode[] = {TtyCodeWR, TtyCodeZL, 255};
 	uint8_t i;
 
 	for (i = 0 ; i < MaxCodefolgeLaenge ; i++)
 		{
 		if (codep[i] > 0x1F)
 			break;
+		if (StopIfCalled && KoEinschalten())
+			{
+			codep = CRLFCode;
+			i = 0;
+			StopIfCalled = false; // to prevent reset of codep after print of first character
+			}
 		LokalCodeAusgabe(codep[i]);
 		}
 	}
@@ -420,27 +447,15 @@ static void LokalCodeAusgabeS(uint8_t *codep)
 
 void LokalZeichenAusgabe(char c)
 	{
-	uint8_t code;
+	uint8_t code1, code2;
 	
 	if (c >= 'A' && c <= 'Z')
 		c += 'a'-'A';
-
-	if ((code = ZeichenZuCode(c, BuZiMode)) != 255)
-		{
-		LokalCodeAusgabe(code);
-		}
-	else if ((code = ZeichenZuCode(c, BuMode)) != 255)
-		{
-		LokalCodeAusgabe(TtyCodeBuUm);
-		LokalCodeAusgabe(code);
-		BuZiMode = BuMode;
-		}
-	else if ((code = ZeichenZuCode(c, ZiMode)) != 255)
-		{
-		LokalCodeAusgabe(TtyCodeZiUm);
-		LokalCodeAusgabe(code);
-		BuZiMode = ZiMode;
-		}
+	if (!ZeichenZuCode2(c, &BuZiMode, &code1, &code2))
+		return;
+	LokalCodeAusgabe(code1);
+	if (code2 != 255)
+		LokalCodeAusgabe(code2);
 	}
 			
 		
@@ -530,8 +545,7 @@ uint8_t LokalCodefolgeEingabe(PGM_P Prompt, uint8_t* buf, uint8_t maxcodes)
 		
 static void VerbindungSteht(bool AutoKennungAbfrage);
 
-static void Deaktivieren(bool WegenTimeout);
-
+static void KommendSperren(TSperreGrund Grund);
 
 /////////////////////////////////////////////////////////////
 
@@ -551,8 +565,9 @@ static void VerbindungKommend()
 	if (!FsEinschalten())
 		{ // Timeout...
 		clr_LEDGRUEN();
-		GeAusschalten(); // TODO wird von SeriellUndSpezial nicht quittiert!
-		Deaktivieren(true);
+		GeAusschalten(true);
+		KommendSperren(SperreStoerung);
+		clr_LEDROT();
 		return;
 		}
 
@@ -560,7 +575,7 @@ static void VerbindungKommend()
 	
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
-		GeAusschalten();
+		GeAusschalten(true);
 		FsAusschalten();
 		}
 	else
@@ -580,6 +595,7 @@ static bool WahlMitTastatur()
 	{
 	char c;
 	bool EsWurdeGewaehlt;
+	bool Lokalbetrieb;
 	int Falschziffern;
 	
 	if (!FsEinschalten())
@@ -589,12 +605,14 @@ static bool WahlMitTastatur()
 		
 	// Wahlaufforderung ausgeben
 	// -------------------------
-	LokalCodeAusgabeS(WahlaufforderungZeichen);
+	LokalCodeAusgabeS(WahlaufforderungZeichen, false);
 		
 	// Wahlziffern entgegennehmen, Break bricht ab
 	// -------------------------------------------
 	EsWurdeGewaehlt = false;
+	Lokalbetrieb = false;
 	Falschziffern = 0;
+	BreakSignal = false;
 	BuZiMode = ZiMode; // Annehmen, dass die Ziffern-Ebene aktiv ist.
 
 	SendeUmsetzModus = UmsetzLokal;
@@ -605,26 +623,43 @@ static bool WahlMitTastatur()
 		FernschrIO(true);
 		
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
-		if (SerUmEmpfBitNr == SerUmEmpfFertig)
+		
+		if (!Lokalbetrieb)
 			{
-			c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
-			SerUmEmpfBitNr = SerUmEmpfWarte;
-			if (c >= '0' && c <= '9')
+			if (SerUmEmpfBitNr == SerUmEmpfFertig)
 				{
-				GeWaehlen(c - '0');
-				EsWurdeGewaehlt = true;
+				c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
+				SerUmEmpfBitNr = SerUmEmpfWarte;
+				if (c >= '0' && c <= '9')
+					{
+					GeWaehlen(c - '0');
+					EsWurdeGewaehlt = true;
+					}
+				else if (c == 'l' && !EsWurdeGewaehlt)
+					{
+					Lokalbetrieb = true;
+					LokalZeichenAusgabe('o');
+					LokalZeichenAusgabe('c');
+					}
+				else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
+					{
+					Falschziffern++;
+					}
 				}
-			else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
-				{
-				Falschziffern++;
-				}
-			}
 
-		while (Falschziffern > 0 && TimerVal(&RuheTimer) >= 100)
-			{
-			LokalZeichenAusgabe('?');
-			Falschziffern--;
-			}
+			while (Falschziffern > 0 && TimerVal(&RuheTimer) >= 200)
+				{
+				LokalZeichenAusgabe('?');
+				Falschziffern--;
+				}
+
+			if (TimerVal(&RuheTimer) > (EsWurdeGewaehlt ? 30000 : 15000)) // 15 / 30 Sekunden nicht gewählt
+				{ 
+				// GeAusschalten() und FsAusschalten() macht die aufrufende Routine
+				return false;
+				}
+
+			} // if !Lokalbetrieb
 
 		if (BreakSignal || KoAusschalten())
 			{
@@ -633,7 +668,7 @@ static bool WahlMitTastatur()
 			}
 			
 		if (KoEinschalten())
-			{
+			{ // jetzt die Kennung "VerbindungHergestellt" lokal drucken, beim Zeichenempfang aber sofort abbrechen
 			uint8_t i; // index in die "Verbunden"-Zeichenfolge
 			bool Abbruch;
 
@@ -679,15 +714,11 @@ static bool WahlMitTastatur()
 				FernschrIO(true);
 				}
 
+			// SendeUmsetzModus und EmpfUmsetzModus wird in der aufrufenden Funktion neu gesetzt.
+
 			clr_LEDROT();
 			
 			return true;
-			}
-
-		if (TimerVal(&RuheTimer) > (EsWurdeGewaehlt ? 30000 : 15000)) // 15 / 30 Sekunden nicht gewählt
-			{ 
-			// GeAusschalten() und FsAusschalten() macht die aufrufende Routine
-			return false;
 			}
 
 		} // while (true)
@@ -695,9 +726,6 @@ static bool WahlMitTastatur()
 	} // WahlMitTastatur()
 	
   
-static void KommendSperren();
-
-
 /////////////////////////////////////////////////////////////
 
 //! Wickelt ausgehende Verbdindungen vollständig ab.
@@ -712,6 +740,8 @@ static void VerbindungGehend()
 		return;
 		}
 
+	SperrzeitAussetzen();
+		
 	set_LEDGELB();
 	
 	switch (GeEinschalten())
@@ -726,15 +756,15 @@ static void VerbindungGehend()
 				// Einschalten macht WahlMitTastatur()
 				break; // ist jetzt verbunden
 				
-			GeAusschalten();
+			GeAusschalten(true);
 			FsAusschalten();
 			BreakSignal = false;
 			
-			clr_LEDGELB();
-
 			if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
-				KommendSperren(); 
-				// Funktion kommt erst zurück wenn Taste gedrückt oder neu gewählt.
+				{
+				clr_LEDGELB();
+				KommendSperren(SperreWahl);
+				}
 				
 			return;
 
@@ -743,8 +773,10 @@ static void VerbindungGehend()
 			return;
 		}
 
-	// HACK VerbindungSteht(true); // automatische Kennungsgeber-Abfrage
-	VerbindungSteht(false); // HACK aufblenden zur Fehlersuche.
+	// VerbindungSteht(true); // automatische Kennungsgeber-Abfrage ist in Abstimmung mit dem Kunden gestrichen
+	VerbindungSteht(false); 
+	
+	SperrzeitAussetzen(); // am Ende nochmal das Flag setzen.
 
 	}
 
@@ -774,18 +806,24 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 	GeSendeMark(true); 
 	BefehlMark = true;
 
-	SendeUmsetzModus = UmsetzLokalUndFern; // Für Sendung des "WerDa"
+	if (AutoKennungAbfrage)
+		SendeUmsetzModus = UmsetzFern; // Für Sendung des "WerDa" bei Verbindungsaufbau
+	else
+		SendeUmsetzModus = UmsetzLokalUndFern; // Für Sendung der simulierten Kennung 
+	
 	EmpfUmsetzModus = UmsetzLokalUndFern; // Für Empfang von "Antworten" 
+		// MARKE: Hier nur Lokal testen, wenn es weiterhin Probleme gibt beim Sofortigen Schreiben von der Gegenseite,
 
 	FernschrIO(true);
 	
-	do
+	while (true)
 		{
 		FernschrIO(true);
 
 		BefehlMark = KoEmpfMark();
 	
-		GeSendeMark(MeldungMark); 
+		if (SerUmSendBitNr <= SerUmSendStart) // Start oder Warten...
+			GeSendeMark(MeldungMark); // Nur Fs-Pegel direkt auf Bus, wenn nicht seriell gesendet wird...
 			
 		// Auswertung des Empfangspuffers: 
 		// a) Jedes Zeichen außer Buchstaben-Umschaltung beendet die Abfrage des 'fernen' Kennungsgebers.
@@ -800,8 +838,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 				AutoKennungAbfrage = false; // Aufgabe a)
 				if (code == TtyCodeZiUm)
 					KennungAusgabePhase = 1;
-				// HACK else if (code == TtyCodeZiWerDa && KennungAusgabePhase == 1)
-				else if (code == TtyCodeZiKlingel && KennungAusgabePhase == 1)
+				else if (code == TtyCodeZiWerDa && KennungAusgabePhase == 1)
 					KennungAusgabePhase = 2;
 				else if (KennungAusgabePhase == 2)
 					KennungAusgabePhase = 1; 
@@ -835,8 +872,12 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			{
 			for (uint8_t i = 0 ; i < MaxCodefolgeLaenge && EigeneKennung[i] <= 0x1F; i++)
 				PufferSpeich(&SendePuffer, EigeneKennung[i]);
-				KennungAusgabePhase = 0;
+			KennungAusgabePhase = 0;
 			}
+
+		if (!AutoKennungAbfrage && PufferLeer(&SendePuffer) && SerUmSendBitNr == SerUmSendWarte)
+			SendeUmsetzModus = UmsetzLokalUndFern; 
+			// sobald die Automatische Kennungsgeber-Abfrage beendet ist, wird auf beidseitig Senden umgestellt.
 		
 		// Test:
 		// bset_LEDROT(AutoKennungAbfrage);
@@ -844,13 +885,26 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		//! \todo: Getippte Zeichen auswerten auf Ende-Zeichenfolge
 		//---------------------------------------------------------
 		
-		} while (!BreakSignal && !KoAusschalten());
+		if (BreakSignal)
+			{
+			GeAusschalten(false);
+			while (!KoAusschalten())
+				FernschrIO(false);
+			FsAusschalten();
+			BreakSignal = false;
+			return;
+			}
 
-	FsAusschalten();
-	GeAusschalten();
-	BreakSignal = false;
+		if (KoAusschalten())
+			{
+			GeAusschalten(false); // da braucht auf nichts mehr gewartet zu werden
+			FsAusschalten();
+			return;
+			}
 		
-	}
+		} // while true
+		
+	} // VerbindungSteht()
 
 
 	
@@ -908,6 +962,7 @@ static bool KonfigTextEingabeA(PGM_P Prompt, uint8_t* CodeBuf, uint8_t MaxCodes)
 static void Konfiguration()
 	{
 	uint8_t Res;
+	bool Abbruch;
 	
 	SeriellUmsetzInit();
 	BuZiMode = '\0';
@@ -917,24 +972,48 @@ static void Konfiguration()
 	if (!FsEinschalten())
 		return;
 	
+#ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n configuration FsOFsg version " SVNVERSION " date " __DATE__));
+#else
+	LokalTextAusgabeP(PSTR("\r\n konfiguration FsOFsg version " SVNVERSION " datum " __DATE__));
+#endif //def SPRACHE_EN
 
+	
 	// Durchwahl...
-	if (!KonfigurationAllgemein())
-		return;
+	Abbruch = !KonfigurationAllgemein();
 
 	if (BusEigenAdresse != eeprom_read_byte(&EEDaten.BusEigenAdresse))
 		eeprom_update_byte(&EEDaten.BusEigenAdresse, BusEigenAdresse);
+
+	if (UmleitungAbweisen != eeprom_read_byte(&EEDaten.UmleitungAbweisen))
+		eeprom_update_byte(&EEDaten.UmleitungAbweisen, UmleitungAbweisen);
+	
+	if (Abbruch) 
+		return;
 	
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
+#ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n block incoming calls by: (cur. "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n kommende anrufe sperren mit: (akt. "));
+#endif //def SPRACHE_EN
+
 	if (KommendSperreWahl != 0)
 		LokalZahlAusgabe(KommendSperreWahl, 2);
 	else
-		LokalTextAusgabeP(PSTR("no"));
-	LokalTextAusgabeP(PSTR(") new (0 = no):     "));
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("off"));
+#else
+		LokalTextAusgabeP(PSTR("aus"));
+#endif //def SPRACHE_EN
 
-	if (LokalZahlEingabe(&KommendSperreWahl, 0) == 0)
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(") new (0 = off):     "));
+#else
+	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
+#endif //def SPRACHE_EN
+
+	if (LokalZahlEingabe(&KommendSperreWahl, 2) < 0)
 		return;
 
 	if (KommendSperreWahl != eeprom_read_byte(&EEDaten.KommendSperreWahl))
@@ -942,30 +1021,51 @@ static void Konfiguration()
 	
 	LokalTextAusgabeP(OkStrP);
 
-	Res = LokalCodefolgeEingabe(PSTR("\r\n simulated answerback:      "), EigeneKennung, MaxCodefolgeLaenge);
+	if (!SperrzeitEingabeDialog())
+		return;
+	
+	SperrzeitSpeicherEeprom(&EEDaten.SperrzeitDaten);
+	
+#ifdef SPRACHE_EN
+	Res = LokalCodefolgeEingabe(PSTR("\r\n software answerback:      "), EigeneKennung, MaxCodefolgeLaenge);
+#else
+	Res = LokalCodefolgeEingabe(PSTR("\r\n software kennungsgeber:      "), EigeneKennung, MaxCodefolgeLaenge);
+#endif //def SPRACHE_EN
 	if (Res == 2)
 		eeprom_update_block(EigeneKennung, EEDaten.EigeneKennung, sizeof(EEDaten.EigeneKennung));
 	if (Res == 0 || BreakSignal)
 		return;
 	
+#ifdef SPRACHE_EN
 	Res = LokalCodefolgeEingabe(PSTR("\r\n prompt to dial:      "), WahlaufforderungZeichen, MaxCodefolgeLaenge);
+#else
+	Res = LokalCodefolgeEingabe(PSTR("\r\n wahlaufforderung:      "), WahlaufforderungZeichen, MaxCodefolgeLaenge);
+#endif //def SPRACHE_EN
 	if (Res == 2)
 		eeprom_update_block(WahlaufforderungZeichen, EEDaten.WahlaufforderungZeichen, sizeof(EEDaten.WahlaufforderungZeichen));
 	if (Res == 0 || BreakSignal)
 		return;
 	
+#ifdef SPRACHE_EN
 	Res = LokalCodefolgeEingabe(PSTR("\r\n connection confirmation:      "), VerbindungHergestelltZeichen, MaxCodefolgeLaenge);
+#else
+	Res = LokalCodefolgeEingabe(PSTR("\r\n verbindungsbestaetigung:      "), VerbindungHergestelltZeichen, MaxCodefolgeLaenge);
+#endif //def SPRACHE_EN
 	if (Res == 2)
 		eeprom_update_block(VerbindungHergestelltZeichen, EEDaten.VerbindungHergestelltZeichen, sizeof(EEDaten.VerbindungHergestelltZeichen));
 	if (Res == 0 || BreakSignal)
 		return;
 	
+#ifdef SPRACHE_EN
 	Res = LokalCodefolgeEingabe(PSTR("\r\n connection closed sign:      "), AusschaltZeichen, MaxCodefolgeLaenge);
+#else
+	Res = LokalCodefolgeEingabe(PSTR("\r\n meldung verbindungsabbau:      "), AusschaltZeichen, MaxCodefolgeLaenge);
+#endif //def SPRACHE_EN
 	if (Res == 2)
 		eeprom_update_block(AusschaltZeichen, EEDaten.AusschaltZeichen, sizeof(EEDaten.AusschaltZeichen));
 	if (Res == 0 || BreakSignal)
 		return;
-	
+
 	// Ende-Kennung druckt FsAusschalten()
 	} // Konfiguration()
 
@@ -990,14 +1090,23 @@ static void KonfigurationEnde()
 //! Schaltet das Modul in einen Modus, der keine kommenden Verbindungen zulässt.
 //------------------------------------------------------------------------------
 //! Kann durch Wahl einer entsprechenden Ziffernfolge aufgerufen werden oder
-//! durch Tastendruck an der Platine.
+//! durch Tastendruck an der Platine oder durch die Zeitsperre oder durch eine 
+//! Nichterreichbarkeit des Geräts
 	
-static void KommendSperren()
+static void KommendSperren(TSperreGrund Grund)
 	{
 	TMsTimer BlinkTimer;
+	uint8_t BlinkTaktFaktor;
 	
 	StartTimer(&BlinkTimer);
 	Aktivieren(false);
+	
+	if (Grund == SperreTaste || Grund == SperreWahl)
+		BlinkTaktFaktor = 2;
+	else if (Grund == SperreZeit)
+		BlinkTaktFaktor = 4;
+	else
+		BlinkTaktFaktor = 1;
 	
 	while (true)
 		{
@@ -1005,6 +1114,7 @@ static void KommendSperren()
 		if (Tastendruck != NichtGedr)
 			{
 			Tastendruck = NichtGedr;
+			SperrzeitAussetzen();
 			break;
 			}
 			
@@ -1012,13 +1122,23 @@ static void KommendSperren()
 		
 		if (!MeldungMark) // Taste am Fernschreiber gedrückt --> raus aus der Sperre
 			break;
-		
-		if (TimerVal(&BlinkTimer) > 1000)
+			
+		if (TimerVal(&BlinkTimer) > 500 * BlinkTaktFaktor)
 			StartTimer(&BlinkTimer);
-		else if (TimerVal(&BlinkTimer) > 500)
+		else if (TimerVal(&BlinkTimer) > 300 * BlinkTaktFaktor)
 			set_LEDBLAU();
 		else
 			clr_LEDBLAU();
+		
+		if (RundsendAnzDaten > 0)
+			{
+			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
+				{
+				if (Grund == SperreZeit && !SperrzeitAktiv())
+					break;
+				}
+			// else Daten anderwertig auswerten
+			}
 		
 		}
 		
@@ -1028,10 +1148,6 @@ static void KommendSperren()
 	}
 	
 	
-DEFPORTOUT		(FS_AKTIV,	D, 7) 
-// HACK: Zum Test mit der TW39 muss bei angeschlossenem Fernschaltgerät dieses auf Dauer-Ein geschaltet werden.
-
-
 /////////////////////////////////////////////////////////////
 
 //! Schaltet das Modul in einen Modus, der keine kommenden und keine gehenden 
@@ -1039,7 +1155,7 @@ DEFPORTOUT		(FS_AKTIV,	D, 7)
 //------------------------------------------------------------------------------
 //! Kann nur durch Tastendruck an der Platine aktiviert werden.
 	
-static void Deaktivieren(bool WegenTimeout)
+static void Deaktivieren()
 // wird nach kurzem Tastendruck aufgerufen
 	{
 	set_LEDBLAU();
@@ -1054,8 +1170,7 @@ static void Deaktivieren(bool WegenTimeout)
 	clr_LEDBLAU();
 	clr_LEDROT();
 
-	if (!WegenTimeout)
-		KommendSperren();
+	KommendSperren(SperreTaste);
 		
 	} // Deaktivieren
 
@@ -1097,17 +1212,13 @@ int main()
 	wdt_enable(WDTO_2S);
 #endif //NOWATCHDOG
 
-	// nur für den Simulator:
-	PINB = 0xFF;
-	PINC = 0xFF;
-	PIND = 0xFF;
-
 	// Ports initialisieren
 	init_LEDROT();
 	init_LEDGELB();
 	init_LEDGRUEN();
 	init_LEDBLAU();
 	init_FS_AUSG();
+	init_FS_AKTIV();
 	init_FS_EING(); 
 #ifdef PARALLELAUSGABE
 	init_FS2_AUSG();
@@ -1116,22 +1227,27 @@ int main()
 	init_TASTE();
 	//init_TASTE2();
 
-	init_FS_AKTIV(); // HACK
-	
 	set_LEDROT();
 
 	// Timer initialisieren
 	MsTimerInit();
 	
+	SperrzeitInit();
+
 	BusEigenAdresse = eeprom_read_byte(&EEDaten.BusEigenAdresse) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
 		BusEigenAdresse = 35 << 1; // Standardwert 
 		//! \todo Besser BusAdrUngueltig testen
 	BusEigenAdrMehrfach = 1;
+	RundsendEmpfFreig = true;
+	
+	UmleitungAbweisen = eeprom_read_byte(&EEDaten.UmleitungAbweisen) == true; // damit bei "leerem" EEPROM eher "nein" das Ergebnis ist.
 	
 	KommendSperreWahl = eeprom_read_byte(&EEDaten.KommendSperreWahl);
 	if (KommendSperreWahl > 99)
 		KommendSperreWahl = 0;
+
+	SperrzeitLadeEeprom(&EEDaten.SperrzeitDaten);
 
 	CodefolgeLadenPruefenInitialisieren(AusschaltZeichen, sizeof(AusschaltZeichen), EEDaten.AusschaltZeichen, 
 										AusschaltZeichenDefault, sizeof(AusschaltZeichenDefault));
@@ -1158,15 +1274,18 @@ int main()
 	while (TimerVal(&Timer) < 250)
 		;
 	
-	// Bei Tastendruck Watchdog AUS
-	if (!get_TASTE())
-		{ // Gedrückt = LOW	
+	/*/ Bei Tastendruck Watchdog AUS
+#ifdef TASTE_NACH_PLUS
+	if (get_TASTE()) 
+#else
+	if (!get_TASTE()) 
+#endif
+		{ 
 		wdt_disable();
-		while (!get_TASTE())
-			; // Warten, bis Taste wieder losgelassen
 		set_LEDGELB();
 		StartTimer(&Timer);
 		}
+	//*/
 
 	clr_LEDROT();
 	set_LEDGELB();
@@ -1198,8 +1317,6 @@ int main()
 	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
 
-	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
-
 /*/ Selbsttest
 
 	BefehlEinschalten = false;
@@ -1225,9 +1342,11 @@ int main()
 
 // Selbsttest Ende */
 
+	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
+
 	BefehlMark = true;
 
-	while (1)
+	while (true)
 		{
 		// aktueller Zustand: Ausgeschaltet
 		if (TimerVal(&Timer) <= 1200)
@@ -1255,7 +1374,7 @@ int main()
 		if (Tastendruck == Kurz)
 			{
 			Tastendruck = NichtGedr;
-			Deaktivieren(false);
+			Deaktivieren();
 			BreakSignal = false;
 			Tastendruck = NichtGedr;
 			}
@@ -1270,6 +1389,20 @@ int main()
 			{
 			VerbindungKommend();
 			Tastendruck = NichtGedr; // falls die Taste als Break-Ersatz benutzt wurde.
+			}
+			
+		// Rundsendedaten auswerten:
+		if (RundsendAnzDaten > 0)
+			{
+			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
+				{
+				if (SperrzeitAktiv())
+					KommendSperren(SperreZeit);
+				}
+			else
+				; // keine Ahnung, was hier gesendet wurde, ist aber auch egal...
+				
+			RundsendAnzDaten = 0;
 			}
 		
 		} // while (1)

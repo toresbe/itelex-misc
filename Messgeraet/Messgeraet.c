@@ -89,10 +89,10 @@
 
 #ifdef PROGIDZUSATZ
 //! Identifikation im Programmspeicher
-const PROGMEM char Identifier[] = "___TxP2_Messgeraet-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const PROGMEM char Identifier[] = "___itlx_Messgeraet-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #else
 //! Identifikation im Programmspeicher
-const PROGMEM char Identifier[] = "___TxP2_Messgeraet___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const PROGMEM char Identifier[] = "___itlx_Messgeraet___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif
 
 
@@ -400,7 +400,7 @@ static bool VerbindungIgnoriereErsteZweiSekunden(uint8_t SubAddr)
 
 		if (KoAusschalten())
 			{
-			GeAusschalten();
+			GeAusschalten(false);
 			return false;
 			}
 		LEDAktualisieren();
@@ -497,7 +497,7 @@ static void VerbindungMessgeraet()
 				
 		if (KoAusschalten())
 			{
-			GeAusschalten();
+			GeAusschalten(false);
 			break;
 			}
 
@@ -523,7 +523,7 @@ static void VerbindungRueckruf()
 
 		if (KoAusschalten())
 			{
-			GeAusschalten();
+			GeAusschalten(false);
 			return;
 			}
 		LEDAktualisieren();
@@ -560,7 +560,7 @@ static void VerbindungRueckruf()
 
 		if (KoAusschalten())
 			{
-			GeAusschalten();
+			GeAusschalten(false);
 			return;
 			}
 		LEDAktualisieren();
@@ -584,7 +584,7 @@ static void VerbindungRueckruf()
 		if (KoAusschalten())
 			{
 			Puffer[PufferPos] = 255;
-			GeAusschalten();
+			GeAusschalten(false);
 			break;
 			}
 		LEDAktualisieren();
@@ -652,7 +652,7 @@ static void VerbindungRueckruf()
 		LEDAktualisieren();
 		} // while true
 		
-	GeAusschalten();
+	GeAusschalten(true);
 	
 	} // VerbindungRueckruf
 
@@ -767,7 +767,7 @@ static void VerbindungBildlocher()
 
 		if (KoAusschalten())
 			{
-			GeAusschalten();
+			GeAusschalten(false);
 			break;
 			}
 
@@ -980,7 +980,7 @@ static void VerbindungTestsender()
 			; // ignorieren
 		else if (c == 'e')
 			{
-			GeAusschalten();
+			GeAusschalten(true);
 			return;
 			}
 		else
@@ -1001,7 +1001,7 @@ static void VerbindungTestsender()
 			
 		} // while (!KoAusschalten())
 			
-	GeAusschalten();
+	GeAusschalten(true);
 	
 	} // VerbindungTestsender
 
@@ -1013,7 +1013,7 @@ static void VerbindungKommend()
 	
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
-		GeAusschalten();
+		GeAusschalten(true);
 		}
 	else
 		{
@@ -1044,7 +1044,7 @@ static void VerbindungKommend()
 		}
 
 	// folgender Punkt wird nur bei ungültiger Anwahlnummer erreicht...
-	GeAusschalten();
+	GeAusschalten(true);
 		
 	}
 	
@@ -1106,17 +1106,14 @@ int main()
 
 	init_TASTE();
 
-	LED_EIN(ROT);
-	SET_BIT(LED_ROT_DDR, LED_ROT_BIT);
-
-	LED_AUS(GELB);
-	SET_BIT(LED_GELB_DDR, LED_GELB_BIT);
-
-	LED_AUS(GRUEN);
-	SET_BIT(LED_GRUEN_DDR, LED_GRUEN_BIT);
-
-	LED_AUS(BLAU);
-	SET_BIT(LED_BLAU_DDR, LED_BLAU_BIT);
+	init_LED_ROT(); 
+	clr_LED_ROT();
+	init_LED_GELB();
+	clr_LED_GELB();
+	init_LED_GRUEN();
+	clr_LED_GRUEN();
+	init_LED_BLAU();
+	clr_LED_BLAU();
 
 	// Timer initialisieren
 	MsTimerInit();
@@ -1155,12 +1152,12 @@ int main()
 	else
 		Kennwort[sizeof(Kennwort)-1] = '\0'; // sicherheitshalber
 
+	UmleitungAbweisen = true;
+	
 	KommInit();
 
 	sei();
 
-	SET_BIT_Status(StatBit_SpezialGeraetKennung);
-	
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 250)
 		;
@@ -1228,10 +1225,7 @@ int main()
 		for (uint8_t i = 0 ; i < BUS_MEHRFACH_ADR ; i++)
 			eeprom_write_string_noblock(Kennung_EE[i], Kennung[i]);
 		eeprom_write_string_noblock(Kennwort_EE, Kennwort);
-
-		if (BIT_IS_SET(Status, StatBit_Frei))
-			SET_BIT_Status(StatBit_SpezialGeraetKennung);
-		
+	
 		} // while (1)
 	} // main()
 

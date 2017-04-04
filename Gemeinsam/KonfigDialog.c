@@ -9,6 +9,8 @@
 
 #include "LokalAusgabe.h"
 
+#include "TxP2-Endgeraet.h"
+
 
 //! Bestätigungsmeldung. weil's häufig benutzt wird.
 PROGMEM char OkStrP[] = " ok. ";
@@ -22,11 +24,11 @@ extern char LokalZeichenLesen();
 //! kann nur positive Zahlen.
 //! \param[out] z Eingegebene Zahl.
 //! \param[in] maxzif Maximale Anzahl Ziffern bei der Eingabe.
-//! \retval 0 abbruch
-//! \retval 1 unverändert
-//! \retval 2 eingabe erfolgt
+//! \retval <0 abbruch
+//! \retval 0 unverändert
+//! \retval >0 eingabe erfolgt mit anzahl ziffern
 
-uint8_t LokalZahlEingabe(uint8_t* z, uint8_t maxzif)
+int8_t LokalZahlEingabe(uint8_t* z, uint8_t maxzif)
 	{
 	uint8_t Pos = 0; // 0 = noch keine Ziffer eingegeben, 1 = erste Ziffer, ...
 
@@ -42,16 +44,16 @@ uint8_t LokalZahlEingabe(uint8_t* z, uint8_t maxzif)
 				*z = Zeichen - '0';
 			Pos++;
 			if (Pos == maxzif)
-				return 2;
+				return Pos;
 			}
 		else if (Zeichen == '.' || Zeichen == '-' || Zeichen == '+' || Zeichen == '=' || Zeichen == '/')
 			{
-			return (Pos > 0) ? 2 : 1;
+			return Pos;
 			}
 
 		else if (Zeichen == '\0') // abschaltung
 			{
-			return 0;
+			return -1;
 			}
 		else if (Zeichen == '\t') // ignorieren
 			{
@@ -59,7 +61,7 @@ uint8_t LokalZahlEingabe(uint8_t* z, uint8_t maxzif)
 		else // nicht erkanntes ZeichenZuCode
 			{
 			if (Pos > 0)
-				return 2; // da Zahl mit irgendwas abgeschlossen
+				return Pos; // da Zahl mit irgendwas abgeschlossen
 			}
 		}
 	}
@@ -216,13 +218,33 @@ extern void LokalZeichenAusgabe(char c);
 //-------------------------------------------------------------------
 //! Bisher nur Abfrage der eigenen Adresse = eigene Durchwahl.
 //! Eingegebene Adresse / Durchwahl wird auch im EEPROM gespeichert.
-//! \returns Erfolgreiche Eingabe der eigenen Adresse.
+//! \returns true, wenn kein Abbruch der Eingabe erfolgte
 
 bool KonfigurationAllgemein()
 	{
+
+#ifdef TESTFUNKTIONEN
+
+	LokalTextAusgabeP(PSTR("\r\n testfunktion aktuell: "));
+	LokalZahlAusgabe(TestFunktion, 0);
+	LokalTextAusgabeP(PSTR(" neu:     "));
+	if (LokalZahlEingabe(&TestFunktion, 0) < 0)
+		return false;
+
+	LokalTextAusgabeP(PSTR("\r\n testverzoegerung aktuell: "));
+	LokalZahlAusgabe(TestVerzoegerung, 0);
+	LokalTextAusgabeP(PSTR(" neu:     "));
+	if (LokalZahlEingabe(&TestVerzoegerung, 0) < 0)
+		return false;
+
+#endif //def TESTFUNKTIONEN
+
+	// Abfrage Durchwahl
+	// -----------------
 	while (true)
 		{ // solange Durchwahl abfragen, bis gültige Eingabe erfolgt
 		uint8_t ZifferAnz;
+		int8_t EingabeZifferAnz;
 		uint8_t Durchwahl = AdresseZuWahl(BusEigenAdresse, &ZifferAnz);
 
 #ifdef SPRACHE_EN
@@ -235,10 +257,14 @@ bool KonfigurationAllgemein()
 		LokalTextAusgabeP(PSTR(" neu:     "));
 #endif
 		
-		if (LokalZahlEingabe(&Durchwahl, 0) == 0)
+		EingabeZifferAnz = LokalZahlEingabe(&Durchwahl, 2);
+		if (EingabeZifferAnz < 0)
 			return false;
 
-		//! \todo Einstellige Durchwahlen erlauben.
+		if (EingabeZifferAnz == 0)
+			Durchwahl = AdresseZuWahl(BusEigenAdresse, &ZifferAnz); // wiederherstellen
+		else
+			ZifferAnz = EingabeZifferAnz;
 		
 		Durchwahl &= ~(BusEigenAdrMehrfach - 1);
 			// erreicht, dass bei (Bsp.) 8 Adressen die Basisadresse 8, 16, 24, ...
@@ -249,13 +275,13 @@ bool KonfigurationAllgemein()
 #else
 		LokalTextAusgabeP(PSTR("\r\n pruefe "));
 #endif
-		LokalZahlAusgabe(Durchwahl, 2);
+		LokalZahlAusgabe(Durchwahl, ZifferAnz);
 		LokalZeichenAusgabe(' ');	
 
-		if (BusEigenAdressePruefenUndSetzen(WahlZuAdresse(Durchwahl, 2)))
+		if (BusEigenAdressePruefenUndSetzen(WahlZuAdresse(Durchwahl, ZifferAnz)))
 			{
 			LokalTextAusgabeP(OkStrP);
-			return true;
+			break;
 			}
 
 #ifdef SPRACHE_EN
@@ -263,7 +289,26 @@ bool KonfigurationAllgemein()
 #else
 		LokalTextAusgabeP(PSTR(" schon vergeben oder ungueltig, andere waehlen!"));
 #endif
-		}
-	}
+		} // abfrage Durchwahl
+
+	// Rufumleitungen annehmen = UmleitungAbweisen
+	// -------------------------------------------
+#ifndef FUER_TW39
+
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n decline forwarded calls?      ")); 
+#else	
+	LokalTextAusgabeP(PSTR("\r\n weiterleitungen abweisen?      ")); 
+#endif //def SPRACHE_EN
+
+	if (LokalBoolEingabe(&UmleitungAbweisen) == 0)
+		return false;
+
+#endif //ndef FUER_TW39
+
+	
+	return true;
+	
+	} // KonfigurationAllgemein()
 
 

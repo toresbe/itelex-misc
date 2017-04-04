@@ -64,10 +64,10 @@
 
 #ifdef PROGIDZUSATZ
 //! Marker im Code als Identifikation
-PROGMEM const char Identifier[] = "___TxP2_TW39-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+PROGMEM const char Identifier[] = "___itlx_TW39-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION ;
 #else
 //! Marker im Code als Identifikation
-PROGMEM const char Identifier[] = "___TxP2_TW39___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+PROGMEM const char Identifier[] = "___itlx_TW39___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif
 
 // Eeprom-Speicher
@@ -122,9 +122,6 @@ static void TW39IO()
 		bset_FS2_AUSG(BefehlMark);
 	#endif //def PARALLELAUSGABE
 
-#define NEU
-
-#ifdef NEU
 	// Schleifenstrom auswerten: Einschaltung oder nicht
 	// -------------------------------------------------
 	if (get_FS_EING())
@@ -179,68 +176,6 @@ static void TW39IO()
 			} // else !get_FS_EING() == Schleifenstrom fließt
 		} // else BefehlMark && MeldungEingeschaltet
 	
-#else
-	// Schleifenstrom auswerten
-	// ------------------------
-	if (BefehlMark || !MeldungEingeschaltet)
-		{
-		if (get_FS_EING())
-			{ // Strom ist aus --> Space
-			if (!MeldungEingeschaltet || TimerVal(&AusschaltungTimer) > 500)
-				{ // mehr als 0,5 s Stromunterbrechung --> Ausschalten
-				MeldungEingeschaltet = false;
-				MeldungMark = true;
-				StartTimer(&EntprellungTimer);
-				}
-			else if (MeldungMark)
-				{ // der Applikation wird noch Mark gemeldet
-				if (TimerVal(&EntprellungTimer) > 3)
-					{ // mindestens 3 ms konstant Space --> Space melden
-					MeldungMark = false;
-					}
-				}
-			else // !MeldungMark
-				{ // Regelzustand bei Space: Space wird auch gemeldet
-				StartTimer(&EntprellungTimer);
-				}
-			} // Strom ist aus
-		else // !get_FS_EING
-			{ // Schleifenstrom fließt
-			if (!MeldungMark)
-				{ // der Applikation wird noch Space gemeldet
-				if (TimerVal(&EntprellungTimer) > 3)
-					{ // mindestens 3 ms konstant Mark --> Mark melden
-					MeldungMark = true;
-					}
-				}
-			else // MeldungMark
-				{ // Regelzustand bei Mark: Mark wird auch gemeldet
-				if (!MeldungEingeschaltet)
-					{ // erst mal stabile Einschaltung abwarten...
-					if (TimerVal(&EntprellungTimer) > 100)
-						{
-						MeldungEingeschaltet = true;
-						StartTimer(&AusschaltungTimer);
-						}
-					else
-						; // warten
-					}
-				else // ist schon Eingeschaltet (Meldung)
-					{ 
-					StartTimer(&AusschaltungTimer);
-					StartTimer(&EntprellungTimer);
-					}
-				}
-			} // else !get_FS_EING
-		} // else FsSendMark --> Schleife ist Schnittstellen-Ausgabeseitig ein
-	else // !BefehlMark && MeldungEingeschaltet
-		{
-		MeldungMark = true; // nur Simplex-Modus
-		StartTimer(&EntprellungTimer);
-		StartTimer(&AusschaltungTimer);
-		}
-#endif
-
 	if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
 		bset_LEDGELB(!MeldungMark);
 	else // !BIT_IS_SET(Status, StatBit_AngerufenBelegt))
@@ -316,7 +251,7 @@ static void TW39Ausschalten()
 //---------------------------------------------
 //! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
 
-void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ )
+__attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ ) 
 	// Fehler-Codes: 
 	// 1: Bus-Empfang trotz Sperre
 	// 2: General Call ohne entsprechende Freigabe
@@ -339,8 +274,19 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
-			if (get_TASTE())
-				{ // Taste nicht gedrückt
+#ifdef TASTE_NACH_PLUS
+			if (get_TASTE()) 
+#else
+			if (!get_TASTE()) 
+#endif
+				{ // Taste gedrückt
+				if (TasteZ < 5)
+					TasteZ++;
+				else
+					TasteWirk = true;
+				}
+			else // Taste nicht gedrückt
+				{ 
 				if (TasteZ > 0)
 					{
 					TasteZ--;
@@ -352,13 +298,6 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 							;
 						}
 					}
-				} // Taste nicht gedrückt
-			else
-				{ // Taste gedrückt
-				if (TasteZ < 5)
-					TasteZ++;
-				else
-					TasteWirk = true;
 				}
 			}
 		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
@@ -390,6 +329,7 @@ char LokalZeichenLesen()
 	{
 	char c;
 
+	EmpfUmsetzModus = UmsetzLokal; // sicherheitshalber
 	while (true)
 		{
 		TW39IO();
@@ -416,6 +356,7 @@ char LokalZeichenLesen()
 
 static void LokalCodeAusgabe(uint8_t code)
 	{
+	SendeUmsetzModus = UmsetzLokal; // sicherheitshalber
 	SerUmSendDaten = code;
 	SerUmSendBitNr = SerUmSendStart;
 	while (SerUmSendBitNr != SerUmSendWarte)
@@ -461,7 +402,7 @@ void LokalZeichenAusgabe(char c)
 		
 static void VerbindungSteht(bool AutoKennungAbfrage);
 
-static void Deaktivieren(bool WegenTimeout);
+static void KommendSperren();
 
 
 /////////////////////////////////////////////////////////////
@@ -482,8 +423,9 @@ static void VerbindungKommend()
 	if (!TW39Einschalten())
 		{ // Timeout...
 		clr_LEDGRUEN();
-		GeAusschalten(); // TODO wird von SeriellUndSpezial nicht quittiert!
-		Deaktivieren(true);
+		GeAusschalten(true); 
+		KommendSperren();
+		clr_LEDROT();
 		return;
 		}
 
@@ -491,7 +433,7 @@ static void VerbindungKommend()
 	
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
-		GeAusschalten();
+		GeAusschalten(true);
 		TW39Ausschalten();
 		}
 	else
@@ -509,7 +451,7 @@ static void VerbindungKommend()
 static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	{
 	set_LEDROT();
-	GeAusschalten();
+	GeAusschalten(true);
 	Aktivieren(false);
 	if (Abschaltimpuls)
 		TW39Ausschalten();
@@ -609,7 +551,7 @@ static bool WahlMitTastatur()
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
 	Falschziffern = 0;
-	BuZiMode = '\0';
+	BuZiMode = ZiMode;
 
 	while (true)
 		{
@@ -633,7 +575,7 @@ static bool WahlMitTastatur()
 			StartTimer(&WahlendeTimer);
 			}
 
-		while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 100)
+		while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 200)
 			{
 			LokalZeichenAusgabe('?');
 			Falschziffern--;
@@ -671,17 +613,19 @@ static void KommendSperren();
 
 static void VerbindungGehend()
 	{
-	set_LEDGELB();
-
 	if (BusEigenAdresse == BusAdrUngueltig)
 		{
 		TW39Ausschalten();
 		return;
 		}
+		
+	set_LEDGELB();
 	
 	switch (GeEinschalten())
 		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
 		case GeEinschFehler:
+			clr_LEDGELB();
+			
 			return; 
 
 		case GeEinschWahl:
@@ -699,7 +643,7 @@ static void VerbindungGehend()
 					// Einschalten ist nicht erforderlich, da schon eingeschaltet ist...
 					break; // ist jetzt verbunden
 				}
-			GeAusschalten();
+			GeAusschalten(true);
 			TW39Ausschalten();
 			
 			if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
@@ -752,15 +696,27 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 	GeSendeMark(true); 
 
+	SendeUmsetzModus = UmsetzFern;
+	EmpfUmsetzModus = UmsetzFern; 
+	
 	while (true)
 		{
 		TW39IO();
 		TastePruefen();
 
-		if (!MeldungEingeschaltet || KoAusschalten())
+		if (!MeldungEingeschaltet)
+			{
+			GeAusschalten(false);
+			TW39Ausschalten();
+			while (!KoAusschalten())
+				TW39IO();
+			return;
+			}
+
+		if (KoAusschalten())
 			{
 			TW39Ausschalten();
-			GeAusschalten();
+			GeAusschalten(false); // da braucht auf nichts mehr gewartet zu werden
 			return;
 			}
 
@@ -809,6 +765,8 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 static void Konfiguration()
 	{
+	bool Abbruch;
+	
 	SeriellUmsetzInit();
 	BuZiMode = '\0';
 	Aktivieren(false);
@@ -817,17 +775,27 @@ static void Konfiguration()
 	if (!TW39Einschalten())
 		return;
 	
-	LokalTextAusgabeP(PSTR("\r\n konfiguration tw39 version " SVNVERSION " datum " __DATE__));
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n config tw39 ver " SVNVERSION " / " __DATE__));
+#else
+	LokalTextAusgabeP(PSTR("\r\n konfig. tw39 ver " SVNVERSION " / " __DATE__));
+#endif //def SPRACHE_EN
 
 	// Durchwahl...
-	if (!KonfigurationAllgemein())
-		return;
+	Abbruch = !KonfigurationAllgemein();
 
 	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
 		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
+
+	if (Abbruch) 
+		return;
 	
 	// Wählscheibe vorhanden?
-	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden?      "));
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n has rotary dial?      ")); 
+#else	
+	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden?      ")); 
+#endif //def SPRACHE_EN
 
 	if (LokalBoolEingabe(&MitWaehlscheibe) == 0)
 		return;
@@ -844,7 +812,7 @@ static void Konfiguration()
 		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
 		LokalTextAusgabeP(PSTR("/100 sek)?      "));
 
-		if (LokalZahlEingabe(&WahlauffordImpulsLaenge, 0) == 0)
+		if (LokalZahlEingabe(&WahlauffordImpulsLaenge, 0) < 0)
 			return;
 
 		if (WahlauffordImpulsLaenge < 1)
@@ -857,14 +825,28 @@ static void Konfiguration()
 		}
 
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
-	LokalTextAusgabeP(PSTR("\r\n kommend-sperre mit wahl: (akt. "));
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n block incoming calls by: (cur. "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n kommende anrufe sperren mit: (akt. "));
+#endif //def SPRACHE_EN
+
 	if (KommendSperreWahl != 0)
 		LokalZahlAusgabe(KommendSperreWahl, 2);
 	else
-		LokalTextAusgabeP(PSTR("nein"));
-	LokalTextAusgabeP(PSTR(") neu (0 = nein):     "));
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("off"));
+#else
+		LokalTextAusgabeP(PSTR("aus"));
+#endif //def SPRACHE_EN
 
-	if (LokalZahlEingabe(&KommendSperreWahl, 0) == 0)
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(") new (0 = off):     "));
+#else
+	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
+#endif //def SPRACHE_EN
+
+	if (LokalZahlEingabe(&KommendSperreWahl, 2) < 0)
 		return;
 
 	if (KommendSperreWahl != eeprom_read_byte(&KommendSperreWahl_EE))
@@ -874,7 +856,7 @@ static void Konfiguration()
 	
 	// weitere Eingaben
 
-	LokalTextAusgabeP(PSTR("\r\n +++ \r\n"));
+	LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
 	}
 
 
@@ -940,7 +922,7 @@ static void KommendSperren()
 //------------------------------------------------------------------------------
 //! Kann nur durch Tastendruck an der Platine aktiviert werden.
 	
-static void Deaktivieren(bool WegenTimeout)
+static void Deaktivieren()
 // wird nach kurzem Tastendruck aufgerufen
 	{
 	set_LEDBLAU();
@@ -954,9 +936,7 @@ static void Deaktivieren(bool WegenTimeout)
 	clr_LEDBLAU();
 	clr_LEDROT();
 
-	if (!WegenTimeout)
-		KommendSperren();
-		
+	KommendSperren();
 	} // Deaktivieren
 
 
@@ -965,16 +945,11 @@ static void Deaktivieren(bool WegenTimeout)
 //! Das Hauptprogramm der TW39-Fernschreiber-Schnittstelle.
 //---------------------------------------------------------
 
-int main()
+__attribute__ ((noreturn)) int main()
 	{
 #ifndef NOWATCHDOG
 	wdt_enable(WDTO_2S);
 #endif //NOWATCHDOG
-
-	// nur für den Simulator:
-	PINB = 0xFF;
-	PINC = 0xFF;
-	PIND = 0xFF;
 
 	// Ports initialisieren
 	init_LEDROT();
@@ -993,7 +968,6 @@ int main()
 	//init_TASTE2();
 
 	set_LEDROT();
-	
 
 	// Timer initialisieren
 	MsTimerInit();
@@ -1018,6 +992,8 @@ int main()
 	MeldungEingeschaltet = false;
 	MeldungMark = true;
 
+	UmleitungAbweisen = false; // Bei der Basisversion nicht Optional.
+	
 	KommInit();
 
 	TW39IO();
@@ -1031,15 +1007,18 @@ int main()
 	while (TimerVal(&Timer) < 250)
 		;
 	
-	// Bei Tastendruck Watchdog AUS
-	if (!get_TASTE())
-		{ // Gedrückt = LOW	
+	/*/ Bei Tastendruck Watchdog AUS
+#ifdef TASTE_NACH_PLUS
+	if (get_TASTE()) 
+#else
+	if (!get_TASTE()) 
+#endif
+		{ 
 		wdt_disable();
-		while (!get_TASTE())
-			; // Warten, bis Taste wieder losgelassen
 		set_LEDGELB();
 		StartTimer(&Timer);
 		}
+	//*/
 
 	clr_LEDROT();
 	set_LEDGELB();
@@ -1068,10 +1047,8 @@ int main()
 		
 	TWCR = (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (1<<TWEN) | (1<<TWIE);
 
-	while (TimerVal(&Timer) < 1000 + BusEigenAdresse)
+	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
-
-	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
 
 /*/ Selbsttest
 
@@ -1098,10 +1075,12 @@ int main()
 
 // Selbsttest Ende */
 
+	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
+
 	BefehlEinschalten = false;
 	BefehlMark = true;
 
-	while (1)
+	while (true)
 		{
 		// aktueller Zustand: Ausgeschaltet
 		if (TimerVal(&Timer) <= 1200)
@@ -1114,8 +1093,6 @@ int main()
 		clr_LEDGELB();
 		clr_LEDGRUEN();
 		clr_LEDBLAU();
-
-
 
 		TastePruefen();
 		TW39IO();
@@ -1130,7 +1107,7 @@ int main()
 		if (Tastendruck == Kurz)
 			{
 			Tastendruck = NichtGedr;
-			Deaktivieren(false);
+			Deaktivieren();
 			}
 
 		if (MeldungEingeschaltet)

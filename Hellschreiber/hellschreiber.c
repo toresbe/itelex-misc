@@ -58,7 +58,7 @@
 
 
 //! Identifikation im Programmspeicher
-const PROGMEM char Identifier[] = "___TxP2_Hellschreiber___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const PROGMEM char Identifier[] = "___itlx_Hellschreiber___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 
 
 #include "timercs.h"
@@ -261,7 +261,7 @@ static void VerbindungHellschreiber()
 
 		if (KoAusschalten())
 			{
-			GeAusschalten();
+			GeAusschalten(false); // da braucht auf nichts mehr gewartet zu werden
 			break;
 			}
 
@@ -288,7 +288,7 @@ static void VerbindungKommend()
 	
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
-		GeAusschalten();
+		GeAusschalten(true);
 		}
 	else
 		{
@@ -378,14 +378,14 @@ int main()
 
 	eeprom_read_string(Kennung, Kennung_EE);
 
+	UmleitungAbweisen = true;
+	
 	KommInit();
 
 	HellInit();
 
 	sei();
 
-	SET_BIT_Status(StatBit_SpezialGeraetKennung);
-	
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 250)
 		;
@@ -452,9 +452,6 @@ int main()
 		
 		eeprom_write_string_noblock(Kennung_EE, Kennung);
 
-		if (BIT_IS_SET(Status, StatBit_Frei))
-			SET_BIT_Status(StatBit_SpezialGeraetKennung);
-		
 		} // while (1)
 	} // main()
 

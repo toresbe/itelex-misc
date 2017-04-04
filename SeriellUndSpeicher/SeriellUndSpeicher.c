@@ -97,20 +97,20 @@
 	
 #ifdef PROGIDZUSATZ
 //! Identifikation im Programmspeicher
-const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher2-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const char PROGMEM Identifier[] = "___itlx_SeriellUndSpeicher2-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #else
 //! Identifikation im Programmspeicher
-const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher2___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const char PROGMEM Identifier[] = "___itlx_SeriellUndSpeicher2___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif
 
 #else // PLATINE_VERSION < 20
 	
 #ifdef PROGIDZUSATZ
 //! Identifikation im Programmspeicher
-const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const char PROGMEM Identifier[] = "___itlx_SeriellUndSpeicher-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #else
 //! Identifikation im Programmspeicher
-const char PROGMEM Identifier[] = "___TxP2_SeriellUndSpeicher___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+const char PROGMEM Identifier[] = "___itlx_SeriellUndSpeicher___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif
 	
 #endif // PLATINE_VERSION
@@ -156,6 +156,7 @@ EEMEM uint8_t Tag_EE = 13;  //!< #Tag, Kopie im EEPROM
 EEMEM uint8_t Stunde_EE[31] = { 0 } ; //!< #Stunde, Kopie im EEPROM. Je Tag eine andere Speicherstelle, damit die Abnutzung nicht so groß ist.
 EEMEM uint8_t Minute_EE = 0; //!< #Minute, Kopie im EEPROM, wird nur bei besonderer Bedienung gespeichert.
 EEMEM uint16_t BeginnErsteMeldung2_EE = 0xEEEE; //!< #BeginnErsteMeldung2, Kopie im EEPROM
+EEMEM uint8_t UmleitungAbweisen_EE = 0 ; //!< Bei true wird in Grundstellung Status 90 gemeldet.
 
 // Uhr
 // ---
@@ -629,7 +630,7 @@ static void VerbindungKommend()
 #ifndef OHNE_SPEICHER
 		AufzeichnungAbbruch();
 #endif //ndef OHNE_SPEICHER
-		GeAusschalten();
+		GeAusschalten(true);
 		}
 	else
 		{
@@ -679,20 +680,18 @@ static void VerbindungGehend()
 
 					else if (c == CTRL('s'))
 						{ // Abbruch durch Bediener
-						GeAusschalten();
-						return;
-						}
-
+						GeAusschalten(false);
+						} // auf die Quittung wird dann in dieser Schleife gewartet...
 					}
 
 				if (KoAusschalten())
 					{
+					GeAusschalten(false); // zu warten ist nicht mehr nötig.
 #ifdef SPRACHE_EN					
 					LokalTextAusgabeP(PSTR("\r\nAbort"));
 #else
 					LokalTextAusgabeP(PSTR("\r\nAbbruch"));
-#endif					
-					GeAusschalten();
+#endif
 					return;
 					}
 
@@ -744,13 +743,14 @@ static void LEDAktualisieren()
 	}
 	
 	
-//! Schaltet LED entspechend der Status-Bits an.
+//! Sendet einen Ascii-Text
 static void GeSendeText(char* s)
 	{
 	GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
 	while (*s != '\0')
 		{
 		GeSendeZeichen(*s);
+		LokalZeichenAusgabeKlar(*s);
 		s++;
 		}
 	}
@@ -966,7 +966,7 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 				{
 #ifdef SPRACHE_EN				
 				case 'd':
-				case '''': // falls BU-ZI-Umschaltung nicht wirkte...
+				case '\'': // falls BU-ZI-Umschaltung nicht wirkte...
 					(*FnTextPAusg)(PSTR("...deleting..."));
 #else
 				case 'l':
@@ -1057,6 +1057,7 @@ static void GeSendeTextP(PGM_P s)
 	while (pgm_read_byte(s) != '\0')
 		{
 		GeSendeZeichen(pgm_read_byte(s));
+		LokalZeichenAusgabeKlar(pgm_read_byte(s));
 		s++;
 		}
 	}
@@ -1165,7 +1166,7 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 				AufzeichnungEnde();
 #endif //ndef OHNE_SPEICHER
 
-			GeAusschalten();
+			GeAusschalten(true);
 			if (SeriellEin)
 #ifdef SPRACHE_EN				
 				LokalTextAusgabeP(PSTR("\r\nDisconnected\r\n"));
@@ -1198,7 +1199,14 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 				if (AufzeichnungEin)
 					AufzeichnungEnde();
 #endif //ndef OHNE_SPEICHER
-				GeAusschalten();
+
+				GeAusschalten(false);
+				while (!KoAusschalten())
+					{
+					DoSwTwi();
+					SeriellIO(); 
+					}
+				
 				if (SeriellEin)
 #ifdef SPRACHE_EN					
 					LokalTextAusgabeP(PSTR("\r\nDisconnected\r\n"));
@@ -1245,6 +1253,8 @@ static void Deaktivieren()
 //! wird nach langem Tastendruck aufgerufen
 static void Konfiguration()
 	{
+	bool Abbruch;
+	
 	LED_EIN(ROT);
 	LED_AUS(GELB);
 	LED_AUS(GRUEN);
@@ -1271,16 +1281,17 @@ static void Konfiguration()
 	LokalTextAusgabeP(PSTR("\r\n konfiguration seriell+speicher version " SVNVERSION " datum " __DATE__));
 #endif	
 
-	if (!KonfigurationAllgemein())
-		{
-		Aktivieren(true);
-		LED_AUS(ROT);
-		return;
-		}
+	Abbruch = !KonfigurationAllgemein();
 
 	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
 		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
 
+	if (UmleitungAbweisen != eeprom_read_byte(&UmleitungAbweisen_EE))
+		eeprom_write_byte(&UmleitungAbweisen_EE, UmleitungAbweisen);
+	
+	if (Abbruch) 
+		return;
+	
 #ifdef SPRACHE_EN	
 	LokalTextAusgabeP(PSTR("\r\n date/time: "));
 #else
@@ -1293,12 +1304,13 @@ static void Konfiguration()
 #else
 	LokalTextAusgabeP(PSTR(" neu:         "));
 #endif	
-	if (LokalZahlEingabe(&Tag, 0) == 0
-		|| LokalZahlEingabe(&Monat, 0) == 0
-		|| LokalZahlEingabe(&Jahr, 0) == 0
-		|| LokalZahlEingabe(&Stunde, 0) == 0
-		|| LokalZahlEingabe(&Minute, 0) == 0)
+	if (LokalZahlEingabe(&Tag, 2) < 0
+		|| LokalZahlEingabe(&Monat, 2) < 0
+		|| LokalZahlEingabe(&Jahr, 2) < 0
+		|| LokalZahlEingabe(&Stunde, 2) < 0
+		|| LokalZahlEingabe(&Minute, 2) < 0)
 		return;
+		
 	Timer1OvfC = 0;
 	TCNT1 = 0;
 
@@ -1313,7 +1325,8 @@ static void Konfiguration()
 #else
 	LokalTextAusgabeP(PSTR(" neu:         "));
 #endif	
-	LokalTextEingabe(Kennung + 2, KENNUNG_MAXLEN - 3); // erste 2 Zeichen für CRLF reserviert
+	if (LokalTextEingabe(Kennung + 2, KENNUNG_MAXLEN - 3) == 0) // erste 2 Zeichen für CRLF reserviert
+		return;
 
 #ifdef SPRACHE_EN	
 	LokalTextAusgabeP(PSTR("\r\n password: "));
@@ -1326,7 +1339,8 @@ static void Konfiguration()
 #else
 	LokalTextAusgabeP(PSTR(" neu:         "));
 #endif	
-	LokalTextEingabe(Kennwort, KENNWORT_MAXLEN - 1);
+	if (LokalTextEingabe(Kennwort, KENNWORT_MAXLEN - 1) == 0)
+		return;
 
 #ifdef SPRACHE_EN	
 	LokalTextAusgabeP(PSTR("\r\n config complete+++   \r\n"));
@@ -1334,14 +1348,24 @@ static void Konfiguration()
 	LokalTextAusgabeP(PSTR("\r\n fertig+++   \r\n"));
 #endif	
 
+	} // Konfiguration()
+
+
+//! Beendet die Selbstkonfiguration des Moduls.
+//-----------------------------------------------
+//! Arbeitet mit dem angeschlossenen Endgerät zusammen.
+
+static void KonfigurationEnde()
+	{
 	Aktivieren(true);
-
+	LED_AUS(ROT);
 	}
-
+	
 
 //! Testfunktion zur Auflistung aller angeschlossenen Module	
 static void BusteilnehmerListen()
 	{
+/*/	
 	LokalTextAusgabeP(PSTR("\r\nStatus der angeschlossenen Module:\r\n"));
 	for (uint8_t AnzZif = 1 ; AnzZif <= 2 ; AnzZif++)
 		for (uint8_t Wahl = 0 ; Wahl <= ((AnzZif == 1) ? 9 : 99) ; Wahl++)
@@ -1356,8 +1380,10 @@ static void BusteilnehmerListen()
 				LokalTextAusgabeP(PSTR("\r\n"));
 				}
 			}
+//*/			
 	}
 
+	//
 
 /*/ nur für Debugging...
 
@@ -1432,6 +1458,8 @@ int main()
 		BusEigenAdresse = 44 << 1; // Standardwert
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
+	
+	UmleitungAbweisen = eeprom_read_byte(&UmleitungAbweisen_EE) == true; // damit bei "leerem" EEPROM eher "nein" das Ergebnis ist.
 	
 	Jahr = eeprom_read_byte(&Jahr_EE);
 	Monat = eeprom_read_byte(&Monat_EE);
@@ -1567,13 +1595,6 @@ int main()
 				{
 				LokalTextAusgabeP(PSTR("\r\n"));
 
-				/*/ TEST:
-				extern uint8_t FsBetriebsart;
-				LokalTextAusgabeP(PSTR("\r\nBetriebsart: "));
-				LokalZahlAusgabe(FsBetriebsart, 0);
-				LokalTextAusgabeP(PSTR("\r\nStatus: "));
-				LokalZahlAusgabe(Status, 0); //*/
-
 				SerSendFlush();
 				DatumAusgabe();
 				SerSendFlush();
@@ -1584,23 +1605,29 @@ int main()
 #endif				
 				SerSendFlush();
 #ifdef SPRACHE_EN				
+				LokalTextAusgabeP(PSTR(", Ctrl-L: local mode"));
+#else
+				LokalTextAusgabeP(PSTR(", Ctrl-L: Lokalbetrieb"));
+#endif				
+				SerSendFlush();
+#ifdef SPRACHE_EN				
 				LokalTextAusgabeP(PSTR(", Ctrl-K: config"));
 #else
 				LokalTextAusgabeP(PSTR(", Ctrl-K: Konfiguration"));
 #endif				
-#ifdef BUSDEBUG_DIALOG
 				SerSendFlush();
+#ifdef BUSDEBUG_DIALOG
 				LokalTextAusgabeP(PSTR(", Ctrl-D: Debug"));
+				SerSendFlush();
 #endif
 #ifndef OHNE_SPEICHER
-				SerSendFlush();
 #ifdef SPRACHE_EN				
 				LokalTextAusgabeP(PSTR(", Ctrl-Q: read messages"));
 #else
 				LokalTextAusgabeP(PSTR(", Ctrl-Q: AB-Wiedergabe"));
 #endif				
-#endif //ndef OHNE_SPEICHER
 				SerSendFlush();
+#endif //ndef OHNE_SPEICHER
 				LokalTextAusgabeP(PSTR(" --> "));
 				} // if (SeriellBereit())
 			HauptmenueAusgeben = false;
@@ -1637,6 +1664,7 @@ int main()
 				case CTRL('k'):
 					eeprom_write_byte(&Minute_EE, Minute);
 					Konfiguration();
+					KonfigurationEnde();
 					HauptmenueAusgeben = true;
 					break;
 
@@ -1659,6 +1687,23 @@ int main()
 
 #endif //ndef OHNE_SPEICHER
 
+				case CTRL('l'): //Lokalbetrieb
+					Aktivieren(false);
+#ifdef SPRACHE_EN				
+					LokalTextAusgabeP(PSTR("\r\nLokalbetrieb\r\n"));
+#else
+					LokalTextAusgabeP(PSTR("\r\nlocal mode\r\n"));
+#endif					
+					while (true)
+						{
+						SeriellIO();
+						if (!PufferLeer(&SerInBuf) && PufferAusg(&SerInBuf) == CTRL('s'))
+							break;
+						}
+					Aktivieren(true);
+					HauptmenueAusgeben = true;
+					break;
+					
 //HACK:
 				case CTRL('r'):
 					wdt_enable(WDTO_1S);
@@ -1668,7 +1713,7 @@ int main()
 					// wird beendet durch Watchdog-Reset
 //:HACK
 					
-				case CTRL('l'):
+				case CTRL('i'):
 					Aktivieren(false);
 					BusteilnehmerListen();
 					Aktivieren(true);
@@ -1692,7 +1737,10 @@ int main()
 			{
 			Tastendruck = NichtGedr;
 			if (SeriellBereit())
+				{
 				Konfiguration();
+				KonfigurationEnde();
+				}
 			HauptmenueAusgeben = true;
 			}
 
