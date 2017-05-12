@@ -334,24 +334,6 @@ static bool GetCTS()
 	}
 	
 	
-//! Ist serielle Schnittstelle überhaupt angeschlossen?
-//-----------------------------------------------------
-//! \retval true wenn CTS nicht auf Dater-Aus
-static bool SeriellBereit()
-	{
-	TMsTimer Timer;
-
-	StartTimer(&Timer);
-	while (TimerVal(&Timer) < 1000)
-		{
-		wdt_reset();
-		if (GetCTS())
-			return true;
-		}
-	return false;
-	}
-	
-
 //! Schreibt Zeichen aus dem Puffer auf die serielle Schnittstelle und bringt
 //! ankommende Zeichen in den Puffer.
 //---------------------------------------------------------------------------
@@ -418,14 +400,17 @@ static void SeriellIO()
 //-----------------------------------------------------
 //! Diese Funktion aufrufen, wenn umfangreiche Textausgaben vollständig
 //! zur seriellen Schnittstelle zu senden sind.	
+//! \todo Prüfen ob überhaupt notwendig.
 void SerSendFlush()
 	{
+/*HACK		
 	while (!PufferLeer(&SerOutBuf))
 		{
 		SeriellIO();
 		UhrAktualisieren();
 		DoSwTwi();
 		}
+*/		
 	}
 
 
@@ -487,9 +472,17 @@ char LokalZeichenLesen()
 
 void LokalZeichenAusgabe(char c)
 	{
-	if (PufferVoll(&SerOutBuf))
-		SerSendFlush(); // TODO: Nicht ewig warten...
-	PufferSpeich(&SerOutBuf, c);
+	if (GetCTS())
+		{ // wenn Rechner empfangsbereit, dann ggf. auf ausreichend Platz im Puffer warten.
+		while (PufferVoll(&SerOutBuf))
+			{
+			SeriellIO();
+			UhrAktualisieren();
+			DoSwTwi();
+			}
+		}
+
+	PufferSpeich(&SerOutBuf, c); 
 	// SET_BIT(UCSR0B, UDRIE0);
 	}
 
@@ -590,8 +583,7 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 // =======================
 
 
-static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin);
-
+static void VerbindungSteht(bool AufzeichnungEin);
 
 //! Bearbeitet ankommende Verbindungen.
 //-------------------------------------
@@ -599,21 +591,13 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin);
 //! Aufzeichnung. Kehrt erst nach Verbindungsabbau zurück.
 static void VerbindungKommend()
 	{
-	bool SeriellEin;
-	
 	LED_EIN(GRUEN);
 	
-	SeriellEin = SeriellBereit();
-	
-	if (SeriellEin)
-		{
 #ifdef SPRACHE_EN
-		LokalTextAusgabeP(PSTR("\r\nIncall\r\n"));
+	LokalTextAusgabeP(PSTR("\r\nIncall\r\n"));
 #else
-		LokalTextAusgabeP(PSTR("\r\nAnruf\r\n"));
+	LokalTextAusgabeP(PSTR("\r\nAnruf\r\n"));
 #endif
-		SerSendFlush();
-		}
 
 #ifndef OHNE_SPEICHER
 	bool AufzeichnungEin = AufzeichnungBeginn(Jahr, Monat, Tag, Stunde, Minute);
@@ -621,11 +605,10 @@ static void VerbindungKommend()
 
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
-		if (SeriellEin)
 #ifdef SPRACHE_EN		
-			LokalTextAusgabeP(PSTR("\r\nError\r\n"));
+		LokalTextAusgabeP(PSTR("\r\nError\r\n"));
 #else			
-		    LokalTextAusgabeP(PSTR("\r\nFehler\r\n"));
+	    LokalTextAusgabeP(PSTR("\r\nFehler\r\n"));
 #endif			
 #ifndef OHNE_SPEICHER
 		AufzeichnungAbbruch();
@@ -635,9 +618,9 @@ static void VerbindungKommend()
 	else
 		{
 #ifndef OHNE_SPEICHER
-		VerbindungSteht(SeriellEin, AufzeichnungEin);
+		VerbindungSteht(AufzeichnungEin);
 #else //def OHNE_SPEICHER
-		VerbindungSteht(SeriellEin, false);
+		VerbindungSteht(false);
 #endif //else def OHNE_SPEICHER
 
 		}
@@ -717,7 +700,7 @@ static void VerbindungGehend()
 	LokalTextAusgabeP(PSTR("\r\nVerbunden\r\n"));
 #endif	
 
-	VerbindungSteht(true, false);
+	VerbindungSteht(false);
 
 	}
 
@@ -761,7 +744,7 @@ static void GeSendeText(char* s)
 
 //! Gibt die eigene Kennung beim Verbindungspartner aus und wertet eingegegeben Text
 //! auf Übereinstimmung mit dem gespeicherten Kennwort aus.
-static bool KennungsausgabeUndKennwortAbfrage(bool SeriellEin, bool AufzeichnungEin)
+static bool KennungsausgabeUndKennwortAbfrage(bool AufzeichnungEin)
 	{
 	char *p;
 	char c;
@@ -777,8 +760,7 @@ static bool KennungsausgabeUndKennwortAbfrage(bool SeriellEin, bool Aufzeichnung
 		DoSwTwi();
 		if (KoEmpfZeichen(&c))
 			{
-			if (SeriellEin)
-				LokalZeichenAusgabe(c);
+			LokalZeichenAusgabe(c);
 
 #ifndef OHNE_SPEICHER
 			if (AufzeichnungEin)
@@ -1123,7 +1105,7 @@ static void SendenAbschliessen()
 //! Behandelt nach Verbindungsaufbau die Datenübertragung in beiden Richtungen.
 //-----------------------------------------------------------------------------
 //! Wird bei kommenden und bei gehenden Verbindungen benutzt.
-static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
+static void VerbindungSteht(bool AufzeichnungEin)
 	{
 	while (true)
 		{
@@ -1135,7 +1117,7 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 			{
 			if (c == CTRL('w'))
 				{
-				if (KennungsausgabeUndKennwortAbfrage(SeriellEin, AufzeichnungEin))
+				if (KennungsausgabeUndKennwortAbfrage(AufzeichnungEin))
 					{ // richtiges Kennwort eingegeben
 #ifndef OHNE_SPEICHER
 					AufzeichnungAbbruch();
@@ -1150,8 +1132,7 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 				}
 			else
 				{
-				if (SeriellEin)
-					LokalZeichenAusgabe(c);
+				LokalZeichenAusgabe(c);
 #ifndef OHNE_SPEICHER
 				if (AufzeichnungEin)
 					AufzeichnungZeichen(c);
@@ -1167,11 +1148,10 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 #endif //ndef OHNE_SPEICHER
 
 			GeAusschalten(true);
-			if (SeriellEin)
 #ifdef SPRACHE_EN				
-				LokalTextAusgabeP(PSTR("\r\nDisconnected\r\n"));
+			LokalTextAusgabeP(PSTR("\r\nDisconnected\r\n"));
 #else
-				LokalTextAusgabeP(PSTR("\r\nGetrennt\r\n"));
+			LokalTextAusgabeP(PSTR("\r\nGetrennt\r\n"));
 #endif			
 			return;
 			}
@@ -1207,11 +1187,10 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 					SeriellIO(); 
 					}
 				
-				if (SeriellEin)
 #ifdef SPRACHE_EN					
-					LokalTextAusgabeP(PSTR("\r\nDisconnected\r\n"));
+				LokalTextAusgabeP(PSTR("\r\nDisconnected\r\n"));
 #else
-					LokalTextAusgabeP(PSTR("\r\nBeendet\r\n"));
+				LokalTextAusgabeP(PSTR("\r\nBeendet\r\n"));
 #endif					
 				return;
 				}
@@ -1365,7 +1344,6 @@ static void KonfigurationEnde()
 //! Testfunktion zur Auflistung aller angeschlossenen Module	
 static void BusteilnehmerListen()
 	{
-/*/	
 	LokalTextAusgabeP(PSTR("\r\nStatus der angeschlossenen Module:\r\n"));
 	for (uint8_t AnzZif = 1 ; AnzZif <= 2 ; AnzZif++)
 		for (uint8_t Wahl = 0 ; Wahl <= ((AnzZif == 1) ? 9 : 99) ; Wahl++)
@@ -1380,7 +1358,6 @@ static void BusteilnehmerListen()
 				LokalTextAusgabeP(PSTR("\r\n"));
 				}
 			}
-//*/			
 	}
 
 	//
@@ -1499,8 +1476,7 @@ int main()
 
 	sei();
 
-	if (SeriellBereit())
-		LokalTextAusgabeP(PSTR("\r\nSTART" __DATE__ "/" __TIME__));
+	LokalTextAusgabeP(PSTR("\r\nSTART\r\n" __DATE__ "/" __TIME__));
 
 	TMsTimer Timer;
 	StartTimer(&Timer);
@@ -1591,45 +1567,45 @@ int main()
 
 		if (HauptmenueAusgeben)
 			{
-			if (SeriellBereit())
-				{
-				LokalTextAusgabeP(PSTR("\r\n"));
+			LokalTextAusgabeP(PSTR("\r\n"));
 
-				SerSendFlush();
-				DatumAusgabe();
-				SerSendFlush();
+			SerSendFlush();
+			DatumAusgabe();
+			SerSendFlush();
 #ifdef SPRACHE_EN				
-				LokalTextAusgabeP(PSTR("\r\nCtrl-A: dial/connect"));
+			LokalTextAusgabeP(PSTR("\r\nCtrl-A: dial/connect"));
 #else
-				LokalTextAusgabeP(PSTR("\r\nCtrl-A: Anwahl"));
+			LokalTextAusgabeP(PSTR("\r\nCtrl-A: Anwahl"));
 #endif				
-				SerSendFlush();
+			SerSendFlush();
 #ifdef SPRACHE_EN				
-				LokalTextAusgabeP(PSTR(", Ctrl-L: local mode"));
+			LokalTextAusgabeP(PSTR(", Ctrl-L: local mode"));
 #else
-				LokalTextAusgabeP(PSTR(", Ctrl-L: Lokalbetrieb"));
+			LokalTextAusgabeP(PSTR(", Ctrl-L: Lokalbetrieb"));
 #endif				
-				SerSendFlush();
+			SerSendFlush();
 #ifdef SPRACHE_EN				
-				LokalTextAusgabeP(PSTR(", Ctrl-K: config"));
+			LokalTextAusgabeP(PSTR(", Ctrl-K: config"));
 #else
-				LokalTextAusgabeP(PSTR(", Ctrl-K: Konfiguration"));
+			LokalTextAusgabeP(PSTR(", Ctrl-K: Konfiguration"));
 #endif				
-				SerSendFlush();
+			SerSendFlush();
 #ifdef BUSDEBUG_DIALOG
-				LokalTextAusgabeP(PSTR(", Ctrl-D: Debug"));
-				SerSendFlush();
+			LokalTextAusgabeP(PSTR(", Ctrl-D: Debug"));
 #endif
 #ifndef OHNE_SPEICHER
 #ifdef SPRACHE_EN				
-				LokalTextAusgabeP(PSTR(", Ctrl-Q: read messages"));
+			LokalTextAusgabeP(PSTR(", Ctrl-Q: read messages"));
 #else
-				LokalTextAusgabeP(PSTR(", Ctrl-Q: AB-Wiedergabe"));
+			LokalTextAusgabeP(PSTR(", Ctrl-Q: AB-Wiedergabe"));
 #endif				
-				SerSendFlush();
 #endif //ndef OHNE_SPEICHER
-				LokalTextAusgabeP(PSTR(" --> "));
-				} // if (SeriellBereit())
+#ifdef SPRACHE_EN				
+			LokalTextAusgabeP(PSTR(", Ctrl-T: list modules"));
+#else
+			LokalTextAusgabeP(PSTR(", Ctrl-T: Statusliste"));
+#endif				
+			LokalTextAusgabeP(PSTR(" --> "));
 			HauptmenueAusgeben = false;
 			}
 
@@ -1713,7 +1689,7 @@ int main()
 					// wird beendet durch Watchdog-Reset
 //:HACK
 					
-				case CTRL('i'):
+				case CTRL('t'):
 					Aktivieren(false);
 					BusteilnehmerListen();
 					Aktivieren(true);
@@ -1736,11 +1712,8 @@ int main()
 		if (Tastendruck == Lang)
 			{
 			Tastendruck = NichtGedr;
-			if (SeriellBereit())
-				{
-				Konfiguration();
-				KonfigurationEnde();
-				}
+			Konfiguration();
+			KonfigurationEnde();
 			HauptmenueAusgeben = true;
 			}
 
