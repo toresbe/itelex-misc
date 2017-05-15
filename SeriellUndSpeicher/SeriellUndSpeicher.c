@@ -396,24 +396,6 @@ static void SeriellIO()
 	}
 
 
-//! Wartet bis zum leeren des Seriellen-Ausgabepuffers.
-//-----------------------------------------------------
-//! Diese Funktion aufrufen, wenn umfangreiche Textausgaben vollständig
-//! zur seriellen Schnittstelle zu senden sind.	
-//! \todo Prüfen ob überhaupt notwendig.
-void SerSendFlush()
-	{
-/*HACK		
-	while (!PufferLeer(&SerOutBuf))
-		{
-		SeriellIO();
-		UhrAktualisieren();
-		DoSwTwi();
-		}
-*/		
-	}
-
-
 //!	Holt das nächste Zeichen aus dem seriell-Empfangspuffer.
 //----------------------------------------------------------
 //! Vorher muss sicher sein, dass mindestens ein Zeichen im Empfangspuffer
@@ -647,7 +629,6 @@ static void VerbindungGehend()
 #else			
 			LokalTextAusgabeP(PSTR("\r\nWählen: "));
 #endif			
-			SerSendFlush();
 			while (!KoEinschalten())
 				{
 				SeriellIO();
@@ -758,6 +739,8 @@ static bool KennungsausgabeUndKennwortAbfrage(bool AufzeichnungEin)
 	while (true)
 		{
 		DoSwTwi();
+		LEDAktualisieren();
+		
 		if (KoEmpfZeichen(&c))
 			{
 			LokalZeichenAusgabe(c);
@@ -767,21 +750,32 @@ static bool KennungsausgabeUndKennwortAbfrage(bool AufzeichnungEin)
 				AufzeichnungZeichen(c);
 #endif //ndef OHNE_SPEICHER
 
-			if ((c == '\r' || c == '\n') && *p == '\0')
+			if (c == '\r' || c == '\n') 
 				{
-				// HACK TEST: LED_EIN(ROT);
-				return true;
+				if (*p == '\0') // am Ende des Soll-Kennworts angekommen
+					{
+					// HACK TEST: LED_EIN(ROT);
+					return true;
+					}
+				else if (p == Kennwort)
+					; // Noch kein Zeichen eingegeben --> WR/ZL ignorieren
+				else
+					return false; // Kennwort zu früh beendet.
 				}
 			else if (c == *p) // Vergleich eingegebenes Zeichen mit aktuellem Kennwort-Soll-Zeichen
-				p++; // erledigt gleichzeitig eine falsche Wortlänge
+				p++; 
 			else
 				return false;
 			}
 				
 		if (KoAusschalten()) // falls Abbruch durch Sender
 			return false;
-		}
-	}
+			
+		if (!PufferLeer(&SerInBuf)) // Eingabe über serielle Schnittstelle unterbricht Passwort-Auswertung
+			return false;
+			
+		} // while true
+	} // KennungsausgabeUndKennwortAbfrage()
 	
 
 
@@ -793,13 +787,11 @@ static bool KennungsausgabeUndKennwortAbfrage(bool AufzeichnungEin)
 //! Basisfunktion für lokale Wiedergabe und Fernabfrage. 
 //! \param FnZchnAusg Funktion für die Wiedergabe eines Zeichens.
 //! \param FnTextPAusg Funktion für die Wiedergabe eines Textes aus dem Programmspeicher.
-//! \param FnAusgFlush Funktion für die Leerung des Wiedergabepuffers.
 //! \param FnUnterbrechung Funktion für die Abfrage, ob der Benutzer ein Zeichen eingegegeben hat.
 //! \param FnZeichenEing Funktion für die Abfrage eines durch den Benutzer eingegegeben Zeichens.
 
 static void Wiedergabe(void (*FnZchnAusg)(char c),
 						void (*FnTextPAusg)(PGM_P s),
-						void (*FnAusgFlush)(),
 						bool (*FnUnterbrechung)(),
 						char (*FnZeichenEing)())
 	{ 
@@ -840,7 +832,6 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 #else	
 	(*FnTextPAusg)(PSTR("\r\nStarte Wiedergabe...\r\n"));
 #endif
-	(*FnAusgFlush)();
 
 	if (!WiedergabeNaechsteMeldung()) 
 		{
@@ -880,18 +871,15 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 #else		
 				(*FnTextPAusg)(PSTR("\r\n--- Ende Meldung ---"));
 #endif				
-				(*FnAusgFlush)();
 #ifdef SPRACHE_EN				
 				(*FnTextPAusg)(PSTR("\r\nDelete, Next, End?   "));
 #else	
 				(*FnTextPAusg)(PSTR("\r\nLoeschen, Naechste, Ende?   "));
 #endif				
-				(*FnAusgFlush)();
 				break;
 				}
 				
 			(*FnZchnAusg)(c);
-			(*FnAusgFlush)();
 
 			if (ZeichenZaehler < 250)
 				ZeichenZaehler++;
@@ -955,7 +943,6 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 				case ')': // falls BU-ZI-Umschaltung nicht wirkte...
 					(*FnTextPAusg)(PSTR("...Loesche..."));
 #endif					
-					(*FnAusgFlush)();
 					WiedergabeLoescheAktuelleMeldung(); // springt auch automatisch zur nächsten
 					Verstanden = true;
 					SpringeNaechste = true;
@@ -968,7 +955,6 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 #else
 					(*FnTextPAusg)(PSTR("...Naechste..."));
 #endif					
-					(*FnAusgFlush)();
 					Verstanden = true;
 					SpringeNaechste = true;
 					break;
@@ -990,7 +976,6 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 #else
 					(*FnTextPAusg)(PSTR("...Abbruch"));
 #endif					
-					(*FnAusgFlush)();
 					Beenden = true;
 					Verstanden = true;
 					break;
@@ -1090,6 +1075,7 @@ static void ZeichenSenden(char c)
 
 //! Hilfsfunktion bei Wiedergabe an Gegenstelle (Fernabfrage)
 static void SendenAbschliessen()
+//! \todo wird nicht mehr gebraucht, war mal Funktion "Flush" bei Fernabfrage...
 	{
 	while (!PufferLeer(&SendePuffer) && !KoAusschalten())
 		{
@@ -1124,7 +1110,7 @@ static void VerbindungSteht(bool AufzeichnungEin)
 					AufzeichnungEin = false;
 					Wiedergabe(&ZeichenSenden, 
 							   &GeSendeTextP,
-							   &SendenAbschliessen,
+							   //&SendenAbschliessen,
 							   &ZeichenEmpfangen,
 							   &ZeichenLesen);
 #endif //ndef OHNE_SPEICHER
@@ -1167,7 +1153,6 @@ static void VerbindungSteht(bool AufzeichnungEin)
 				GeSendeText(Kennung);
 #ifndef OHNE_SPEICHER
 				if (AufzeichnungEin)
-					; //! \todo Ausgegebene Kennung auch im Protokoll speichern.
 					AufzeichnungZeichen(c);
 #endif //ndef OHNE_SPEICHER
 				}
@@ -1184,6 +1169,7 @@ static void VerbindungSteht(bool AufzeichnungEin)
 				while (!KoAusschalten())
 					{
 					DoSwTwi();
+					LEDAktualisieren();
 					SeriellIO(); 
 					}
 				
@@ -1194,7 +1180,7 @@ static void VerbindungSteht(bool AufzeichnungEin)
 #endif					
 				return;
 				}
-			else
+			else // kein CTRL('i')
 				GeSendeZeichen(c);
 
 			} // if !PufferLeer(&SerInBuf)
@@ -1224,7 +1210,6 @@ static void Deaktivieren()
 	Tastendruck = NichtGedr;
 
 	Aktivieren(true);
-
 
 	} // Deaktivieren
 
@@ -1569,27 +1554,22 @@ int main()
 			{
 			LokalTextAusgabeP(PSTR("\r\n"));
 
-			SerSendFlush();
 			DatumAusgabe();
-			SerSendFlush();
 #ifdef SPRACHE_EN				
 			LokalTextAusgabeP(PSTR("\r\nCtrl-A: dial/connect"));
 #else
 			LokalTextAusgabeP(PSTR("\r\nCtrl-A: Anwahl"));
 #endif				
-			SerSendFlush();
 #ifdef SPRACHE_EN				
 			LokalTextAusgabeP(PSTR(", Ctrl-L: local mode"));
 #else
 			LokalTextAusgabeP(PSTR(", Ctrl-L: Lokalbetrieb"));
 #endif				
-			SerSendFlush();
 #ifdef SPRACHE_EN				
 			LokalTextAusgabeP(PSTR(", Ctrl-K: config"));
 #else
 			LokalTextAusgabeP(PSTR(", Ctrl-K: Konfiguration"));
 #endif				
-			SerSendFlush();
 #ifdef BUSDEBUG_DIALOG
 			LokalTextAusgabeP(PSTR(", Ctrl-D: Debug"));
 #endif
@@ -1654,7 +1634,6 @@ int main()
 					Aktivieren(false);
 					Wiedergabe(&LokalZeichenAusgabeKlar, 
 							   &LokalTextAusgabeP,
-							   &SerSendFlush,
 							   &LokalEingabeErfolgt,
 							   &LokalZeichenLesen);
 					Aktivieren(true);
