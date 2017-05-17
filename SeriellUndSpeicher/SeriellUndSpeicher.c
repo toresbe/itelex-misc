@@ -474,10 +474,16 @@ static void SerIOInit()
 	{
 	// PORTS initialisieren (Ausgabepins)
 	// Serielle Schnittstelle initialisieren
+	#ifndef SERBAUD
 	#define BAUD 9600
+	#else
+	#define BAUD SERBAUD
+	#endif //ndef SERBAUD
+
 	#include <util/setbaud.h>
 	UBRR0H = UBRRH_VALUE;
 	UBRR0L = UBRRL_VALUE;
+
 	#if USE_2X
 	UCSR0A = (1 << U2X0);
 	#else
@@ -485,7 +491,13 @@ static void SerIOInit()
 	#endif
 
 	UCSR0B = (1<<TXEN0)+(1<<RXEN0)+(0<<RXCIE0)+(0<<UCSZ02);
+
+	#ifdef SER7BIT
+	UCSR0C = (0<<UMSEL01)+(0<<UMSEL00)+(0<<UPM00)+(0<<UPM01)+(1<<USBS0)+(1<<UCSZ01)+(0<<UCSZ00);
+	#else
 	UCSR0C = (0<<UMSEL01)+(0<<UMSEL00)+(0<<UPM00)+(0<<UPM01)+(0<<USBS0)+(1<<UCSZ01)+(1<<UCSZ00);
+	#endif
+
 	}
 
 
