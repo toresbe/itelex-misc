@@ -718,14 +718,28 @@ static void LEDAktualisieren()
 		LED_EIN(BLAU);
 	}
 	
+
+//! Sendet ein Zeichen, wartet aber bei vollem Puffer
+static void ZeichenSenden(char c)
+	{
+	while (!GeSendeZeichen(c))
+		{
+		DoSwTwi();
+		if (KoAusschalten())
+			return;
+		LEDAktualisieren();
+		}
+	}
+
 	
 //! Sendet einen Ascii-Text
 static void GeSendeText(char* s)
 	{
-	GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
+	while (!GeSendeCode(TtyCodeBuUm))
+		; // probieren bis es geklappt hat... LEDAktualisieren und DoSwTwi hier egal.
 	while (*s != '\0')
 		{
-		GeSendeZeichen(*s);
+		ZeichenSenden(*s);
 		LokalZeichenAusgabeKlar(*s);
 		s++;
 		}
@@ -744,8 +758,9 @@ static bool KennungsausgabeUndKennwortAbfrage(bool AufzeichnungEin)
 	
 	GeSendeText(Kennung);
 	//! \todo Kennungsausgabe auch Aufzeichnen.
-	
-	GeSendeCode(TtyCodeBuUm);
+
+	while (!GeSendeCode(TtyCodeBuUm))
+		; // probieren bis es geklappt hat... LEDAktualisieren und DoSwTwi hier egal.
 
 	p = Kennwort;
 	while (true)
@@ -1032,10 +1047,11 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 //! Sendet einen Text aus dem Programmspeicher an den Verbindungspartner.
 static void GeSendeTextP(PGM_P s)
 	{
-	GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
+	while (!GeSendeCode(TtyCodeBuUm))
+		; // probieren bis es geklappt hat... LEDAktualisieren und DoSwTwi hier egal.
 	while (pgm_read_byte(s) != '\0')
 		{
-		GeSendeZeichen(pgm_read_byte(s));
+		ZeichenSenden(pgm_read_byte(s));
 		LokalZeichenAusgabeKlar(pgm_read_byte(s));
 		s++;
 		}
@@ -1069,31 +1085,6 @@ static char ZeichenLesen()
 			return 'e';
 		}
 	return res;
-	}
-	
-	
-//! Hilfsfunktion bei Wiedergabe an Gegenstelle (Fernabfrage)
-static void ZeichenSenden(char c)
-	{
-	while (!GeSendeZeichen(c))
-		{
-		DoSwTwi();
-		if (KoAusschalten())
-			return;
-		LEDAktualisieren();
-		}
-	}
-	
-
-//! Hilfsfunktion bei Wiedergabe an Gegenstelle (Fernabfrage)
-static void SendenAbschliessen()
-//! \todo wird nicht mehr gebraucht, war mal Funktion "Flush" bei Fernabfrage...
-	{
-	while (!PufferLeer(&SendePuffer) && !KoAusschalten())
-		{
-		DoSwTwi();
-		LEDAktualisieren();
-		}
 	}
 	
 
@@ -1193,7 +1184,7 @@ static void VerbindungSteht(bool AufzeichnungEin)
 				return;
 				}
 			else // kein CTRL('i')
-				GeSendeZeichen(c);
+				ZeichenSenden(c);
 
 			} // if !PufferLeer(&SerInBuf)
 
