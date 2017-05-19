@@ -468,6 +468,19 @@ void LokalZeichenAusgabe(char c)
 	// SET_BIT(UCSR0B, UDRIE0);
 	}
 
+	
+//! Leert den Puffer passend zu LokalZeichenAusgabe
+
+static void LokalAusgabePufferLeeren()
+	{
+	while (!PufferLeer(&SerOutBuf))
+		{
+		SeriellIO();
+		UhrAktualisieren();
+		DoSwTwi();
+		}
+	}
+
 
 //! Initialisiert serielle Schnittstelle und Puffer dazu.
 static void SerIOInit()
@@ -725,12 +738,27 @@ static void ZeichenSenden(char c)
 	while (!GeSendeZeichen(c))
 		{
 		DoSwTwi();
+		SeriellIO();
 		if (KoAusschalten())
 			return;
 		LEDAktualisieren();
 		}
 	}
-
+	
+	
+//! Leert den Puffer passend zu #ZeichenSenden
+static void ZeichenSendenPufferLeeren()
+	{
+	while (!GeSendePufferLeer())
+		{
+		DoSwTwi();
+		SeriellIO();
+		if (KoAusschalten())
+			return;
+		LEDAktualisieren();
+		}
+	}
+	
 	
 //! Sendet einen Ascii-Text
 static void GeSendeText(char* s)
@@ -742,6 +770,7 @@ static void GeSendeText(char* s)
 		ZeichenSenden(*s);
 		LokalZeichenAusgabeKlar(*s);
 		s++;
+		SeriellIO();
 		}
 	}
 	
@@ -766,6 +795,7 @@ static bool KennungsausgabeUndKennwortAbfrage(bool AufzeichnungEin)
 	while (true)
 		{
 		DoSwTwi();
+		SeriellIO();
 		LEDAktualisieren();
 		
 		if (KoEmpfZeichen(&c))
@@ -814,11 +844,13 @@ static bool KennungsausgabeUndKennwortAbfrage(bool AufzeichnungEin)
 //! Basisfunktion für lokale Wiedergabe und Fernabfrage. 
 //! \param FnZchnAusg Funktion für die Wiedergabe eines Zeichens.
 //! \param FnTextPAusg Funktion für die Wiedergabe eines Textes aus dem Programmspeicher.
+//! \param FnPufferLeeren Wartet, bis die mit #FnZchnAusg ausgegebenen Zeichen alle gedruckt sind.
 //! \param FnUnterbrechung Funktion für die Abfrage, ob der Benutzer ein Zeichen eingegegeben hat.
 //! \param FnZeichenEing Funktion für die Abfrage eines durch den Benutzer eingegegeben Zeichens.
 
 static void Wiedergabe(void (*FnZchnAusg)(char c),
 						void (*FnTextPAusg)(PGM_P s),
+						void (*FnPufferLeeren)(),
 						bool (*FnUnterbrechung)(),
 						char (*FnZeichenEing)())
 	{ 
@@ -836,6 +868,7 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 			StartTimer(&Timer);
 			}
 		DoSwTwi();
+		SeriellIO();
 		} 
 
 	WiedergabeStart();
@@ -884,6 +917,7 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 		while (true)
 			{
 			DoSwTwi();
+			SeriellIO();
 
 			char c = WiedergabeZeichen();
 			if (c == '\0')
@@ -919,6 +953,8 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 					{
 					ZeichenZaehler = 0;
 					ZeilenZaehler = 0;
+
+					(*FnPufferLeeren)();
 					
 					StartTimer(&Timer);
 					while (TimerVal(&Timer) < 1500)
@@ -943,6 +979,8 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 		while (!Verstanden)
 			{
 			DoSwTwi();
+			SeriellIO();
+			
 			char z = (*FnZeichenEing)();
 
 			// mehrfache Zeichen verwerfen...
@@ -1054,6 +1092,7 @@ static void GeSendeTextP(PGM_P s)
 		ZeichenSenden(pgm_read_byte(s));
 		LokalZeichenAusgabeKlar(pgm_read_byte(s));
 		s++;
+		SeriellIO();
 		}
 	}
 
@@ -1081,6 +1120,7 @@ static char ZeichenLesen()
 	while (!KoEmpfZeichen(&res))
 		{
 		DoSwTwi();
+		SeriellIO();
 		if (KoAusschalten())
 			return 'e';
 		}
@@ -1113,7 +1153,7 @@ static void VerbindungSteht(bool AufzeichnungEin)
 					AufzeichnungEin = false;
 					Wiedergabe(&ZeichenSenden, 
 							   &GeSendeTextP,
-							   //&SendenAbschliessen,
+							   &ZeichenSendenPufferLeeren,
 							   &ZeichenEmpfangen,
 							   &ZeichenLesen);
 #endif //ndef OHNE_SPEICHER
@@ -1208,6 +1248,7 @@ static void Deaktivieren()
 		{
 		TastePruefen();
 		DoSwTwi();
+		SeriellIO();
 		}
 
 	Tastendruck = NichtGedr;
@@ -1509,7 +1550,7 @@ int main()
 
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
 
-	while (1)
+	while (true)
 		{
 #ifndef OHNE_SPEICHER
 		extern uint16_t BeginnErsteMeldung;
@@ -1637,6 +1678,7 @@ int main()
 					Aktivieren(false);
 					Wiedergabe(&LokalZeichenAusgabeKlar, 
 							   &LokalTextAusgabeP,
+							   &LokalAusgabePufferLeeren,
 							   &LokalEingabeErfolgt,
 							   &LokalZeichenLesen);
 					Aktivieren(true);
