@@ -469,19 +469,6 @@ void LokalZeichenAusgabe(char c)
 	}
 
 	
-//! Leert den Puffer passend zu LokalZeichenAusgabe
-
-static void LokalAusgabePufferLeeren()
-	{
-	while (!PufferLeer(&SerOutBuf))
-		{
-		SeriellIO();
-		UhrAktualisieren();
-		DoSwTwi();
-		}
-	}
-
-
 //! Initialisiert serielle Schnittstelle und Puffer dazu.
 static void SerIOInit()
 	{
@@ -735,20 +722,6 @@ static void LEDAktualisieren()
 //! Sendet ein Zeichen, wartet aber bei vollem Puffer
 static void ZeichenSenden(char c)
 	{
-	while (!GeSendeZeichen(c))
-		{
-		DoSwTwi();
-		SeriellIO();
-		if (KoAusschalten())
-			return;
-		LEDAktualisieren();
-		}
-	}
-	
-	
-//! Leert den Puffer passend zu #ZeichenSenden
-static void ZeichenSendenPufferLeeren()
-	{
 	while (!GeSendePufferLeer())
 		{
 		DoSwTwi();
@@ -757,6 +730,8 @@ static void ZeichenSendenPufferLeeren()
 			return;
 		LEDAktualisieren();
 		}
+	while (!GeSendeZeichen(c))
+		; // kann eigentlich nicht lange dauern
 	}
 	
 	
@@ -844,13 +819,11 @@ static bool KennungsausgabeUndKennwortAbfrage(bool AufzeichnungEin)
 //! Basisfunktion für lokale Wiedergabe und Fernabfrage. 
 //! \param FnZchnAusg Funktion für die Wiedergabe eines Zeichens.
 //! \param FnTextPAusg Funktion für die Wiedergabe eines Textes aus dem Programmspeicher.
-//! \param FnPufferLeeren Wartet, bis die mit #FnZchnAusg ausgegebenen Zeichen alle gedruckt sind.
 //! \param FnUnterbrechung Funktion für die Abfrage, ob der Benutzer ein Zeichen eingegegeben hat.
 //! \param FnZeichenEing Funktion für die Abfrage eines durch den Benutzer eingegegeben Zeichens.
 
 static void Wiedergabe(void (*FnZchnAusg)(char c),
 						void (*FnTextPAusg)(PGM_P s),
-						void (*FnPufferLeeren)(),
 						bool (*FnUnterbrechung)(),
 						char (*FnZeichenEing)())
 	{ 
@@ -954,8 +927,6 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 					ZeichenZaehler = 0;
 					ZeilenZaehler = 0;
 
-					(*FnPufferLeeren)();
-					
 					StartTimer(&Timer);
 					while (TimerVal(&Timer) < 1500)
 						{
@@ -1121,6 +1092,7 @@ static char ZeichenLesen()
 		{
 		DoSwTwi();
 		SeriellIO();
+		LEDAktualisieren();
 		if (KoAusschalten())
 			return 'e';
 		}
@@ -1153,7 +1125,6 @@ static void VerbindungSteht(bool AufzeichnungEin)
 					AufzeichnungEin = false;
 					Wiedergabe(&ZeichenSenden, 
 							   &GeSendeTextP,
-							   &ZeichenSendenPufferLeeren,
 							   &ZeichenEmpfangen,
 							   &ZeichenLesen);
 #endif //ndef OHNE_SPEICHER
@@ -1678,7 +1649,6 @@ int main()
 					Aktivieren(false);
 					Wiedergabe(&LokalZeichenAusgabeKlar, 
 							   &LokalTextAusgabeP,
-							   &LokalAusgabePufferLeeren,
 							   &LokalEingabeErfolgt,
 							   &LokalZeichenLesen);
 					Aktivieren(true);
