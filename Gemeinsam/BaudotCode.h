@@ -15,6 +15,7 @@ enum { TtyCodeZiUm = 27 } ; //!< Baudot-Code für Ziffern-Umschaltung.
 enum { TtyCodeSPC = 0 } ; //!< Baudot-Code für NUL-Zeichen (Code 32).
 enum { TtyCodeZiPunkt = 7 } ; //!< Baudot-Code für einen Punkt.
 enum { TtyCodeZiDoppelpunkt = 14 } ; //!< Baudot-Code für einen Doppelpunkt.
+enum { TtyCodeZiSchraegstrich = 23 } ; //!< Baudot-Code für einen Schrägstrich / .
 enum { TtyCodeLeer = 4 } ; //!< Baudot-Code für Leerzeichen.
 enum { TtyCodeZiWerDa = 18 /* bei Ziffern! */ } ; //!< Baudot-Code für Kennungsgeber-Abfrage.
 

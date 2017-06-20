@@ -66,7 +66,7 @@ static void BaudotZahlAusgabeZweistellig(uint8_t *p, uint8_t i)
 	
 	
 //! Füllt einen Puffer mit Baudot-Daten für die gespeicherte Uhrzeit
-//! \param buf Zeiger auf einen Puffer für die Baudot-Daten. Muss mindestens 17 Zeichen umfassen
+//! \param buf Zeiger auf einen Puffer für die Baudot-Daten. Muss mindestens 18 Zeichen umfassen
 //! \return Anzahl der Zeichen, die in den Puffer geschrieben worden sind.
 
 uint8_t LokalUhrBaudotAusgabe(uint8_t *buf)
@@ -74,16 +74,18 @@ uint8_t LokalUhrBaudotAusgabe(uint8_t *buf)
 	if (Tag == 0) 
 		return 0;
 	buf[0] = TtyCodeZiUm;
-	BaudotZahlAusgabeZweistellig(buf + 1, Tag); 
-	buf[3] = TtyCodeZiPunkt;
-	BaudotZahlAusgabeZweistellig(buf + 4, Monat); 
-	buf[6] = TtyCodeZiPunkt;
-	BaudotZahlAusgabeZweistellig(buf + 7, Jahr); 
-	buf[9] = TtyCodeLeer;
-	BaudotZahlAusgabeZweistellig(buf + 10, Stunde); 
-	buf[12] = TtyCodeZiDoppelpunkt;
-	BaudotZahlAusgabeZweistellig(buf + 13, Minute); 
-	return 15;
+	buf[1] = ZeichenZuCode(Wochentag + '0', ZiMode);
+	buf[2] = TtyCodeZiSchraegstrich;
+	BaudotZahlAusgabeZweistellig(buf + 3, Tag); 
+	buf[5] = TtyCodeZiPunkt;
+	BaudotZahlAusgabeZweistellig(buf + 6, Monat); 
+	buf[8] = TtyCodeZiPunkt;
+	BaudotZahlAusgabeZweistellig(buf + 9, Jahr); 
+	buf[11] = TtyCodeLeer;
+	BaudotZahlAusgabeZweistellig(buf + 12, Stunde); 
+	buf[14] = TtyCodeZiDoppelpunkt;
+	BaudotZahlAusgabeZweistellig(buf + 15, Minute); 
+	return 17;
 	}
 	
 	

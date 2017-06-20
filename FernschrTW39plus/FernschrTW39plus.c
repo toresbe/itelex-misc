@@ -1228,6 +1228,26 @@ int main()
 		if (Tastendruck == Kurz)
 			{
 			Tastendruck = NichtGedr;
+			
+//HACK:
+			uint8_t MsgBuf[25];
+			uint8_t MsgLen;
+			MsgLen = LokalUhrBaudotAusgabe(MsgBuf);
+
+			Aktivieren(false);
+			if (TW39Einschalten())
+				{
+				LokalCodeAusgabe(TtyCodeWR);
+				LokalCodeAusgabe(TtyCodeZL);
+				for (uint8_t i = 0 ; i < MsgLen ; i++)
+					LokalCodeAusgabe(MsgBuf[i]);
+				LokalCodeAusgabe(TtyCodeWR);
+				LokalCodeAusgabe(TtyCodeZL);
+				TW39Ausschalten();
+				}
+			Aktivieren(true);
+//:HACK */			
+
 			switch (TasteFunktion)
 				{
 				case DemoBetriebStarten:
@@ -1237,7 +1257,8 @@ int main()
 					Deaktivieren();
 					break;
 				}	
-			}
+				
+			} // if (Tastendruck == Kurz)
 
 		if (MeldungEingeschaltet)
 			{
