@@ -158,6 +158,12 @@ EEMEM uint8_t Minute_EE = 0; //!< #Minute, Kopie im EEPROM, wird nur bei besonde
 EEMEM uint16_t BeginnErsteMeldung2_EE = 0xEEEE; //!< #BeginnErsteMeldung2, Kopie im EEPROM
 EEMEM uint8_t UmleitungAbweisen_EE = 0 ; //!< Bei true wird in Grundstellung Status 90 gemeldet.
 
+// sonstige Konfigurationen
+// ------------------------
+
+bool MenueImmerAusgaben; //!< Gibt das Menue nach jeder "Aktion" aus, bei false nur bei Fehleingabe
+
+
 // Uhr
 // ---
 
@@ -1452,6 +1458,8 @@ int main()
 		Minute = 0;
 		}
 
+	MenueImmerAusgaben = false; //! \todo konfigurierbar
+	
 	UhrAktualisieren();
 	eeprom_read_string(Kennung, Kennung_EE, sizeof(Kennung));
 	if (Kennung[0] == '\377')
@@ -1601,7 +1609,7 @@ int main()
 			LokalTextAusgabeP(PSTR(", Ctrl-T: Statusliste"));
 #endif				
 			LokalTextAusgabeP(PSTR(" --> "));
-			HauptmenueAusgeben = false;
+			HauptmenueAusgeben = MenueImmerAusgaben;
 			}
 
 		TastePruefen();
@@ -1611,7 +1619,7 @@ int main()
 		if (KoEinschalten())
 			{
 			VerbindungKommend();
-			HauptmenueAusgeben = true;
+			HauptmenueAusgeben = MenueImmerAusgaben;
 			}
 		
 		if (!PufferLeer(&SerInBuf))
@@ -1629,20 +1637,20 @@ int main()
 #else
 						LokalTextAusgabeP(PSTR(" Fehler: nicht konfiguriert."));
 #endif						
-					HauptmenueAusgeben = true;
+					HauptmenueAusgeben = MenueImmerAusgaben;
 					break;
 				
 				case CTRL('k'):
 					eeprom_write_byte(&Minute_EE, Minute);
 					Konfiguration();
 					KonfigurationEnde();
-					HauptmenueAusgeben = true;
+					HauptmenueAusgeben = MenueImmerAusgaben;
 					break;
 
 #ifndef OHNE_SPEICHER
 //				case CTRL('e'):
 //					XEepromDebug();
-//					HauptmenueAusgeben = true;
+//					HauptmenueAusgeben = MenueImmerAusgaben;
 //					break;
 			
 				case CTRL('q'):
@@ -1652,7 +1660,7 @@ int main()
 							   &LokalEingabeErfolgt,
 							   &LokalZeichenLesen);
 					Aktivieren(true);
-					HauptmenueAusgeben = true;
+					HauptmenueAusgeben = MenueImmerAusgaben;
 					break;
 
 #endif //ndef OHNE_SPEICHER
@@ -1671,7 +1679,7 @@ int main()
 							break;
 						}
 					Aktivieren(true);
-					HauptmenueAusgeben = true;
+					HauptmenueAusgeben = MenueImmerAusgaben;
 					break;
 					
 //HACK:
@@ -1682,14 +1690,20 @@ int main()
 						LED_EIN(BLAU);
 					// wird beendet durch Watchdog-Reset
 //:HACK
-					
+
 				case CTRL('t'):
 					Aktivieren(false);
 					BusteilnehmerListen();
 					Aktivieren(true);
 					break;
-						
-// HACK:
+
+				case CTRL('m'):
+				case CTRL('j'):
+				case ' ':
+					HauptmenueAusgeben = MenueImmerAusgaben;
+					// ansonsten ignorieren
+					break;
+				
 				default:
 					while (!PufferLeer(&SerInBuf))
 						SerEmpfZ(true); // Puffer leeren
@@ -1708,7 +1722,7 @@ int main()
 			Tastendruck = NichtGedr;
 			Konfiguration();
 			KonfigurationEnde();
-			HauptmenueAusgeben = true;
+			HauptmenueAusgeben = MenueImmerAusgaben;
 			}
 
 		else if (Tastendruck == Kurz)

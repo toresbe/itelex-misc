@@ -1138,6 +1138,8 @@ static void KommendSperren(TSperreGrund Grund)
 					break;
 				}
 			// else Daten anderwertig auswerten
+			
+			RundsendAnzDaten = 0;
 			}
 		
 		}

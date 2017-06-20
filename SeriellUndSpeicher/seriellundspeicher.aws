@@ -1,1 +1,1 @@
-<AVRWorkspace><IOSettings><CurrentRegisters/></IOSettings><part name="ATmega168"/><Files><File00001 Name="D:\Daten\AvrProgs\TxP2\SeriellUndSpeicher\SeriellUndSpeicher.c" Position="268 100 1207 594" LineCol="1412 0"/></Files></AVRWorkspace>
+<AVRWorkspace><IOSettings><CurrentRegisters/></IOSettings><part name="ATMEGA168"/><Files><File00001 Name="D:\Daten\AvrProgs\TxP2\SeriellUndSpeicher\SeriellUndSpeicher.c" Position="268 99 1084 562" LineCol="0 0"/><File00008 Name="D:\Daten\AvrProgs\TxP2\Fuses.txt" Position="293 124 1101 557" LineCol="0 0"/></Files></AVRWorkspace>

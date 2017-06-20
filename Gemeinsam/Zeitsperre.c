@@ -122,7 +122,7 @@ void SperrzeitSpeicherEeprom(TSperrzeitDaten *eedat)
 	if (Sperrzeit[1].End != eeprom_read_word(&(*eedat)[3]))
 		eeprom_write_word(&(*eedat)[3], Sperrzeit[1].End);
 	if (SperrzeitWochenendAbhaengig != (eeprom_read_word(&(*eedat)[8]) == 1))
-		eeprom_write_word(&(*eedat)[8], SperrzeitWochenendAbhaengig ? 0 : 1);
+		eeprom_write_word(&(*eedat)[8], SperrzeitWochenendAbhaengig ? 1 : 0);
 	}
 
 
