@@ -1231,7 +1231,7 @@ int main()
 			{
 			Tastendruck = NichtGedr;
 			
-//HACK:
+/*/HACK:
 			uint8_t MsgBuf[25];
 			uint8_t MsgLen;
 			MsgLen = LokalUhrBaudotAusgabe(MsgBuf);
