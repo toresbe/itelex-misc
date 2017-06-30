@@ -230,12 +230,14 @@ bool KonfigurationAllgemein()
 	LokalTextAusgabeP(PSTR(" neu:     "));
 	if (LokalZahlEingabe(&TestFunktion, 0) < 0)
 		return false;
+	LokalTextAusgabeP(OkStrP);
 
 	LokalTextAusgabeP(PSTR("\r\n testverzoegerung aktuell: "));
 	LokalZahlAusgabe(TestVerzoegerung, 0);
 	LokalTextAusgabeP(PSTR(" neu:     "));
 	if (LokalZahlEingabe(&TestVerzoegerung, 0) < 0)
 		return false;
+	LokalTextAusgabeP(OkStrP);
 
 #endif //def TESTFUNKTIONEN
 
@@ -304,8 +306,9 @@ bool KonfigurationAllgemein()
 	if (LokalBoolEingabe(&UmleitungAbweisen) == 0)
 		return false;
 
+	LokalTextAusgabeP(OkStrP);
+	
 #endif //ndef FUER_TW39
-
 	
 	return true;
 	
