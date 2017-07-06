@@ -22,6 +22,7 @@ call MakeBin1.bat itlx_SeriellUndSpeicher2 SeriellUndSpeicher\PlatVer21\SeriellU
 rem OhneSpeicher wird nicht vertrieben
 call MakeBin1.bat itlx_SeriellUndSpeicher2-US45 SeriellUndSpeicher\USTTY-45_21\SeriellUndSpeicher.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher2-110-7 SeriellUndSpeicher\110-7_21\SeriellUndSpeicher.hex Mega168_Quarz
+call MakeBin1.bat itlx_SeriellUndSpeicher2-110-7_EN SeriellUndSpeicher\110-7_EN_21\SeriellUndSpeicher.hex Mega168_Quarz
 rem UniIF wird nicht vertrieben
 rem Wahlbrücke wird nicht vertrieben
 rem Fuer alte Versionen des i-Telex mit Nachschlage-Tabelle:

@@ -161,7 +161,7 @@ EEMEM uint8_t UmleitungAbweisen_EE = 0 ; //!< Bei true wird in Grundstellung Sta
 // sonstige Konfigurationen
 // ------------------------
 
-bool MenueImmerAusgaben; //!< Gibt das Menue nach jeder "Aktion" aus, bei false nur bei Fehleingabe
+bool MenueImmerAusgeben; //!< Gibt das Menue nach jeder "Aktion" aus, bei false nur bei Fehleingabe
 
 
 // Uhr
@@ -1350,7 +1350,11 @@ static void KonfigurationEnde()
 //! Testfunktion zur Auflistung aller angeschlossenen Module	
 static void BusteilnehmerListen()
 	{
+#ifdef SPRACHE_EN	
+	LokalTextAusgabeP(PSTR("\r\nstatus of connected modules:\r\n"));
+#else	
 	LokalTextAusgabeP(PSTR("\r\nStatus der angeschlossenen Module:\r\n"));
+#endif //def SPRACHE_EN	
 	for (uint8_t AnzZif = 1 ; AnzZif <= 2 ; AnzZif++)
 		for (uint8_t Wahl = 0 ; Wahl <= ((AnzZif == 1) ? 9 : 99) ; Wahl++)
 			{
@@ -1458,7 +1462,7 @@ int main()
 		Minute = 0;
 		}
 
-	MenueImmerAusgaben = false; //! \todo konfigurierbar
+	MenueImmerAusgeben = false; //! \todo konfigurierbar
 	
 	UhrAktualisieren();
 	eeprom_read_string(Kennung, Kennung_EE, sizeof(Kennung));
@@ -1609,7 +1613,7 @@ int main()
 			LokalTextAusgabeP(PSTR(", Ctrl-T: Statusliste"));
 #endif				
 			LokalTextAusgabeP(PSTR(" --> "));
-			HauptmenueAusgeben = MenueImmerAusgaben;
+			HauptmenueAusgeben = false;
 			}
 
 		TastePruefen();
@@ -1619,7 +1623,7 @@ int main()
 		if (KoEinschalten())
 			{
 			VerbindungKommend();
-			HauptmenueAusgeben = MenueImmerAusgaben;
+			HauptmenueAusgeben = MenueImmerAusgeben;
 			}
 		
 		if (!PufferLeer(&SerInBuf))
@@ -1637,20 +1641,20 @@ int main()
 #else
 						LokalTextAusgabeP(PSTR(" Fehler: nicht konfiguriert."));
 #endif						
-					HauptmenueAusgeben = MenueImmerAusgaben;
+					HauptmenueAusgeben = MenueImmerAusgeben;
 					break;
 				
 				case CTRL('k'):
 					eeprom_write_byte(&Minute_EE, Minute);
 					Konfiguration();
 					KonfigurationEnde();
-					HauptmenueAusgeben = MenueImmerAusgaben;
+					HauptmenueAusgeben = MenueImmerAusgeben;
 					break;
 
 #ifndef OHNE_SPEICHER
 //				case CTRL('e'):
 //					XEepromDebug();
-//					HauptmenueAusgeben = MenueImmerAusgaben;
+//					HauptmenueAusgeben = MenueImmerAusgeben;
 //					break;
 			
 				case CTRL('q'):
@@ -1660,7 +1664,7 @@ int main()
 							   &LokalEingabeErfolgt,
 							   &LokalZeichenLesen);
 					Aktivieren(true);
-					HauptmenueAusgeben = MenueImmerAusgaben;
+					HauptmenueAusgeben = MenueImmerAusgeben;
 					break;
 
 #endif //ndef OHNE_SPEICHER
@@ -1668,9 +1672,9 @@ int main()
 				case CTRL('l'): //Lokalbetrieb
 					Aktivieren(false);
 #ifdef SPRACHE_EN				
-					LokalTextAusgabeP(PSTR("\r\nLokalbetrieb\r\n"));
-#else
 					LokalTextAusgabeP(PSTR("\r\nlocal mode\r\n"));
+#else
+					LokalTextAusgabeP(PSTR("\r\nLokalbetrieb\r\n"));
 #endif					
 					while (true)
 						{
@@ -1679,7 +1683,7 @@ int main()
 							break;
 						}
 					Aktivieren(true);
-					HauptmenueAusgeben = MenueImmerAusgaben;
+					HauptmenueAusgeben = MenueImmerAusgeben;
 					break;
 					
 //HACK:
@@ -1700,7 +1704,7 @@ int main()
 				case CTRL('m'):
 				case CTRL('j'):
 				case ' ':
-					HauptmenueAusgeben = MenueImmerAusgaben;
+					HauptmenueAusgeben = MenueImmerAusgeben;
 					// ansonsten ignorieren
 					break;
 				
@@ -1722,7 +1726,7 @@ int main()
 			Tastendruck = NichtGedr;
 			Konfiguration();
 			KonfigurationEnde();
-			HauptmenueAusgeben = MenueImmerAusgaben;
+			HauptmenueAusgeben = MenueImmerAusgeben;
 			}
 
 		else if (Tastendruck == Kurz)
