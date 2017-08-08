@@ -156,12 +156,17 @@ EEMEM uint8_t Tag_EE = 13;  //!< #Tag, Kopie im EEPROM
 EEMEM uint8_t Stunde_EE[31] = { 0 } ; //!< #Stunde, Kopie im EEPROM. Je Tag eine andere Speicherstelle, damit die Abnutzung nicht so groß ist.
 EEMEM uint8_t Minute_EE = 0; //!< #Minute, Kopie im EEPROM, wird nur bei besonderer Bedienung gespeichert.
 EEMEM uint16_t BeginnErsteMeldung2_EE = 0xEEEE; //!< #BeginnErsteMeldung2, Kopie im EEPROM
-EEMEM uint8_t UmleitungAbweisen_EE = 0 ; //!< Bei true wird in Grundstellung Status 90 gemeldet.
+EEMEM uint8_t UmleitungAbweisen_EE = 0; //!< Bei true wird in Grundstellung Status 90 gemeldet.
+EEMEM uint8_t MenueImmerAusgeben_EE = 1; //!< siehe #MenueImmerAusgeben
+EEMEM uint8_t SeriellHwHandshake_EE = 1; //!< siehe #SeriellHwHandshake
+
 
 // sonstige Konfigurationen
 // ------------------------
 
 bool MenueImmerAusgeben; //!< Gibt das Menue nach jeder "Aktion" aus, bei false nur bei Fehleingabe
+
+bool SeriellHwHandshake; //!< bei true werden Daten auf der seriellen Schnittstelle nur bei CTS = aktiv gesendet.
 
 
 // Uhr
@@ -336,7 +341,8 @@ ISR(USART_UDRE_vect)
 //! \retval true bei Empfangsbereitschaft der Gegenstelle.
 static bool GetCTS()
 	{ 
-	return !get_SER_CTS();
+	return !get_SER_CTS() || !SeriellHwHandshake; 
+		// wenn kein HW-Handshake = RTS/CTS, dann CTS auf "Dauer-OK" setzen.
 	}
 	
 	
@@ -460,7 +466,7 @@ char LokalZeichenLesen()
 
 void LokalZeichenAusgabe(char c)
 	{
-	if (GetCTS())
+	if (GetCTS() || !SeriellHwHandshake)
 		{ // wenn Rechner empfangsbereit, dann ggf. auf ausreichend Platz im Puffer warten.
 		while (PufferVoll(&SerOutBuf))
 			{
@@ -1327,6 +1333,32 @@ static void Konfiguration()
 	if (LokalTextEingabe(Kennwort, KENNWORT_MAXLEN - 1) == 0)
 		return;
 
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n use hardware handshake on output?      "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n hardware handshake auf serieller schnittstelle verwenden?      "));
+#endif
+
+	if (LokalBoolEingabe(&SeriellHwHandshake) == 0)
+		return;
+	LokalTextAusgabeP(OkStrP);
+
+	if (SeriellHwHandshake != (eeprom_read_byte(&SeriellHwHandshake_EE) == 1))
+		eeprom_write_byte(&SeriellHwHandshake_EE, SeriellHwHandshake ? 1 : 0);
+	
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n print main menu frequently?      "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n hauptmenue regelmaessig ausgeben?      "));
+#endif
+
+	if (LokalBoolEingabe(&MenueImmerAusgeben) == 0)
+		return;
+	LokalTextAusgabeP(OkStrP);
+
+	if (MenueImmerAusgeben != (eeprom_read_byte(&MenueImmerAusgeben_EE) == 1))
+		eeprom_write_byte(&MenueImmerAusgeben_EE, MenueImmerAusgeben ? 1 : 0);
+		
 #ifdef SPRACHE_EN	
 	LokalTextAusgabeP(PSTR("\r\n config complete+++   \r\n"));
 #else
@@ -1462,7 +1494,8 @@ int main()
 		Minute = 0;
 		}
 
-	MenueImmerAusgeben = false; //! \todo konfigurierbar
+	SeriellHwHandshake = (eeprom_read_byte(&SeriellHwHandshake_EE) == 1);
+	MenueImmerAusgeben = (eeprom_read_byte(&MenueImmerAusgeben_EE) == 1);
 	
 	UhrAktualisieren();
 	eeprom_read_string(Kennung, Kennung_EE, sizeof(Kennung));
