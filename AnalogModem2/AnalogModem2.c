@@ -2221,12 +2221,11 @@ static bool JustierWahlziffernAbfragen()
 		|| !CodeAusgabeFern(TtyCodeZiUm))
 		return false;
 
-	char BuZiMode = ZiMode;
 	char c;
 	i = 0;
 	while (i < AnzJustierWahlziffern)
 		{
-		if (!ZeichenEmpfangenFern(&c, &BuZiMode))
+		if (!ZeichenEmpfangenFern(&c, &BaudotMode))
 			return false;
 		switch (c)
 			{

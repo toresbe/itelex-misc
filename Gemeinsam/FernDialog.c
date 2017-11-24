@@ -148,9 +148,9 @@ bool CodeEmpfangenFern(uint8_t *c)
 //! Kehrt nicht zurück, wenn nur eine Buchstaben- oder Ziffern-Umschaltung
 //! empfangen wurde.
 //! \param[out] c Empfangenes Zeichen.
-//! \param[in,out] BuZiMode Flag für Buchstaben- / Ziffern-Umschaltung.
+//! \param[in,out] BaudotMode Flag für Buchstaben- / Ziffern-Umschaltung.
 //! \retval false, wenn Verbindung abgebaut wurde.
-bool ZeichenEmpfangenFern(char *c, char *BuZiMode)
+bool ZeichenEmpfangenFern(char *c, TBaudotMode *BaudotMode)
 	{
 	uint8_t Code;
 	
@@ -158,7 +158,7 @@ bool ZeichenEmpfangenFern(char *c, char *BuZiMode)
 		{
 		if (!CodeEmpfangenFern(&Code))
 			return false;
-		*c = CodeZuZeichen(Code, BuZiMode);
+		*c = CodeZuZeichen(Code, BaudotMode);
 		if (*c != '\0')
 			return true;
 		}
@@ -174,11 +174,10 @@ bool ZeichenEmpfangenFern(char *c, char *BuZiMode)
 bool BoolEmpfangenFern(bool *b)
 	{
 	char c;
-	char BuZiMode = BuMode;
 
 	while (true)
 		{
-		if (!ZeichenEmpfangenFern(&c, &BuZiMode))
+		if (!ZeichenEmpfangenFern(&c, &BaudotMode))
 			return false;
 		switch (c)
 			{
@@ -228,11 +227,10 @@ uint8_t ZahlEmpfangenFernAnzahlZiffern;
 bool ZahlEmpfangenFern(uint8_t *n)
 	{
 	char c;
-	char BuZiMode = ZiMode;
 	ZahlEmpfangenFernAnzahlZiffern = 0;
 	while (true)
 		{
-		if (!ZeichenEmpfangenFern(&c, &BuZiMode))
+		if (!ZeichenEmpfangenFern(&c, &BaudotMode))
 			return false;
 		switch (c)
 			{
@@ -317,15 +315,15 @@ bool CodeAusgabeFern(uint8_t code)
 //! Sendet ein ASCII-Zeichen an den Dialogpartner.
 //----------------------------------------------
 //! \param[in] c Das ASCII-Zeichen.
-//! \param[in,out] BuZiMode Flag für Buchstaben- / Ziffern-Umschaltung.
+//! \param[in,out] BaudotMode Flag für Buchstaben- / Ziffern-Umschaltung.
 //! \retval false, wenn Verbindung abgebaut wurde.
 
-bool ZeichenAusgabeFern(char c, char *BuZiMode)
+bool ZeichenAusgabeFern(char c, TBaudotMode *BaudotMode)
 	{
 	uint8_t Code1 = 255;
 	uint8_t Code2 = 255;
 
-	ZeichenZuCode2(c, BuZiMode, &Code1, &Code2);
+	ZeichenZuCode2(c, BaudotMode, &Code1, &Code2);
 	if (Code1 != 255)
 		if (!CodeAusgabeFern(Code1))
 			return false;
@@ -345,10 +343,9 @@ bool ZeichenAusgabeFern(char c, char *BuZiMode)
 
 bool TextAusgabeFern(PGM_P s)
 	{
-	char BuZiMode = '\0';
 	while (pgm_read_byte(s) != '\0')
 		{
-		if (!ZeichenAusgabeFern(pgm_read_byte(s), &BuZiMode))
+		if (!ZeichenAusgabeFern(pgm_read_byte(s), &BaudotMode))
 			return false;
 		s++;
 		}

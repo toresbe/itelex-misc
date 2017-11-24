@@ -177,6 +177,8 @@ TPuffer SendePuffer;
 //! abgelegt (Baudot-Codes).
 TPuffer EmpfPuffer;
 
+//! Speichert Buchstaben-Ziffern-Umschaltung.
+TBaudotMode BaudotMode;
 
 //! Wo werden die aus dem #SendePuffer auszugebenden Zeichen gedruckt. Wirkt nur im bei #FsBetriebsart = #Eingeschaltet.
 TUmsetzModus SendeUmsetzModus;
@@ -244,6 +246,7 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 			InterneNummer = 0;
 			WahlPhase = WahlIntern;
 			PufferInit(&SendePuffer); // da kommen jetzt die Wahlziffern rein
+			BaudotMode = 0;
 			break;
 
 		case EinschaltungKo:
@@ -269,6 +272,7 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 			GesendeterPegelStatus = Mark2;
 			PufferInit(&SendePuffer);
 			PufferInit(&EmpfPuffer);
+			BaudotMode = 0;
 			SeriellUmsetzInit();
 			BusEmpfMark = true;
 			FsEingMark = true;
@@ -558,7 +562,7 @@ void GeSendeMark(bool Mark)
 //---------------------------------------------
 //! Parallel zum Setzen von KoEmpfMark() wird der serielle Takt empfangen
 //! und interpretiert und gepuffert (FIFO).
-//! \param[out] Code empfangener Baudot-Code (nur gültig, wenn Funktionsergebnis true.
+//! \param[out] Code empfangener Baudot-Code (nur gültig, wenn Funktionsergebnis true).
 //! \returns Empfangspuffer war nicht leer. 
 
 bool KoEmpfCode(uint8_t *Code) 
@@ -585,10 +589,13 @@ bool GeSendeCode(uint8_t Code) // true, wenn Sendepuffer nicht voll
 	{
 	if (PufferSpeich(&SendePuffer, Code))
 		{ // erfolgreich
+//! \todo ganz löschen, wenn test erfolgreich.
+/* 
 		if (Code == TtyCodeBuUm)
 			SendePuffer.BuZiMode = BuMode;
 		else if (Code == TtyCodeZiUm)
 			SendePuffer.BuZiMode = ZiMode;
+*/
 		return true;
 		}
 	else
@@ -614,7 +621,7 @@ bool KoEmpfZeichen(char *Zeichen) // ASCII-Code
 			return false;
 
 		// war es vielleicht ein Sonderzeichen?
-		if (EmpfPuffer.BuZiMode == ZiMode)
+		if (BaudotMode_IstZiffern(BaudotMode))
 			{
 			if (code == TtyCodeZiKlingel)
 				{
@@ -628,7 +635,7 @@ bool KoEmpfZeichen(char *Zeichen) // ASCII-Code
 				}
 			}
 
-		*Zeichen = CodeZuZeichen(code, (char*) &EmpfPuffer.BuZiMode);
+		*Zeichen = CodeZuZeichen(code, &BaudotMode);
 		if (*Zeichen != '\0')
 			return true;
 
@@ -650,25 +657,29 @@ bool GeSendeZeichen(char c)
 		case CodeChrBuUm:
 			if (!PufferSpeich(&SendePuffer, TtyCodeBuUm))
 				return false;
-			SendePuffer.BuZiMode = BuMode;
+			BaudotMode_SetBuchstaben(BaudotMode);
+			BaudotMode_SetSenden(BaudotMode);
 			return true;
 
 		case CodeChrZiUm:
 			if (!PufferSpeich(&SendePuffer, TtyCodeZiUm))
 				return false;
-			SendePuffer.BuZiMode = ZiMode;
+			BaudotMode_SetZiffern(BaudotMode);
+			BaudotMode_SetSenden(BaudotMode);
 			return true;
 
 		case CodeChrKlingel:
-			if (SendePuffer.BuZiMode != ZiMode && !PufferSpeich(&SendePuffer, TtyCodeZiUm))
+			if (BaudotMode_IstZiffern(BaudotMode) && !PufferSpeich(&SendePuffer, TtyCodeZiUm))
 				return false;
-			SendePuffer.BuZiMode = ZiMode;
+			BaudotMode_SetZiffern(BaudotMode);
+			BaudotMode_SetSenden(BaudotMode);
 			return PufferSpeich(&SendePuffer, TtyCodeZiKlingel);
 
 		case CodeChrWerDa:
-			if (SendePuffer.BuZiMode != ZiMode && !PufferSpeich(&SendePuffer, TtyCodeZiUm))
+			if (BaudotMode_IstZiffern(BaudotMode) && !PufferSpeich(&SendePuffer, TtyCodeZiUm))
 				return false;
-			SendePuffer.BuZiMode = ZiMode;
+			BaudotMode_SetZiffern(BaudotMode);
+			BaudotMode_SetSenden(BaudotMode);
 			return PufferSpeich(&SendePuffer, TtyCodeZiWerDa);
 
 		}
@@ -678,8 +689,7 @@ bool GeSendeZeichen(char c)
 
 	uint8_t code1, code2;
 	
-	if (ZeichenZuCode2(c, (char *) &SendePuffer.BuZiMode, &code1, &code2))
-		// (char*) schmeißt absichtlich das volatile weg
+	if (ZeichenZuCode2(c, &BaudotMode, &code1, &code2))
 		{
 		if (!PufferSpeich(&SendePuffer, code1))
 			return false;

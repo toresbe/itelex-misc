@@ -9,7 +9,6 @@ enum { MaxPuffer = 50 } ;
 
 typedef volatile struct {
 	uint8_t Puffer[MaxPuffer]; //!< enthält Baudot-Codes oder im Wahlzustand die Wahlziffern.
-	char BuZiMode; //!< Umschaltung Bu/Zi beim Füllen bzw. Auslesen.
 	uint8_t SpeichP; //!< Index für das Befüllen des Puffers.
 	uint8_t AusgP; //!< Index für das Auslesen des Puffers.
 	} TPuffer;

@@ -21,7 +21,7 @@ extern bool FernDialogVerbinden(uint8_t SucheStartAdresse);
 
 extern bool CodeEmpfangenFern(uint8_t *c);
 
-extern bool ZeichenEmpfangenFern(char *c, char *BuZiMode);
+extern bool ZeichenEmpfangenFern(char *c, TBaudotMode *BaudotMode);
 
 extern bool BoolEmpfangenFern(bool *b);
 
@@ -31,7 +31,7 @@ extern bool ZahlEmpfangenFern(uint8_t *n);
 
 extern bool CodeAusgabeFern(uint8_t code);
 
-extern bool ZeichenAusgabeFern(char c, char *BuZiMode);
+extern bool ZeichenAusgabeFern(char c, TBaudotMode *BaudotMode);
 
 extern bool TextAusgabeFern(PGM_P s);
 

@@ -186,8 +186,6 @@ static void TW39IO()
 	
 uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 
-char BuZiMode; //!< Marker für Buchstaben-Ziffern-Umschaltung.
-
 
 //////////////////////////////////////////////////////////////////
 
@@ -336,7 +334,7 @@ char LokalZeichenLesen()
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
 			{
-			c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
+			c = CodeZuZeichen(SerUmEmpfDaten, &BaudotMode);
 			SerUmEmpfBitNr = SerUmEmpfWarte;
 			if (c != '\0')
 				return c;
@@ -381,21 +379,21 @@ void LokalZeichenAusgabe(char c)
 	if (c >= 'A' && c <= 'Z')
 		c += 'a'-'A';
 
-	if ((code = ZeichenZuCode(c, BuZiMode)) != 255)
+	if ((code = ZeichenZuCode(c, BaudotMode)) != 255)
 		{
 		LokalCodeAusgabe(code);
 		}
-	else if ((code = ZeichenZuCode(c, BuMode)) != 255)
+	else if ((code = ZeichenZuCode(c, 0)) != 255)
 		{
 		LokalCodeAusgabe(TtyCodeBuUm);
 		LokalCodeAusgabe(code);
-		BuZiMode = BuMode;
+		BaudotMode_SetBuchstaben(BaudotMode);
 		}
-	else if ((code = ZeichenZuCode(c, ZiMode)) != 255)
+	else if ((code = ZeichenZuCode(c, BaudotMode_Ziffern)) != 255)
 		{
 		LokalCodeAusgabe(TtyCodeZiUm);
 		LokalCodeAusgabe(code);
-		BuZiMode = ZiMode;
+		BaudotMode_SetZiffern(BaudotMode);
 		}
 	}
 			
@@ -547,11 +545,11 @@ static bool WahlMitTastatur()
 	SeriellUmsetzInit();
 		
 	LokalCodeAusgabe(TtyCodeZiUm);
+	BaudotMode_SetZiffern(BaudotMode);
 
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
 	Falschziffern = 0;
-	BuZiMode = ZiMode;
 
 	while (true)
 		{
@@ -560,7 +558,7 @@ static bool WahlMitTastatur()
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
 			{
-			c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
+			c = CodeZuZeichen(SerUmEmpfDaten, &BaudotMode);
 			SerUmEmpfBitNr = SerUmEmpfWarte;
 			if (c >= '0' && c <= '9')
 				{
@@ -768,7 +766,7 @@ static void Konfiguration()
 	bool Abbruch;
 	
 	SeriellUmsetzInit();
-	BuZiMode = '\0';
+	BaudotMode_SetEmpfangen(BaudotMode);
 	Aktivieren(false);
 	set_LEDROT();
 	

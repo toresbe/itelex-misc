@@ -36,30 +36,14 @@ enum { CodeChrWerDa = CTRL('w') } ; //!< Hilfs-ASCII-Code für Kennungsgeber-Abfr
 
 #define ESC 27
 
-typedef uint8_t TBaudotMode; //!< Speichert Buchstaben-Ziffern-Umschaltung und letzte Konvertierungs-Richtung
+enum { BuMode = 'a', ZiMode = '1' } ; //!< Werte für BuZiMode / Mode.
 
-enum { BaudotMode_Ziffern = 0x01 }; //!< Dieses Bit ist gesetzt, wenn Ziffern-Ebene aktiv ist.
-enum { BaudotMode_Senden = 0x02 }; //!< Dieses Bit ist gesetzt, wenn die letzte Umwandlung von ASCII nach Baudot war.
-									//!< Sofern dieses Bit gesetzt ist, findet keine erneute Sendung von BuUm oder ZiUm statt.
+extern uint8_t ZeichenZuCode(char c, char Mode);
 
-#define BaudotMode_IstZiffern(m) (((m) & BaudotMode_Ziffern) != 0)
-#define BaudotMode_SetZiffern(m) ((m) |= BaudotMode_Ziffern)
-#define BaudotMode_IstBuchstaben(m) (((m) & BaudotMode_Ziffern) == 0)
-#define BaudotMode_SetBuchstaben(m) ((m) &= ~BaudotMode_Ziffern)
-
-#define BaudotMode_IstSenden(m) (((m) & BaudotMode_Senden) != 0)
-#define BaudotMode_SetSenden(m) ((m) |= BaudotMode_Senden)
-#define BaudotMode_IstEmpfangen(m) (((m) & BaudotMode_Senden) == 0)
-#define BaudotMode_SetEmpfangen(m) ((m) &= ~BaudotMode_Senden)
-
-
-									
-extern uint8_t ZeichenZuCode(char c, TBaudotMode Mode);
-
-extern bool ZeichenZuCode2(char c, TBaudotMode* Mode, uint8_t* Code1, uint8_t* Code2);
+extern bool ZeichenZuCode2(char c, char* Mode, uint8_t* Code1, uint8_t* Code2);
 // true bei erfolgreicher Umsetzung
 
-extern char CodeZuZeichen(uint8_t code, TBaudotMode *Mode);
+extern char CodeZuZeichen(uint8_t code, char *Mode);
 
 
 #endif //ndef __BAUDOTCODE_H__

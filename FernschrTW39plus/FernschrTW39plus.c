@@ -198,8 +198,6 @@ static void TW39IO()
 	
 uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 
-char BuZiMode; //!< Marker für Buchstaben-Ziffern-Umschaltung.
-
 
 //////////////////////////////////////////////////////////////////
 
@@ -348,7 +346,7 @@ char LokalZeichenLesen()
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
 			{
-			c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
+			c = CodeZuZeichen(SerUmEmpfDaten, &BaudotMode);
 			SerUmEmpfBitNr = SerUmEmpfWarte;
 			if (c != '\0')
 				return c;
@@ -392,7 +390,7 @@ void LokalZeichenAusgabe(char c)
 	
 	if (c >= 'A' && c <= 'Z')
 		c += 'a'-'A';
-	if (!ZeichenZuCode2(c, &BuZiMode, &code1, &code2))
+	if (!ZeichenZuCode2(c, &BaudotMode, &code1, &code2))
 		return;
 	LokalCodeAusgabe(code1);
 	if (code2 != 255)
@@ -548,12 +546,12 @@ static bool WahlMitTastatur()
 	SeriellUmsetzInit();
 		
 	LokalCodeAusgabe(TtyCodeZiUm);
+	BaudotMode_SetZiffern(BaudotMode);
 
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
 	Lokalbetrieb = false;
 	Falschziffern = 0;
-	BuZiMode = ZiMode;
 
 	while (true)
 		{
@@ -565,7 +563,7 @@ static bool WahlMitTastatur()
 			{
 			if (SerUmEmpfBitNr == SerUmEmpfFertig)
 				{
-				c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
+				c = CodeZuZeichen(SerUmEmpfDaten, &BaudotMode);
 				SerUmEmpfBitNr = SerUmEmpfWarte;
 				if (c >= '0' && c <= '9')
 					{
@@ -786,7 +784,6 @@ static void DemoBetrieb()
 	PGM_P p;
 	
 	SeriellUmsetzInit();
-	BuZiMode = '\0';
 	Aktivieren(false);
 	
 	if (!TW39Einschalten())
@@ -828,7 +825,6 @@ static void Konfiguration()
 	bool Abbruch;
 	
 	SeriellUmsetzInit();
-	BuZiMode = '\0';
 	Aktivieren(false);
 	set_LEDROT();
 	

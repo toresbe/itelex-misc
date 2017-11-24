@@ -8,7 +8,6 @@
 //! \param[out] p Zeiger auf den Puffer.
 void PufferInit(TPuffer *p)
 	{
-	p->BuZiMode = '\0'; // undefiniert
 	p->SpeichP = 0;
 	p->AusgP = 0;
 	}

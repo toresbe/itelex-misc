@@ -102,8 +102,6 @@ TMsTimer RuheTimer; //!< Läuft, wenn weder gedruckt noch geschrieben wird
 
 uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 
-char BuZiMode; //!< Marker für Buchstaben-Ziffern-Umschaltung.
-
 enum { MaxCodefolgeLaenge = 30 }; //!< Maximale Länge von #AusschaltZeichen, #Wahlaufforderung, #VerbindungHergestelltZeichen, #EigeneKennung
 
 uint8_t AusschaltZeichen[MaxCodefolgeLaenge+1]; 
@@ -152,7 +150,18 @@ typedef struct
 	} TEepromDaten;
 
 
-EEMEM TEepromDaten EEDaten = { { 0 }, 1, BusAdrUngueltig, 0, EndeNurBreak, { 255 }, { 255 }, { 255 }, { 255 }, 0 } ;
+EEMEM TEepromDaten EEDaten = { 
+	{ 0 }, 
+	1, 
+	BusAdrUngueltig, 
+	0, 
+	EndeNurBreak, 
+	{ 255 }, 
+	{ 255 }, 
+	{ 255 }, 
+	{ 255 }, 
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, 
+	0 } ;
 
 	
 ///////////////////////////////////////////////////////////////////////////////
@@ -381,7 +390,7 @@ char LokalZeichenLesen()
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
 			{
-			c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
+			c = CodeZuZeichen(SerUmEmpfDaten, &BaudotMode);
 			SerUmEmpfBitNr = SerUmEmpfWarte;
 			if (c != '\0')
 				return c;
@@ -451,7 +460,7 @@ void LokalZeichenAusgabe(char c)
 	
 	if (c >= 'A' && c <= 'Z')
 		c += 'a'-'A';
-	if (!ZeichenZuCode2(c, &BuZiMode, &code1, &code2))
+	if (!ZeichenZuCode2(c, &BaudotMode, &code1, &code2))
 		return;
 	LokalCodeAusgabe(code1);
 	if (code2 != 255)
@@ -511,7 +520,7 @@ uint8_t LokalCodefolgeEingabe(PGM_P Prompt, uint8_t* buf, uint8_t maxcodes)
 				}
 			}
 
-		zeichen = CodeZuZeichen(code, &BuZiMode);
+		zeichen = CodeZuZeichen(code, &BaudotMode);
 		
 		if (TrennZeichen != '\0')
 			{ // Zeichenfolge wurde bereits begonnen.
@@ -613,7 +622,8 @@ static bool WahlMitTastatur()
 	Lokalbetrieb = false;
 	Falschziffern = 0;
 	BreakSignal = false;
-	BuZiMode = ZiMode; // Annehmen, dass die Ziffern-Ebene aktiv ist.
+	
+	BaudotMode_SetZiffern(BaudotMode); // Annehmen, dass die Ziffern-Ebene aktiv ist.
 
 	SendeUmsetzModus = UmsetzLokal;
 	EmpfUmsetzModus = UmsetzFern; // Vorbereitend für den Zustand nach Verbindungsaufbau
@@ -628,7 +638,7 @@ static bool WahlMitTastatur()
 			{
 			if (SerUmEmpfBitNr == SerUmEmpfFertig)
 				{
-				c = CodeZuZeichen(SerUmEmpfDaten, &BuZiMode);
+				c = CodeZuZeichen(SerUmEmpfDaten, &BaudotMode);
 				SerUmEmpfBitNr = SerUmEmpfWarte;
 				if (c >= '0' && c <= '9')
 					{
@@ -965,7 +975,6 @@ static void Konfiguration()
 	bool Abbruch;
 	
 	SeriellUmsetzInit();
-	BuZiMode = '\0';
 	Aktivieren(false);
 	set_LEDROT();
 	

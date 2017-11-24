@@ -14,6 +14,8 @@
 
 #include "FifoPuffer.h"
 
+#include "BaudotCode.h"
+
 
 #ifdef TESTFUNKTIONEN
 
@@ -39,6 +41,8 @@ extern uint8_t TestVerzoegerung;
 
 
 extern TPuffer SendePuffer, EmpfPuffer;
+
+extern TBaudotMode BaudotMode;
 
 //! Für Seriellumsetzung: Welche Seite der Verbindung wird ausgewertet bzw. beeinflusst.
 typedef enum { UmsetzLokal, UmsetzFern, UmsetzLokalUndFern } TUmsetzModus;
