@@ -620,6 +620,7 @@ bool KoEmpfZeichen(char *Zeichen) // ASCII-Code
 		if (!KoEmpfCode(&code))
 			return false;
 
+/* TODO löschen
 		// war es vielleicht ein Sonderzeichen?
 		if (BaudotMode_IstZiffern(BaudotMode))
 			{
@@ -634,6 +635,7 @@ bool KoEmpfZeichen(char *Zeichen) // ASCII-Code
 				return true;
 				}
 			}
+*/
 
 		*Zeichen = CodeZuZeichen(code, &BaudotMode);
 		if (*Zeichen != '\0')
@@ -652,6 +654,7 @@ bool KoEmpfZeichen(char *Zeichen) // ASCII-Code
 
 bool GeSendeZeichen(char c)
 	{
+/* TODO löchen wenn getestet		
 	switch (c)
 		{
 		case CodeChrBuUm:
@@ -683,10 +686,7 @@ bool GeSendeZeichen(char c)
 			return PufferSpeich(&SendePuffer, TtyCodeZiWerDa);
 
 		}
-
-	if (c >= 'A' && c <= 'Z')
-		c += 'a' - 'A';
-
+*/
 	uint8_t code1, code2;
 	
 	if (ZeichenZuCode2(c, &BaudotMode, &code1, &code2))
