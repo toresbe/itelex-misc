@@ -18,4 +18,10 @@ extern void LokalHexAusgabe(uint8_t i);
 
 extern void LokalZahlAusgabe(uint8_t i, int8_t minzif);
 
+#ifdef SPRACHE_EN
+#define LokalBoolAusgabe(b) LokalZeichenAusgabe((b) ? 'y' : 'n')
+#else
+#define LokalBoolAusgabe(b) LokalZeichenAusgabe((b) ? 'j' : 'n')
+#endif
+
 #endif //ndef __LOKALAUSGABE_H__

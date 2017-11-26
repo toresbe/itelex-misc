@@ -1334,10 +1334,13 @@ static void Konfiguration()
 		return;
 
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n use hardware handshake on output?      "));
+	LokalTextAusgabeP(PSTR("\r\n use hardware handshake on output? current: "));
 #else
-	LokalTextAusgabeP(PSTR("\r\n hardware handshake auf serieller schnittstelle verwenden?      "));
+	LokalTextAusgabeP(PSTR("\r\n hardware handshake auf serieller schnittstelle verwenden? aktuell: "));
 #endif
+
+	LokalBoolAusgabe(SeriellHwHandshake);
+	LokalTextAusgabeP(NeuStrP);
 
 	if (LokalBoolEingabe(&SeriellHwHandshake) == 0)
 		return;
@@ -1347,10 +1350,13 @@ static void Konfiguration()
 		eeprom_write_byte(&SeriellHwHandshake_EE, SeriellHwHandshake ? 1 : 0);
 	
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n print main menu frequently?      "));
+	LokalTextAusgabeP(PSTR("\r\n print main menu frequently? current: "));
 #else
-	LokalTextAusgabeP(PSTR("\r\n hauptmenue regelmaessig ausgeben?      "));
+	LokalTextAusgabeP(PSTR("\r\n hauptmenue regelmaessig ausgeben? aktuell: "));
 #endif
+
+	LokalBoolAusgabe(MenueImmerAusgeben);
+	LokalTextAusgabeP(NeuStrP);
 
 	if (LokalBoolEingabe(&MenueImmerAusgeben) == 0)
 		return;
@@ -1512,7 +1518,7 @@ int main()
 
 #ifndef OHNE_SPEICHER
 	BeginnErsteMeldung2 = eeprom_read_word(&BeginnErsteMeldung2_EE);
-	//! \todo Prüfen aif Sinigkeit?
+	//! \todo Prüfen auf Sinigkeit?
 #endif //ndef OHNE_SPEICHER
 
 	SerIOInit();

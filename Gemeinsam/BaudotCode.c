@@ -34,7 +34,7 @@ PROGMEM char TtyCodeTabBu[] = { '#', 't','\r', 'o', ' ', 'h', 'n', 'm','\n', 'l'
 PROGMEM char TtyCodeTabZi[] = { '#', '5','\r', '9', ' ', '#', ',', '.','\n', ')', '4', '#', '8', '0', ':', '=', 
 
 //                              16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
-								'3', '+', WD , '?','''', '6', '#', '/', '-', '2', KL,  ZI , '7', '1', '(', BU };
+								'3', '+', WD , '?','\'', '6', '#', '/', '-', '2', KL,  ZI , '7', '1', '(', BU };
 								
 #endif
 
@@ -118,7 +118,7 @@ bool ZeichenZuCode2(char c, TBaudotMode *Mode, uint8_t* Code1, uint8_t* Code2)
 	if (c >= 'A' && c <= 'Z')
 		c += 'a' - 'A';
 	
-	if (BaudotMode_IstSenden(*Mode) && c != CodeChrWerDa))
+	if (BaudotMode_IstSenden(*Mode) && c != CodeChrWerDa)
 		{ // zuletzt wurde gesendet, dann kann die gesendete Zeichenebene ggf. weiterverwendet werden.
 		*Code1 = ZeichenZuCode(c, *Mode);
 		if (*Code1 != 255)

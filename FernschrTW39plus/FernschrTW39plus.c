@@ -849,10 +849,13 @@ static void Konfiguration()
 	
 	// Wählscheibe vorhanden?
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n has rotary dial?      ")); 
+	LokalTextAusgabeP(PSTR("\r\n has rotary dial? current: ")); 
 #else	
-	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden?      ")); 
+	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden? aktuell: ")); 
 #endif //def SPRACHE_EN
+
+	LokalBoolAusgabe(MitWaehlscheibe);
+	LokalTextAusgabeP(NeuStrP);
 
 	if (LokalBoolEingabe(&MitWaehlscheibe) == 0)
 		return;

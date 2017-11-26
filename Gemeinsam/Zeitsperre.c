@@ -196,10 +196,13 @@ bool SperrzeitEingabeDialog()
 		}
 
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n lock times depending on weekend?      "));
+	LokalTextAusgabeP(PSTR("\r\n lock times depending on weekend? current: "));
 #else
-	LokalTextAusgabeP(PSTR("\r\n sperrzeit wochenend-abhaengig?      "));
+	LokalTextAusgabeP(PSTR("\r\n sperrzeit wochenend-abhaengig? aktuell: "));
 #endif
+
+	LokalBoolAusgabe(SperrzeitWochenendAbhaengig);
+	LokalTextAusgabeP(NeuStrP);
 
 	if (LokalBoolEingabe(&SperrzeitWochenendAbhaengig) == 0)
 		return false;

@@ -13,7 +13,14 @@
 
 
 //! Bestätigungsmeldung. weil's häufig benutzt wird.
-PROGMEM char OkStrP[] = " ok. ";
+PROGMEM const char OkStrP[] = " ok. ";
+
+#ifdef SPRACHE_EN
+PROGMEM const char NeuStrP[] = " new:     ";
+#else
+PROGMEM const char NeuStrP[] = " neu:     ";
+#endif
+
 
 extern char LokalZeichenLesen();
 // Diese Funktion muss in der Anwendung definiert werden.
@@ -213,7 +220,6 @@ extern void LokalZeichenAusgabe(char c);
 // Diese Funktion muss in der Anwendung definiert werden.
 
 
-
 //! Dialog-Abfrage für die allgemeinen Einstellungen eines Endgeräts.
 //-------------------------------------------------------------------
 //! Bisher nur Abfrage der eigenen Adresse = eigene Durchwahl.
@@ -227,14 +233,14 @@ bool KonfigurationAllgemein()
 
 	LokalTextAusgabeP(PSTR("\r\n testfunktion aktuell: "));
 	LokalZahlAusgabe(TestFunktion, 0);
-	LokalTextAusgabeP(PSTR(" neu:     "));
+	LokalTextAusgabeP(NeuStrP);
 	if (LokalZahlEingabe(&TestFunktion, 0) < 0)
 		return false;
 	LokalTextAusgabeP(OkStrP);
 
 	LokalTextAusgabeP(PSTR("\r\n testverzoegerung aktuell: "));
 	LokalZahlAusgabe(TestVerzoegerung, 0);
-	LokalTextAusgabeP(PSTR(" neu:     "));
+	LokalTextAusgabeP(NeuStrP);
 	if (LokalZahlEingabe(&TestVerzoegerung, 0) < 0)
 		return false;
 	LokalTextAusgabeP(OkStrP);
@@ -251,13 +257,11 @@ bool KonfigurationAllgemein()
 
 #ifdef SPRACHE_EN
 		LokalTextAusgabeP(PSTR("\r\n current local number: "));
-		LokalZahlAusgabe(Durchwahl, ZifferAnz);
-		LokalTextAusgabeP(PSTR(" new:     "));
 #else
 		LokalTextAusgabeP(PSTR("\r\n durchwahl aktuell: "));
-		LokalZahlAusgabe(Durchwahl, ZifferAnz);
-		LokalTextAusgabeP(PSTR(" neu:     "));
 #endif
+		LokalZahlAusgabe(Durchwahl, ZifferAnz);
+		LokalTextAusgabeP(NeuStrP);
 		
 		EingabeZifferAnz = LokalZahlEingabe(&Durchwahl, 2);
 		if (EingabeZifferAnz < 0)
@@ -298,10 +302,13 @@ bool KonfigurationAllgemein()
 #ifndef FUER_TW39
 
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n decline forwarded calls?      ")); 
+	LokalTextAusgabeP(PSTR("\r\n decline forwarded calls? current: ")); 
 #else	
-	LokalTextAusgabeP(PSTR("\r\n weiterleitungen abweisen?      ")); 
+	LokalTextAusgabeP(PSTR("\r\n weiterleitungen abweisen? aktuell: ")); 
 #endif //def SPRACHE_EN
+
+	LokalBoolAusgabe(UmleitungAbweisen);
+	LokalTextAusgabeP(NeuStrP);
 
 	if (LokalBoolEingabe(&UmleitungAbweisen) == 0)
 		return false;

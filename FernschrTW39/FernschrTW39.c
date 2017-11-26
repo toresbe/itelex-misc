@@ -790,10 +790,13 @@ static void Konfiguration()
 	
 	// Wählscheibe vorhanden?
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n has rotary dial?      ")); 
+	LokalTextAusgabeP(PSTR("\r\n has rotary dial?  current: ")); 
 #else	
-	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden?      ")); 
+	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden? akt. ")); 
 #endif //def SPRACHE_EN
+
+	LokalBoolAusgabe(MitWaehlscheibe);
+	LokalTextAusgabeP(NeuStrP);
 
 	if (LokalBoolEingabe(&MitWaehlscheibe) == 0)
 		return;
@@ -824,9 +827,9 @@ static void Konfiguration()
 
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n block incoming calls by: (cur. "));
+	LokalTextAusgabeP(PSTR("\r\n block incoming calls by: cur. "));
 #else
-	LokalTextAusgabeP(PSTR("\r\n kommende anrufe sperren mit: (akt. "));
+	LokalTextAusgabeP(PSTR("\r\n kommende anrufe sperren mit: akt. "));
 #endif //def SPRACHE_EN
 
 	if (KommendSperreWahl != 0)
@@ -839,9 +842,9 @@ static void Konfiguration()
 #endif //def SPRACHE_EN
 
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(") new (0 = off):     "));
+	LokalTextAusgabeP(PSTR(" new (0=off):     "));
 #else
-	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
+	LokalTextAusgabeP(PSTR(" neu (0=aus):     "));
 #endif //def SPRACHE_EN
 
 	if (LokalZahlEingabe(&KommendSperreWahl, 2) < 0)
@@ -854,7 +857,7 @@ static void Konfiguration()
 	
 	// weitere Eingaben
 
-	LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
+	LokalTextAusgabeP(PSTR("\r\n +++\r\n\n\n\n"));
 	}
 
 
