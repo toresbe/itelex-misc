@@ -23,7 +23,8 @@ PROGMEM const char NeuStrP[] = " neu:     ";
 
 
 extern char LokalZeichenLesen();
-// Diese Funktion muss in der Anwendung definiert werden.
+// Diese Funktion muss in der Anwendung definiert werden und sollte nur Kleinbuchstaben zurückgeben.
+// Dies ist bei CodeZuZeichen() auf jeden Fall der Fall.
 
 
 //! Dialog-Abfrage einer Zahl.
@@ -91,16 +92,13 @@ uint8_t LokalBoolEingabe(bool* b)
 		switch (Zeichen)
 			{
 			case 'j':
-			case 'J':
 			case 'y':
-			case 'Y':
 			case '1':
 			case '+':
 				*b = true;
 				return 2;
 				
 			case 'n':
-			case 'N':
 			case '0':
 			case '-':
 				*b = false;

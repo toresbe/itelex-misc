@@ -927,6 +927,8 @@ static void Konfiguration()
 	if (!ED1000Einschalten())
 		return;
 	
+	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
+	
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n configuration ed1000 version " SVNVERSION " date " __DATE__));
 #else

@@ -978,6 +978,8 @@ static void Konfiguration()
 	
 	if (!FsEinschalten())
 		return;
+
+	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
 	
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n configuration FsOFsg version " SVNVERSION " date " __DATE__));

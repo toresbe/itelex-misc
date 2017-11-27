@@ -773,6 +773,8 @@ static void Konfiguration()
 	if (!TW39Einschalten())
 		return;
 	
+	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
+	
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n config tw39 ver " SVNVERSION " / " __DATE__));
 #else
@@ -790,7 +792,7 @@ static void Konfiguration()
 	
 	// Wählscheibe vorhanden?
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n has rotary dial?  current: ")); 
+	LokalTextAusgabeP(PSTR("\r\n has rotary dial? current: ")); 
 #else	
 	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden? akt. ")); 
 #endif //def SPRACHE_EN

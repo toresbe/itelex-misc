@@ -907,13 +907,11 @@ void XEepromDebug()
 		switch (LokalZeichenLesen())
 			{
 			case 'q':
-			case 'Q':
 			case '\t':
 			case '\0':
 				return;
 
 			case 'l':
-			case 'L':
 				LokalTextAusgabeP(PSTR(" Lesen von "));
 				if (LokalZahlEingabe(&Start, 0) <= 0)
 					break;
@@ -943,12 +941,10 @@ void XEepromDebug()
 				break;
 
 			case 'i':
-			case 'I':
 				LokalTextAusgabeP(PSTR(" inkrementell"));
 				inc = 1;
 				// kein break
 			case 's':
-			case 'S':
 				LokalTextAusgabeP(PSTR(" Schreiben von "));
 				if (LokalZahlEingabe(&Start, 0) <= 0)
 					break;
@@ -984,7 +980,6 @@ void XEepromDebug()
 				break;
 
 			case 'a':
-			case 'A':
 				while (!EeAbschliessen())
 					{
 					DoSwTwi();
@@ -994,7 +989,6 @@ void XEepromDebug()
 				break;
 			
 			case 'v':
-			case 'V':
 				// HACK test doppelt schreiben
 				// das geht regelmäßig schief... warum auch immer...
 

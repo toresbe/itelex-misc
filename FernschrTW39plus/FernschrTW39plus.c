@@ -829,6 +829,8 @@ static void Konfiguration()
 	if (!TW39Einschalten())
 		return;
 	
+	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
+	
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n configuration tw39plus version " SVNVERSION " date " __DATE__));
 #else

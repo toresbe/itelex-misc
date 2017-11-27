@@ -382,9 +382,13 @@ static void SeriellIO()
 					else
 						p++;
 					}
+				LokalZeichenAusgabeKlar(c);
+
+				if (c == '%')
+					c = CodeChrKlingel;
+				
 				PufferSpeich(&SerInBuf, c); 
 					// hier wird entweder das original-Zeichen gespeichert oder das zweite übersetzte
-				LokalZeichenAusgabeKlar(c);
 				} // kein ESC
 			} // PufferAnzahl(&SerInBuf) < MaxPuffer - 3
 			
@@ -454,7 +458,13 @@ char LokalZeichenLesen()
 		return '\0';
 		}
 	else
+		{
+		char c;
+		c = SerEmpfZ(true);
+		if (c >= 'A' && c <= 'Z')
+			c += 'a'-'A'; // zum Kleinbuchstaben umwandeln
 		return SerEmpfZ(true);
+		}
 	}
 	
 	
@@ -651,7 +661,7 @@ static void VerbindungGehend()
 #ifdef SPRACHE_EN		
 			LokalTextAusgabeP(PSTR("\r\nDial: "));
 #else			
-			LokalTextAusgabeP(PSTR("\r\nWählen: "));
+			LokalTextAusgabeP(PSTR("\r\nWaehlen: "));
 #endif			
 			while (!KoEinschalten())
 				{
@@ -1266,6 +1276,8 @@ static void Konfiguration()
 	DebugBufP = DebugBuf;
 #endif //!TWI_DEBUG
 
+	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
+
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n config telex serial version " SVNVERSION " date " __DATE__));
 #else
@@ -1290,11 +1302,7 @@ static void Konfiguration()
 #endif
 	
 	DatumAusgabe();
-#ifdef SPRACHE_EN	
-	LokalTextAusgabeP(PSTR(" new:         "));
-#else
-	LokalTextAusgabeP(PSTR(" neu:         "));
-#endif	
+	LokalTextAusgabeP(NeuStrP);
 	if (LokalZahlEingabe(&Tag, 2) < 0
 		|| LokalZahlEingabe(&Monat, 2) < 0
 		|| LokalZahlEingabe(&Jahr, 2) < 0
@@ -1311,11 +1319,7 @@ static void Konfiguration()
 	LokalTextAusgabeP(PSTR("\r\n Kennung: "));
 #endif	
 	LokalTextAusgabe(Kennung + 2); // CR + LF weglassen
-#ifdef SPRACHE_EN	
-	LokalTextAusgabeP(PSTR(" new:         "));
-#else
-	LokalTextAusgabeP(PSTR(" neu:         "));
-#endif	
+	LokalTextAusgabeP(NeuStrP);
 	if (LokalTextEingabe(Kennung + 2, KENNUNG_MAXLEN - 3) == 0) // erste 2 Zeichen für CRLF reserviert
 		return;
 
@@ -1325,11 +1329,7 @@ static void Konfiguration()
 	LokalTextAusgabeP(PSTR("\r\n Kennwort: "));
 #endif	
 	LokalTextAusgabe(Kennwort);
-#ifdef SPRACHE_EN	
-	LokalTextAusgabeP(PSTR(" new:         "));
-#else
-	LokalTextAusgabeP(PSTR(" neu:         "));
-#endif	
+	LokalTextAusgabeP(NeuStrP);
 	if (LokalTextEingabe(Kennwort, KENNWORT_MAXLEN - 1) == 0)
 		return;
 
@@ -1753,7 +1753,7 @@ int main()
 #ifdef SPRACHE_EN				
 					LokalTextAusgabeP(PSTR("\r\ninvalid command"));
 #else
-					LokalTextAusgabeP(PSTR("\r\nUngültiges Kommando"));
+					LokalTextAusgabeP(PSTR("\r\nUngueltiges Kommando"));
 #endif					
 					HauptmenueAusgeben = true;
 					break;

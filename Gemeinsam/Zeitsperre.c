@@ -138,11 +138,7 @@ static bool ZeitEingabe(uint16_t *hm)
 	m = *hm - h * 60;
 	LokalZahlAusgabe(h, 2);
 	LokalZahlAusgabe(m, 2);
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(" new:     "));
-#else
-	LokalTextAusgabeP(PSTR(" neu:     "));
-#endif
+	LokalTextAusgabeP(NeuStrP);
 	
 	res = LokalZahlEingabe(&h, 2);
 	if (res < 0) // abbruch
