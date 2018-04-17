@@ -589,13 +589,10 @@ bool GeSendeCode(uint8_t Code) // true, wenn Sendepuffer nicht voll
 	{
 	if (PufferSpeich(&SendePuffer, Code))
 		{ // erfolgreich
-//! \todo ganz löschen, wenn test erfolgreich.
-/* 
 		if (Code == TtyCodeBuUm)
-			SendePuffer.BuZiMode = BuMode;
+			BaudotMode_SetBuchstaben(BaudotMode);
 		else if (Code == TtyCodeZiUm)
-			SendePuffer.BuZiMode = ZiMode;
-*/
+			BaudotMode_SetZiffern(BaudotMode);
 		return true;
 		}
 	else
