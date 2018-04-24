@@ -48,13 +48,13 @@ PROGMEM char TtyCodeTabZi[] = { '#', '5','\r', '9', ' ', '#', ',', '.','\n', ')'
 //! \retval '#' bei ungültigen Zeichen oder sonstigen Steuerzeichen.
 char CodeZuZeichen(uint8_t code, TBaudotMode *Mode)
 	{
-	BaudotMode_SetEmpfangen(*Mode); // dies bewirkt, dass beim nächsten Aufruf von ZeichenZuCode2 auf jeden Fall ein Bu oder Zi vorweg gesendet wird.
 	if (code == TtyCodeZiUm)
-		BaudotMode_SetZiffern(*Mode);
+		*Mode = BaudotMode_ZiffernEmpfangen; 
 	else if (code == TtyCodeBuUm)
-		BaudotMode_SetBuchstaben(*Mode);
+		*Mode = BaudotMode_BuchstabenEmpfangen; 
 	else
 		{
+		BaudotMode_SetEmpfangen(*Mode); // dies bewirkt, dass beim nächsten Aufruf von ZeichenZuCode2 auf jeden Fall ein Bu oder Zi vorweg gesendet wird.
 		if (BaudotMode_IstZiffern(*Mode))
 			return pgm_read_byte(&TtyCodeTabZi[code]);
 		else 
@@ -64,15 +64,15 @@ char CodeZuZeichen(uint8_t code, TBaudotMode *Mode)
 	}
 
 
-//! Setzt ASCII-Zeichen in Baudot-Code um. Es erfolgt keine Umschaltung von Buchstaben
-//! auf Ziffern oder umgekehrt. Sonderzeichen Klingel und Werda werden umgesetzt
+//! Setzt ASCII-Zeichen in Baudot-Code um. Es erfolgt _keine_ Umschaltung von Buchstaben
+//! auf Ziffern oder umgekehrt. Sonderzeichen Klingel und Werda werden umgesetzt, auch Großbuchstaben zulässig.
 //! \param c Zeichen in ASCII.
 //! \param Mode Buchstaben oder Ziffern. Es wird nur das Bit BaudotMode_Ziffern ausgewertet
 //! \return Baudot-Code (zwischen 0 und 31).
 //! \retval 255 bei nicht passendem c (nicht in Code-Tabelle).
 uint8_t ZeichenZuCode(char c, TBaudotMode Mode)
 	{
-	volatile prog_char* tp;
+	prog_char* tp;
 	if (BaudotMode_IstZiffern(Mode))
 		tp = TtyCodeTabZi;
 	else 
@@ -115,9 +115,7 @@ bool ZeichenZuCode2(char c, TBaudotMode *Mode, uint8_t* Code1, uint8_t* Code2)
 	{
 	*Code2 = 255; // kommt öfter vor
 
-	if (c >= 'A' && c <= 'Z')
-		c += 'a' - 'A';
-	
+	// Umwandlung von GROSS in klein macht ZeichenZuCode
 	if (BaudotMode_IstSenden(*Mode) && c != CodeChrWerDa)
 		{ // zuletzt wurde gesendet, dann kann die gesendete Zeichenebene ggf. weiterverwendet werden.
 		*Code1 = ZeichenZuCode(c, *Mode);
@@ -128,16 +126,14 @@ bool ZeichenZuCode2(char c, TBaudotMode *Mode, uint8_t* Code1, uint8_t* Code2)
 	if (c == CodeChrZiUm)
 		{
 		*Code1 = TtyCodeZiUm;
-		BaudotMode_SetZiffern(*Mode);
-		BaudotMode_SetSenden(*Mode);
+		*Mode = BaudotMode_ZiffernGesendet;
 		return true;
 		}		
 	
 	if (c == CodeChrBuUm)
 		{
 		*Code1 = TtyCodeBuUm;
-		BaudotMode_SetBuchstaben(*Mode);
-		BaudotMode_SetSenden(*Mode);
+		*Mode = BaudotMode_BuchstabenGesendet;
 		return true;
 		}		
 		
@@ -148,17 +144,15 @@ bool ZeichenZuCode2(char c, TBaudotMode *Mode, uint8_t* Code1, uint8_t* Code2)
 	if (*Code2 != 255)
 		{
 		*Code1 = TtyCodeBuUm;
-		BaudotMode_SetBuchstaben(*Mode);
-		BaudotMode_SetSenden(*Mode);
+		*Mode = BaudotMode_BuchstabenGesendet;
 		return true;
 		}
 
-	*Code2 = ZeichenZuCode(c, BaudotMode_Ziffern); // Ziffern Tabelle probieren
+	*Code2 = ZeichenZuCode(c, BaudotMode_ZiffernBitMaske); // Ziffern Tabelle probieren
 	if (*Code2 != 255)
 		{
 		*Code1 = TtyCodeZiUm;
-		BaudotMode_SetZiffern(*Mode);
-		BaudotMode_SetSenden(*Mode);
+		*Mode = BaudotMode_ZiffernGesendet;
 		return true;
 		}
 

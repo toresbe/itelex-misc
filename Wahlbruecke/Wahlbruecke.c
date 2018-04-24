@@ -329,9 +329,7 @@ void LokalZeichenAusgabe(char c)
 	{
 	uint8_t code;
 	
-	if (c >= 'A' && c <= 'Z')
-		c += 'a'-'A';
-
+	// Umwandlung von GROSS in klein macht ZeichenZuCode
 	if ((code = ZeichenZuCode(c, BaudotMode)) != 255)
 		{
 		LokalCodeAusgabe(code);

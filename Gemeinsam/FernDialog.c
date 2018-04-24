@@ -11,6 +11,10 @@
 #include "BaudotCode.h"
 
 
+//! Speichert für alle Fern-Eingabefunktionen die Buchstaben/Zahlen-Ebene
+TBaudotMode BaudotMode;
+
+
 //! Startet ein Konfigurations-Dialog mit einem Fernschreiber als Verbindungspartner 
 //! auf dem TWI-Bus.
 //---------------------------------------------------------------------------------
@@ -74,6 +78,8 @@ bool FernDialogVerbinden(uint8_t SucheStartAdresse)
 	
 	BusSenden(BusKdoEin);
 	BusWarteFertig();
+
+	BaudotMode = BaudotMode_BuchstabenEmpfangen;
 
 	TMsTimer Timer;
 	
@@ -150,7 +156,7 @@ bool CodeEmpfangenFern(uint8_t *c)
 //! \param[out] c Empfangenes Zeichen.
 //! \param[in,out] BaudotMode Flag für Buchstaben- / Ziffern-Umschaltung.
 //! \retval false, wenn Verbindung abgebaut wurde.
-bool ZeichenEmpfangenFern(char *c, TBaudotMode *BaudotMode)
+bool ZeichenEmpfangenFern(char *c)
 	{
 	uint8_t Code;
 	
@@ -158,7 +164,7 @@ bool ZeichenEmpfangenFern(char *c, TBaudotMode *BaudotMode)
 		{
 		if (!CodeEmpfangenFern(&Code))
 			return false;
-		*c = CodeZuZeichen(Code, BaudotMode);
+		*c = CodeZuZeichen(Code, &BaudotMode);
 		if (*c != '\0')
 			return true;
 		}
@@ -177,7 +183,7 @@ bool BoolEmpfangenFern(bool *b)
 
 	while (true)
 		{
-		if (!ZeichenEmpfangenFern(&c, &BaudotMode))
+		if (!ZeichenEmpfangenFern(&c))
 			return false;
 		switch (c)
 			{
@@ -230,7 +236,7 @@ bool ZahlEmpfangenFern(uint8_t *n)
 	ZahlEmpfangenFernAnzahlZiffern = 0;
 	while (true)
 		{
-		if (!ZeichenEmpfangenFern(&c, &BaudotMode))
+		if (!ZeichenEmpfangenFern(&c))
 			return false;
 		switch (c)
 			{
@@ -318,12 +324,13 @@ bool CodeAusgabeFern(uint8_t code)
 //! \param[in,out] BaudotMode Flag für Buchstaben- / Ziffern-Umschaltung.
 //! \retval false, wenn Verbindung abgebaut wurde.
 
-bool ZeichenAusgabeFern(char c, TBaudotMode *BaudotMode)
+bool ZeichenAusgabeFern(char c)
 	{
 	uint8_t Code1 = 255;
 	uint8_t Code2 = 255;
 
-	ZeichenZuCode2(c, BaudotMode, &Code1, &Code2);
+	// Großbuchstaben wird von ZeichenZuCode2 umgewandelt.
+	ZeichenZuCode2(c, &BaudotMode, &Code1, &Code2);
 	if (Code1 != 255)
 		if (!CodeAusgabeFern(Code1))
 			return false;
@@ -345,7 +352,7 @@ bool TextAusgabeFern(PGM_P s)
 	{
 	while (pgm_read_byte(s) != '\0')
 		{
-		if (!ZeichenAusgabeFern(pgm_read_byte(s), &BaudotMode))
+		if (!ZeichenAusgabeFern(pgm_read_byte(s)))
 			return false;
 		s++;
 		}
@@ -383,7 +390,7 @@ bool ZahlAusgabeFern(uint8_t n, uint8_t Ziffern)
 	if (z > 0 || Ziffern > 1)
 		if (!ZahlAusgabeFern(z, Ziffern - 1))
 			return false;
-	return CodeAusgabeFern(ZeichenZuCode(n + '0', ZiMode)); 
+	return ZeichenAusgabeFern(n + '0'); 
 	}
 
 	

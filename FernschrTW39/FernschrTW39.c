@@ -210,7 +210,7 @@ static bool TW39Einschalten()
 		if (TimerVal(&AbbruchTimer) > 7000)
 			{
 			BefehlEinschalten = false;
-			BefehlMark = true;
+			// BefehlMark = true; ist schon true...
 			TW39IO();
 			return false;
 			}
@@ -261,8 +261,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	{
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWEN) | (0<<TWIE);
 	
-	uint8_t TasteZ = 0;
-	bool TasteWirk = false;
+	uint8_t TasteZ = 0; // Zählt von 0 bis 5 beim Drücken und bis 10 beim Loslassen
 	TMsTimer TasteTimer;
 	StartTimer(&TasteTimer);
 	while (1)
@@ -280,25 +279,24 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 				{ // Taste gedrückt
 				if (TasteZ < 5)
 					TasteZ++;
-				else
-					TasteWirk = true;
 				}
 			else // Taste nicht gedrückt
 				{ 
-				if (TasteZ > 0)
+				if (TasteZ >= 10)
 					{
-					TasteZ--;
-					if (TasteZ == 0 && TasteWirk)
-						{
-						cli();
-						wdt_enable(WDTO_1S);
-						while (1)
-							;
-						}
+					cli();
+					wdt_enable(WDTO_1S);
+					while (1)
+						;
 					}
+
+				if (TasteZ >= 5)
+					TasteZ++;
+
 				}
 			}
-		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
+
+		else if (TimerVal(&TasteTimer) > 200)
 		    {
 		    bset_LEDROT(BIT_IS_SET(Nummer, 0));
 			bset_LEDGELB(BIT_IS_SET(Nummer, 1));
@@ -376,10 +374,8 @@ void LokalZeichenAusgabe(char c)
 	{
 	uint8_t code;
 	
-	if (c >= 'A' && c <= 'Z')
-		c += 'a'-'A';
-
-	if ((code = ZeichenZuCode(c, BaudotMode)) != 255)
+	// Umwandlung von GROSS in klein macht ZeichenZuCode
+	if (BaudotMode_IstSenden(BaudotMode) && (code = ZeichenZuCode(c, BaudotMode)) != 255)
 		{
 		LokalCodeAusgabe(code);
 		}
@@ -387,13 +383,13 @@ void LokalZeichenAusgabe(char c)
 		{
 		LokalCodeAusgabe(TtyCodeBuUm);
 		LokalCodeAusgabe(code);
-		BaudotMode_SetBuchstaben(BaudotMode);
+		BaudotMode = BaudotMode_BuchstabenGesendet;
 		}
-	else if ((code = ZeichenZuCode(c, BaudotMode_Ziffern)) != 255)
+	else if ((code = ZeichenZuCode(c, BaudotMode_ZiffernBitMaske)) != 255)
 		{
 		LokalCodeAusgabe(TtyCodeZiUm);
 		LokalCodeAusgabe(code);
-		BaudotMode_SetZiffern(BaudotMode);
+		BaudotMode = BaudotMode_ZiffernGesendet;
 		}
 	}
 			
@@ -545,7 +541,7 @@ static bool WahlMitTastatur()
 	SeriellUmsetzInit();
 		
 	LokalCodeAusgabe(TtyCodeZiUm);
-	BaudotMode_SetZiffern(BaudotMode);
+	BaudotMode = BaudotMode_ZiffernGesendet;
 
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
@@ -766,7 +762,7 @@ static void Konfiguration()
 	bool Abbruch;
 	
 	SeriellUmsetzInit();
-	BaudotMode_SetEmpfangen(BaudotMode);
+
 	Aktivieren(false);
 	set_LEDROT();
 	

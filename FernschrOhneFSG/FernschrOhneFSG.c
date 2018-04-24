@@ -458,6 +458,7 @@ void LokalZeichenAusgabe(char c)
 	{
 	uint8_t code1, code2;
 	
+	// Umwandlung von GROSS in klein macht ZeichenZuCode
 	if (!ZeichenZuCode2(c, &BaudotMode, &code1, &code2))
 		return;
 	LokalCodeAusgabe(code1);

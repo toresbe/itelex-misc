@@ -15,6 +15,8 @@
 #include "Bits.h"
 #include "timercs.h"
 
+// #include "build_defs.h"   currently does not work as intended.
+
 #include "TxP2-Defs.h"
 #include "MsTimer.h"
 #include "BusKomm.h"
@@ -79,6 +81,8 @@ const PROGMEM char Identifier[] = "___itlx_ED1000___" __DATE__ "___" __TIME__ "_
 #endif 
 
 #endif //def PROGIDZUSATZ
+
+
 
 // Einstellungen für Timer 1: Sinus-Ausgabe und ADC-Start und Empfangsfilterung
 // ----------------------------------------------------------------------------
@@ -608,6 +612,7 @@ void LokalZeichenAusgabe(char c)
 	{
 	uint8_t code1, code2;
 	
+	// Umwandlung von GROSS in klein macht ZeichenZuCode
 	if (!ZeichenZuCode2(c, &BaudotMode, &code1, &code2))
 		return;
 	LokalCodeAusgabe(code1);

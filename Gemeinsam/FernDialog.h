@@ -19,9 +19,12 @@ extern bool FernDialogVerbinden(uint8_t SucheStartAdresse);
 // "unerwarteter" Code auf dem Bus empfangen wurde. Also alles
 // außer Mark und Space und Lebenszeichen
 
+// Achtung: Bei Benutzung von CodeEmpfangenFern und CodeAusgabeFern
+// kann die ASCII-Umwandlung für alle anderen Funktionen versagen.
+
 extern bool CodeEmpfangenFern(uint8_t *c);
 
-extern bool ZeichenEmpfangenFern(char *c, TBaudotMode *BaudotMode);
+extern bool ZeichenEmpfangenFern(char *c);
 
 extern bool BoolEmpfangenFern(bool *b);
 
@@ -31,7 +34,7 @@ extern bool ZahlEmpfangenFern(uint8_t *n);
 
 extern bool CodeAusgabeFern(uint8_t code);
 
-extern bool ZeichenAusgabeFern(char c, TBaudotMode *BaudotMode);
+extern bool ZeichenAusgabeFern(char c);
 
 extern bool TextAusgabeFern(PGM_P s);
 

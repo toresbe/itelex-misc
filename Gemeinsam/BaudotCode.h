@@ -16,6 +16,7 @@ enum { TtyCodeSPC = 0 } ; //!< Baudot-Code für NUL-Zeichen (Code 32).
 enum { TtyCodeZiPunkt = 7 } ; //!< Baudot-Code für einen Punkt.
 enum { TtyCodeZiDoppelpunkt = 14 } ; //!< Baudot-Code für einen Doppelpunkt.
 enum { TtyCodeZiSchraegstrich = 23 } ; //!< Baudot-Code für einen Schrägstrich / .
+enum { TtyCodeZiIstgleich = 15 } ; //!< Baudot-Code für einen Gleichheitszeichen = .
 enum { TtyCodeLeer = 4 } ; //!< Baudot-Code für Leerzeichen.
 enum { TtyCodeZiWerDa = 18 /* bei Ziffern! */ } ; //!< Baudot-Code für Kennungsgeber-Abfrage.
 
@@ -38,19 +39,25 @@ enum { CodeChrWerDa = CTRL('w') } ; //!< Hilfs-ASCII-Code für Kennungsgeber-Abfr
 
 typedef uint8_t TBaudotMode; //!< Speichert Buchstaben-Ziffern-Umschaltung und letzte Konvertierungs-Richtung
 
-enum { BaudotMode_Ziffern = 0x01 }; //!< Dieses Bit ist gesetzt, wenn Ziffern-Ebene aktiv ist.
-enum { BaudotMode_Senden = 0x02 }; //!< Dieses Bit ist gesetzt, wenn die letzte Umwandlung von ASCII nach Baudot war.
+enum { BaudotMode_ZiffernBitMaske = 0x01 }; //!< Dieses Bit ist gesetzt, wenn Ziffern-Ebene aktiv ist.
+enum { BaudotMode_SendenBitMaske = 0x02 }; //!< Dieses Bit ist gesetzt, wenn die letzte Umwandlung von ASCII nach Baudot war.
 									//!< Sofern dieses Bit gesetzt ist, findet keine erneute Sendung von BuUm oder ZiUm statt.
 
-#define BaudotMode_IstZiffern(m) (((m) & BaudotMode_Ziffern) != 0)
-#define BaudotMode_SetZiffern(m) ((m) |= BaudotMode_Ziffern)
-#define BaudotMode_IstBuchstaben(m) (((m) & BaudotMode_Ziffern) == 0)
-#define BaudotMode_SetBuchstaben(m) ((m) &= ~BaudotMode_Ziffern)
+enum { BaudotMode_ZiffernGesendet = BaudotMode_ZiffernBitMaske | BaudotMode_SendenBitMaske };
+enum { BaudotMode_BuchstabenGesendet = BaudotMode_SendenBitMaske };
+enum { BaudotMode_ZiffernEmpfangen = BaudotMode_ZiffernBitMaske };
+enum { BaudotMode_BuchstabenEmpfangen = 0 };
 
-#define BaudotMode_IstSenden(m) (((m) & BaudotMode_Senden) != 0)
-#define BaudotMode_SetSenden(m) ((m) |= BaudotMode_Senden)
-#define BaudotMode_IstEmpfangen(m) (((m) & BaudotMode_Senden) == 0)
-#define BaudotMode_SetEmpfangen(m) ((m) &= ~BaudotMode_Senden)
+
+#define BaudotMode_IstZiffern(m) (((m) & BaudotMode_ZiffernBitMaske) != 0)
+#define BaudotMode_SetZiffern(m) ((m) |= BaudotMode_ZiffernBitMaske)
+#define BaudotMode_IstBuchstaben(m) (((m) & BaudotMode_ZiffernBitMaske) == 0)
+#define BaudotMode_SetBuchstaben(m) ((m) &= ~BaudotMode_ZiffernBitMaske)
+
+#define BaudotMode_IstSenden(m) (((m) & BaudotMode_SendenBitMaske) != 0)
+#define BaudotMode_SetSenden(m) ((m) |= BaudotMode_SendenBitMaske)
+#define BaudotMode_IstEmpfangen(m) (((m) & BaudotMode_SendenBitMaske) == 0)
+#define BaudotMode_SetEmpfangen(m) ((m) &= ~BaudotMode_SendenBitMaske)
 
 
 									

@@ -590,9 +590,9 @@ bool GeSendeCode(uint8_t Code) // true, wenn Sendepuffer nicht voll
 	if (PufferSpeich(&SendePuffer, Code))
 		{ // erfolgreich
 		if (Code == TtyCodeBuUm)
-			BaudotMode_SetBuchstaben(BaudotMode);
+			BaudotMode = BaudotMode_BuchstabenGesendet;
 		else if (Code == TtyCodeZiUm)
-			BaudotMode_SetZiffern(BaudotMode);
+			BaudotMode = BaudotMode_ZiffernGesendet;
 		return true;
 		}
 	else

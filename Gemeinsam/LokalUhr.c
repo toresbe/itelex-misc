@@ -60,8 +60,8 @@ static void BaudotZahlAusgabeZweistellig(uint8_t *p, uint8_t i)
 	while (i >= 10)
 		z++, i -= 10;
 
-	p[0] = ZeichenZuCode(z + '0', BaudotMode_Ziffern);
-	p[1] = ZeichenZuCode(i + '0', BaudotMode_Ziffern);
+	p[0] = ZeichenZuCode(z + '0', BaudotMode_ZiffernBitMaske);
+	p[1] = ZeichenZuCode(i + '0', BaudotMode_ZiffernBitMaske);
 	}
 	
 	
@@ -74,7 +74,7 @@ uint8_t LokalUhrBaudotAusgabe(uint8_t *buf)
 	if (Tag == 0) 
 		return 0;
 	buf[0] = TtyCodeZiUm;
-	buf[1] = ZeichenZuCode(Wochentag + '0', BaudotMode_Ziffern);
+	buf[1] = ZeichenZuCode(Wochentag + '0', BaudotMode_ZiffernBitMaske);
 	buf[2] = TtyCodeZiSchraegstrich;
 	BaudotZahlAusgabeZweistellig(buf + 3, Tag); 
 	buf[5] = TtyCodeZiPunkt;
