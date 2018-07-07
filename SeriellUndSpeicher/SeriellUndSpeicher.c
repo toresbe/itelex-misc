@@ -420,10 +420,13 @@ static void SeriellIO()
 //! \returns Das nächste Zeichen des Empfangspuffers.
 static char SerEmpfZ(bool Loesch)
 	{
-	char Res = PufferAusg(&SerInBuf);
-	if (!Loesch)
-		PufferSpeich(&SerInBuf, Res);
-	else if (PufferAnzahl(&SerInBuf) < MaxPuffer / 2)
+	char Res;
+	if (Loesch)
+		Res = PufferAusg(&SerInBuf);
+	else
+		Res = PufferZeig(&SerInBuf);
+	
+	if (PufferAnzahl(&SerInBuf) < MaxPuffer / 2)
 		{
 		clr_SER_RTS();
 		//LED_AUS(ROT); // Test HACK
@@ -452,18 +455,16 @@ char LokalZeichenLesen()
 			return '\t';
 			}
 		}
-	if (SerEmpfZ(false) == CTRL('s'))
-		{
-		SerEmpfZ(true); // Zeichen löschen
+		
+	char c;
+	c = SerEmpfZ(true);
+	if (c == CTRL('s'))
 		return '\0';
-		}
 	else
 		{
-		char c;
-		c = SerEmpfZ(true);
 		if (c >= 'A' && c <= 'Z')
 			c += 'a'-'A'; // zum Kleinbuchstaben umwandeln
-		return SerEmpfZ(true);
+		return c;
 		}
 	}
 	
