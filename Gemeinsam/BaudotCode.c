@@ -115,14 +115,6 @@ bool ZeichenZuCode2(char c, TBaudotMode *Mode, uint8_t* Code1, uint8_t* Code2)
 	{
 	*Code2 = 255; // kommt öfter vor
 
-	// Umwandlung von GROSS in klein macht ZeichenZuCode
-	if (BaudotMode_IstSenden(*Mode) && c != CodeChrWerDa)
-		{ // zuletzt wurde gesendet, dann kann die gesendete Zeichenebene ggf. weiterverwendet werden.
-		*Code1 = ZeichenZuCode(c, *Mode);
-		if (*Code1 != 255)
-			return true; // fertig
-		}
-
 	if (c == CodeChrZiUm)
 		{
 		*Code1 = TtyCodeZiUm;
@@ -137,6 +129,14 @@ bool ZeichenZuCode2(char c, TBaudotMode *Mode, uint8_t* Code1, uint8_t* Code2)
 		return true;
 		}		
 		
+	// Umwandlung von GROSS in klein macht ZeichenZuCode
+	if (BaudotMode_IstSenden(*Mode) && c != CodeChrWerDa)
+		{ // zuletzt wurde gesendet, dann kann die gesendete Zeichenebene ggf. weiterverwendet werden.
+		*Code1 = ZeichenZuCode(c, *Mode);
+		if (*Code1 != 255)
+			return true; // fertig
+		}
+
 	// dieser Punkt wird nur erreicht, wenn auf jeden Fall eine Bu- oder Zi-Umschaltung stattfinden soll.
 	// entweder weil ein Wechsel der Zeichenebene stattfand oder weil zuletzt empfangen wurde.
 
