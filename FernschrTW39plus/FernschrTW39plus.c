@@ -38,7 +38,6 @@
 	//!< Für Platine TW39doppel: Sendung und Empfang wird auf der zweiten 
 	//!< Schnittstelle mitprotokolliert. Dann darf der Kontroller der 
 	//!< zweiten Schnittstelle nicht bestückt sein.
-	// 
 
 //#define FALSCHKDO_FEHLERSTOP
 	//!< Unpassende Kommandos auf dem I²C-Bus werden mit Fehlerstop quittiert.
@@ -72,16 +71,23 @@ PROGMEM const char Identifier[] = "___itlx_TW39plus-" PROGIDZUSATZ "___" __DATE_
 PROGMEM const char Identifier[] = "___itlx_TW39plus___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif
 
+// Konstanten
+// ----------
+
+enum { LokalbetriebWahl_Std = 88 };
+enum { KommendSperreWahl_Std = 0 };
+
 // Eeprom-Speicher
 // ---------------
 
 EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
 EEMEM uint8_t MitWaehlscheibe_EE = 1; //!< Hat das Gerät eine Wählscheibe
 EEMEM uint8_t WahlauffordImpulsLaenge_EE = 30; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
-EEMEM uint8_t KommendSperreWahl_EE = 0; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
-EEMEM TSperrzeitDaten Sperrzeit_EE = { 10*60, 11*60, 22*60, 6*60 } ;
+EEMEM uint8_t KommendSperreWahl_EE = KommendSperreWahl_Std; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
+EEMEM TSperrzeitDaten Sperrzeit_EE = { 0, 0, 0, 0 } ;
 EEMEM uint8_t TasteFunktion_EE = 0 ; //!< Was macht die Taste
 EEMEM uint8_t UmleitungAbweisen_EE = 0 ; //!< Bei true wird in Grundstellung Status 90 gemeldet.
+EEMEM uint8_t LokalbetriebWahl_EE = LokalbetriebWahl_Std;
 
 
 // Typen
@@ -94,6 +100,10 @@ typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrun
 
 bool MitWaehlscheibe; //!< Gerät het eine Wählscheibe
 uint8_t WahlauffordImpulsLaenge; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
+
+uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
+
+uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
 
 typedef enum { Deaktivierung, DemoBetriebStarten } TTasteFunktion;
 
@@ -196,9 +206,6 @@ static void TW39IO()
 	} // TW39IO
 	
 	
-uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
-
-
 //////////////////////////////////////////////////////////////////
 
 //! Einschaltung des Fs auslösen.
@@ -439,6 +446,40 @@ static void VerbindungKommend()
 	}
 	
 
+	
+/////////////////////////////////////////////////////////////
+
+//! Wird aufgerufen, wenn durch Wahl der entsprechenden Nummer oder
+//! durch Buchstabe "L" bei Tastaturwahl ein Lokalbetrieb laufen soll.
+
+static void LokalbetriebSimulieren()
+	{
+	set_LEDROT();
+	
+	BefehlMark = true;
+	
+	if (!BefehlEinschalten) // offensichtlich Wählscheiben-Wahl
+		{
+		TW39Einschalten();
+
+		TMsTimer AnlaufTimer;
+		StartTimer(&AnlaufTimer);
+		while (TimerVal(&AnlaufTimer) < 500) 
+			TW39IO();
+		}
+	
+	LokalTextAusgabeP(PSTR("\r\nloc\r\n"));
+
+	while(MeldungEingeschaltet)
+		{
+		TW39IO();
+		}
+
+	TW39Ausschalten();
+	
+	clr_LEDROT();
+	}
+
 /////////////////////////////////////////////////////////////
 
 //! Wird aufgerufen, wenn bei gehender Verbindung zu lange nicht gewählt wird.
@@ -536,7 +577,6 @@ static bool WahlMitTastatur()
 	char c;
 	TMsTimer WahlendeTimer;
 	bool EsWurdeGewaehlt;
-	bool Lokalbetrieb;
 	int Falschziffern;
 	
 	if (!TW39Einschalten())
@@ -549,7 +589,6 @@ static bool WahlMitTastatur()
 
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
-	Lokalbetrieb = false;
 	Falschziffern = 0;
 
 	while (true)
@@ -558,48 +597,44 @@ static bool WahlMitTastatur()
 		
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 
-		if (!Lokalbetrieb)
+		if (SerUmEmpfBitNr == SerUmEmpfFertig)
 			{
-			if (SerUmEmpfBitNr == SerUmEmpfFertig)
+			c = CodeZuZeichen(SerUmEmpfDaten, &BaudotMode);
+			SerUmEmpfBitNr = SerUmEmpfWarte;
+			if (c >= '0' && c <= '9')
 				{
-				c = CodeZuZeichen(SerUmEmpfDaten, &BaudotMode);
-				SerUmEmpfBitNr = SerUmEmpfWarte;
-				if (c >= '0' && c <= '9')
-					{
-					GeWaehlen(c - '0');
-					EsWurdeGewaehlt = true;
-					}
-				else if (c == 'l' && !EsWurdeGewaehlt)
-					{
-					Lokalbetrieb = true;
-					LokalZeichenAusgabe('o');
-					LokalZeichenAusgabe('c');
-					}
-				else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
-					{
-					Falschziffern++;
-					}
-
-				StartTimer(&WahlendeTimer);
+				GeWaehlen(c - '0');
+				EsWurdeGewaehlt = true;
 				}
-
-			while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 200)
-				{
-				LokalZeichenAusgabe('?');
-				Falschziffern--;
-				}
-
-			if (KoEinschalten())
-				{
-				return true;
-				}
-
-			if (TimerVal(&WahlendeTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 15 / 45 Sekunden nicht gewählt
-				{ // auf das Ausschalten durch die Schlusstaste warten
-				AbschaltungZuLangeWahlpause(EsWurdeGewaehlt);
+			else if (c == 'l' && !EsWurdeGewaehlt)
+				{ 
+				LokalbetriebSimulieren();
 				return false;
 				}
-			} // if (!Lokalbetrieb)
+			else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
+				{
+				Falschziffern++;
+				}
+
+			StartTimer(&WahlendeTimer);
+			}
+
+		while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 200)
+			{
+			LokalZeichenAusgabe('?');
+			Falschziffern--;
+			}
+
+		if (KoEinschalten())
+			{
+			return true;
+			}
+
+		if (TimerVal(&WahlendeTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 15 / 45 Sekunden nicht gewählt
+			{ // auf das Ausschalten durch die Schlusstaste warten
+			AbschaltungZuLangeWahlpause(EsWurdeGewaehlt);
+			return false;
+			}
 
 		if (!MeldungEingeschaltet || KoAusschalten())
 			{
@@ -651,14 +686,25 @@ static void VerbindungGehend()
 					// Einschalten ist nicht erforderlich, da schon eingeschaltet ist...
 					break; // ist jetzt verbunden
 				}
+				
 			GeAusschalten(true);
-			TW39Ausschalten();
 			
 			if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
 				{
 				clr_LEDGELB();
+				TW39Ausschalten();
 				KommendSperren(SperreWahl);
 				}
+				
+			else if ((LokalbetriebWahl != 0 && LetzteInterneWahl() == LokalbetriebWahl)
+				|| LetzteInterneWahl() == (BusEigenAdresse >> 1))
+				{
+				LokalbetriebSimulieren();
+					// macht auch am Ende TW39Ausschalten()
+				}
+				
+			else
+				TW39Ausschalten();
 				
 			return;
 
@@ -822,6 +868,7 @@ static void DemoBetrieb()
 static void Konfiguration()
 	{
 	bool Abbruch;
+	bool NoExpertSettings;
 	
 	SeriellUmsetzInit();
 	Aktivieren(false);
@@ -838,19 +885,14 @@ static void Konfiguration()
 	LokalTextAusgabeP(PSTR("\r\n konfiguration tw39plus version " SVNVERSION " datum " __DATE__));
 #endif //def SPRACHE_EN
 
-	// Durchwahl...
+	// Durchwahl und co.
+	// -----------------
 	Abbruch = !KonfigurationAllgemein();
-
-	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
-		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
-
-	if (UmleitungAbweisen != eeprom_read_byte(&UmleitungAbweisen_EE))
-		eeprom_write_byte(&UmleitungAbweisen_EE, UmleitungAbweisen);
-
 	if (Abbruch) 
 		return;
 	
 	// Wählscheibe vorhanden?
+	// ----------------------
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n has rotary dial? current: ")); 
 #else	
@@ -862,9 +904,6 @@ static void Konfiguration()
 
 	if (LokalBoolEingabe(&MitWaehlscheibe) == 0)
 		return;
-
-	if (MitWaehlscheibe != (eeprom_read_byte(&MitWaehlscheibe_EE) != 0))
-		eeprom_write_byte(&MitWaehlscheibe_EE, MitWaehlscheibe ? 1 : 0);
 
 	LokalTextAusgabeP(OkStrP);
 
@@ -881,13 +920,34 @@ static void Konfiguration()
 		if (WahlauffordImpulsLaenge < 1)
 			WahlauffordImpulsLaenge = 1;
 
-		if (WahlauffordImpulsLaenge != eeprom_read_byte(&WahlauffordImpulsLaenge_EE))
-			eeprom_write_byte(&WahlauffordImpulsLaenge_EE, WahlauffordImpulsLaenge);
-
 		LokalTextAusgabeP(OkStrP);
 		}
+		
+	// Experten-Optionen...
+	// --------------------
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n no special configuration:    ")); 
+#else	
+	LokalTextAusgabeP(PSTR("\r\n keine sonderfunktionen abfragen:    ")); 
+#endif //def SPRACHE_EN
+
+	if (LokalBoolEingabe(&NoExpertSettings) == 0)
+		return;
+
+	LokalTextAusgabeP(OkStrP);
+	
+	if (NoExpertSettings)
+		{
+		KommendSperreWahl = KommendSperreWahl_Std;
+		LokalbetriebWahl = LokalbetriebWahl_Std;
+		SperrzeitInit();
+		TasteFunktion = 0;
+		return;
+		}
+	
 
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
+	// -----------------------------------------------------------
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n block incoming calls by: (cur. "));
 #else
@@ -912,17 +972,45 @@ static void Konfiguration()
 	if (LokalZahlEingabe(&KommendSperreWahl, 2) < 0)
 		return;
 
-	if (KommendSperreWahl != eeprom_read_byte(&KommendSperreWahl_EE))
-		eeprom_write_byte(&KommendSperreWahl_EE, KommendSperreWahl);
+	LokalTextAusgabeP(OkStrP);
+	
+	// Lokalbetrieb durch Wahl von...
+	// ------------------------------
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n local operation by number: (cur. "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n lokalbetrieb waehlen mit: (akt. "));
+#endif //def SPRACHE_EN
+
+	if (LokalbetriebWahl != 0)
+		LokalZahlAusgabe(LokalbetriebWahl, 2);
+	else
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("off"));
+#else
+		LokalTextAusgabeP(PSTR("aus"));
+#endif //def SPRACHE_EN
+
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(") new (0 = off):     "));
+#else
+	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
+#endif //def SPRACHE_EN
+
+	if (LokalZahlEingabe(&LokalbetriebWahl, 2) < 0)
+		return;
 
 	LokalTextAusgabeP(OkStrP);
 	
+	// Sperrzeiten
+	// -----------
 	if (!SperrzeitEingabeDialog())
 		return;
 	
 	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
 	
 	// Modus für Tastendruck
+	// ---------------------
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n module button function (cur. "));
 #else
@@ -940,12 +1028,10 @@ static void Konfiguration()
 	if (LokalZahlEingabe(&TasteFunktion, 0) < 0)
 		return;
 
-	if (TasteFunktion != eeprom_read_byte(&TasteFunktion_EE))
-		eeprom_write_byte(&TasteFunktion_EE, TasteFunktion);
-
 	LokalTextAusgabeP(OkStrP);
 	
 	// weitere Eingaben
+	// ----------------
 
 	LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
 	}
@@ -960,6 +1046,28 @@ static void Konfiguration()
 static void KonfigurationEnde()
 	{
 	TW39Ausschalten();
+	
+	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
+		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
+
+	if (UmleitungAbweisen != eeprom_read_byte(&UmleitungAbweisen_EE))
+		eeprom_write_byte(&UmleitungAbweisen_EE, UmleitungAbweisen);
+
+	if (MitWaehlscheibe != (eeprom_read_byte(&MitWaehlscheibe_EE) != 0))
+		eeprom_write_byte(&MitWaehlscheibe_EE, MitWaehlscheibe ? 1 : 0);
+
+	if (WahlauffordImpulsLaenge != eeprom_read_byte(&WahlauffordImpulsLaenge_EE))
+		eeprom_write_byte(&WahlauffordImpulsLaenge_EE, WahlauffordImpulsLaenge);
+
+	if (KommendSperreWahl != eeprom_read_byte(&KommendSperreWahl_EE))
+		eeprom_write_byte(&KommendSperreWahl_EE, KommendSperreWahl);
+
+	if (LokalbetriebWahl != eeprom_read_byte(&LokalbetriebWahl_EE))
+		eeprom_write_byte(&LokalbetriebWahl_EE, LokalbetriebWahl);
+
+	if (TasteFunktion != eeprom_read_byte(&TasteFunktion_EE))
+		eeprom_write_byte(&TasteFunktion_EE, TasteFunktion);
+
 	Aktivieren(true);
 	clr_LEDROT();
 	}
@@ -1105,7 +1213,11 @@ int main()
 	
 	KommendSperreWahl = eeprom_read_byte(&KommendSperreWahl_EE);
 	if (KommendSperreWahl > 99)
-		KommendSperreWahl = 0;
+		KommendSperreWahl = KommendSperreWahl_Std;
+
+	LokalbetriebWahl = eeprom_read_byte(&LokalbetriebWahl_EE);
+	if (LokalbetriebWahl > 99)
+		LokalbetriebWahl = LokalbetriebWahl_Std;
 
 	SperrzeitLadeEeprom(&Sperrzeit_EE);
 
