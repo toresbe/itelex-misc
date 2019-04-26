@@ -942,6 +942,7 @@ static void Konfiguration()
 		LokalbetriebWahl = LokalbetriebWahl_Std;
 		SperrzeitInit();
 		TasteFunktion = 0;
+		LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
 		return;
 		}
 	
