@@ -13,27 +13,29 @@
 // defines für codepages: 
 //   TTYCODE_MULTI für umschaltbare Tabellen (noch nicht vollständig implementiert)
 //   TTYCODE_US für US_TTY
-//   TTYCODE_KY7 für Kyrillisch, ...
-//   TTYCODE_KY8 für Kyrillisch, ...
-//   TTYCODE_GREEK für Griechich
-//   TTYCODE_NORDIC für Norwegen / Schweden
+//   TTYCODE_RUSSIAN_KOI7N2 für Kyrillisch mit 7 Bit (ohne lateinische Kleinbuchstaben!)
+//   TTYCODE_RUSSIAN_KOI8R für Kyrillisch mit 8 Bit
+//   TTYCODE_
+//   TTYCODE_GREEK_CP737 für Griechich
+//   TTYCODE_NORDIC für Norwegen / Schweden (noch nicht implementiert)
 
 
 
+// ===================================
 // Code-Tabellen für Buchstaben-Ebene:
 // ===================================
 
 // für Großbuchstaben (ITA2):
 // ----==============--------
 
-#if defined(TTYCODE_MULTI) || defined(TTYCODE_KY7)
+#if defined(TTYCODE_MULTI) || defined(TTYCODE_RUSSIAN_KOI7N2)
 //                          			     0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   
 PROGMEM char TtyCodeTab_Gross_Bu[]		= { '#', 'T','\r', 'O', ' ', 'H', 'N', 'M','\n', 'L', 'R', 'G', 'I', 'P', 'C', 'V', 
 			
 //                          			    16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
 											'E', 'Z', 'D', 'B', 'S', 'Y', 'F', 'X', 'A', 'W', 'J', '#', 'U', 'Q', 'K', '#'};
 
-#define KLEIN_ZU_GROSS
+#define KEIN_GROSS_ZU_KLEIN
 
 #ifndef TTYCODE_MULTI
 #define TtyCodeTabBu TtyCodeTab_Gross_Bu
@@ -60,6 +62,7 @@ PROGMEM char TtyCodeTab_STD_Bu[] 		= { '#', 't','\r', 'o', ' ', 'h', 'n', 'm','\
 	
 
 	
+// ================================
 // Code-Tabellen für Ziffern-Ebene:
 // ================================
 
@@ -83,7 +86,7 @@ PROGMEM char TtyCodeTab_US_Zi[]         = { '#', '5','\r', '9', ' ', '#', ',', '
 // ----========
 #if defined(TTYCODE_MULTI) || defined(TTYCODE_RUSSIAN_KOI8R)
 //                          			     0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   
-PROGMEM char TtyCodeTab_RU8_Zi[] 		= { '#', '5','\r', '9', ' ', 253, ',', '.','\n', ')', 254, 251, '8', '0', ':', '=',    TODO wo ist die 4 ?
+PROGMEM char TtyCodeTab_RU8_Zi[] 		= { '#', '5','\r', '9', ' ', 253, ',', '.','\n', ')', '4', 251, '8', '0', ':', '=',   
 			
 //                          			    16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
 											'3', '+', WD, '?', '\'', '6', 252, '/', '-', '2', 224, '#', '7', '1', '(', '#'};
@@ -98,7 +101,7 @@ PROGMEM char TtyCodeTab_RU8_Zi[] 		= { '#', '5','\r', '9', ' ', 253, ',', '.','\
 // ----========
 #if defined(TTYCODE_MULTI) || defined(TTYCODE_RUSSIAN_KOI7N2)
 //                          			     0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   
-PROGMEM char TtyCodeTab_RU7_Zi[]		= { '#', '5','\r', '9', ' ', 125, ',', '.','\n', ')', 126, 123, '8', '0', ':', '=', 		TODO wo ist die 4 ?
+PROGMEM char TtyCodeTab_RU7_Zi[]		= { '#', '5','\r', '9', ' ', 125, ',', '.','\n', ')', '4', 123, '8', '0', ':', '=', 	
 			
 //                          			    16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
 											'3', '+', WD, '?', '\'', '6', 124, '/', '-', '2', 96, '#', '7', '1', '(', '#'};
@@ -141,6 +144,7 @@ PROGMEM char TtyCodeTab_STD_Zi[]		= { '#', '5','\r', '9', ' ', '#', ',', '.','\n
 #endif                             
 
 
+// =====================================================
 // Code-Tabellen für Dritte Ebene (russisch, griechisch)
 // =====================================================
 
@@ -279,10 +283,7 @@ uint8_t ZeichenZuCode(char c, TBaudotMode Mode)
 	else 
 		tp = TtyCodeTabBu;
 
-#ifdef KLEIN_ZU_GROSS	
-	if (c >= 'a' && c <= 'a')
-		c += 'A' - 'a';
-#else
+#ifndef KEIN_GROSS_ZU_KLEIN
 	if (c >= 'A' && c <= 'Z')
 		c += 'a' - 'A';
 #endif
