@@ -10,6 +10,8 @@ call MakeBin1.bat itlx_OhneFSG-US45 FernschrOhneFSG\USTTY-45\FernschrOhneFSG.hex
 call MakeBin1.bat itlx_TW39-PL10 FernschrTW39\AltePlatine\FernschrTW39.hex Mega8_Quarz
 call MakeBin1.bat itlx_TW39 FernschrTW39\default\FernschrTW39.hex Mega8_Quarz
 call MakeBin1.bat itlx_TW39-US45 FernschrTW39\USTTY-45\FernschrTW39.hex Mega8_Quarz
+call MakeBin1.bat itlx_FsV21-aufLA21 FernschrV21_aufLA2\default\FernschrV21.hex Mega168_ExtTakt
+call MakeBin1.bat itlx_FsV21-aufLA21-US45 FernschrV21_aufLA2\USTTY-45\FernschrV21.hex Mega168_ExtTakt
 call MakeBin1.bat itlx_TW39plus-PL10 FernschrTW39Plus\AltePlatine\FernschrTW39plus.hex Mega168_Quarz
 call MakeBin1.bat itlx_TW39plus FernschrTW39Plus\default\FernschrTW39plus.hex Mega168_Quarz
 call MakeBin1.bat itlx_TW39plus-DOPAUS FernschrTW39Plus\DoppelAusgabe\FernschrTW39plus.hex Mega168_Quarz

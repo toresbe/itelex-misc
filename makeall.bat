@@ -18,6 +18,10 @@ cd FernschrTW39plus
 call makeall.bat
 cd ..
 
+cd FernschrV21_aufLA2
+call makeall.bat
+cd ..
+
 cd Messgeraet
 call makeall.bat
 cd ..

@@ -455,6 +455,7 @@ static void VerbindungKommend()
 static void LokalbetriebSimulieren()
 	{
 	set_LEDROT();
+	Aktivieren(false);
 	
 	BefehlMark = true;
 	
@@ -476,7 +477,8 @@ static void LokalbetriebSimulieren()
 		}
 
 	TW39Ausschalten();
-	
+
+	Aktivieren(true);
 	clr_LEDROT();
 	}
 
