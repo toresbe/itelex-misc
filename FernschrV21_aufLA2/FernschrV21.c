@@ -438,6 +438,7 @@ static void VerbindungKommend()
 static void LokalbetriebSimulieren()
 	{
 	set_LEDROT();
+	Aktivieren(false);
 	
 	BefehlMark = true;
 	
@@ -458,8 +459,9 @@ static void LokalbetriebSimulieren()
 		V21IO();
 		}
 
-	V21Ausschalten();
+	TW39Ausschalten();
 	
+	Aktivieren(true);
 	clr_LEDROT();
 	}
 

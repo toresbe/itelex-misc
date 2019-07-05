@@ -477,7 +477,7 @@ char LokalZeichenLesen()
 
 void LokalZeichenAusgabe(char c)
 	{
-	if (GetCTS() || !SeriellHwHandshake)
+	if (GetCTS() && !SeriellHwHandshake)
 		{ // wenn Rechner empfangsbereit, dann ggf. auf ausreichend Platz im Puffer warten.
 		while (PufferVoll(&SerOutBuf))
 			{
@@ -1264,6 +1264,9 @@ static void Konfiguration()
 
 	Aktivieren(false);
 
+	bool TempHwHandshake = SeriellHwHandshake;
+	SeriellHwHandshake = false; // damit das Menü immer aufgerufen werden kann.
+	
 #ifdef TWI_DEBUG
 	uint8_t* AusgP;
 
@@ -1337,18 +1340,18 @@ static void Konfiguration()
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n use hardware handshake on output? current: "));
 #else
-	LokalTextAusgabeP(PSTR("\r\n hardware handshake auf serieller schnittstelle verwenden? aktuell: "));
+	LokalTextAusgabeP(PSTR("\r\n hardware handshake auf ser. sst. verwenden? aktuell: "));
 #endif
 
-	LokalBoolAusgabe(SeriellHwHandshake);
+	LokalBoolAusgabe(TempHwHandshake);
 	LokalTextAusgabeP(NeuStrP);
 
-	if (LokalBoolEingabe(&SeriellHwHandshake) == 0)
+	if (LokalBoolEingabe(&TempHwHandshake) == 0)
 		return;
 	LokalTextAusgabeP(OkStrP);
 
-	if (SeriellHwHandshake != (eeprom_read_byte(&SeriellHwHandshake_EE) == 1))
-		eeprom_write_byte(&SeriellHwHandshake_EE, SeriellHwHandshake ? 1 : 0);
+	if (TempHwHandshake != (eeprom_read_byte(&SeriellHwHandshake_EE) == 1))
+		eeprom_write_byte(&SeriellHwHandshake_EE, TempHwHandshake ? 1 : 0);
 	
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n print main menu frequently? current: "));
@@ -1371,6 +1374,8 @@ static void Konfiguration()
 #else
 	LokalTextAusgabeP(PSTR("\r\n fertig+++   \r\n"));
 #endif	
+
+	SeriellHwHandshake = TempHwHandshake;
 
 	} // Konfiguration()
 
@@ -1633,9 +1638,9 @@ int main()
 			LokalTextAusgabeP(PSTR(", Ctrl-L: Lokalbetrieb"));
 #endif				
 #ifdef SPRACHE_EN				
-			LokalTextAusgabeP(PSTR(", Ctrl-K: config"));
+			LokalTextAusgabeP(PSTR("\r\nCtrl-K: config"));
 #else
-			LokalTextAusgabeP(PSTR(", Ctrl-K: Konfiguration"));
+			LokalTextAusgabeP(PSTR("\r\nCtrl-K: Konfiguration"));
 #endif				
 #ifdef BUSDEBUG_DIALOG
 			LokalTextAusgabeP(PSTR(", Ctrl-D: Debug"));
@@ -1648,9 +1653,9 @@ int main()
 #endif				
 #endif //ndef OHNE_SPEICHER
 #ifdef SPRACHE_EN				
-			LokalTextAusgabeP(PSTR(", Ctrl-T: list modules"));
+			LokalTextAusgabeP(PSTR("\r\nCtrl-T: list modules"));
 #else
-			LokalTextAusgabeP(PSTR(", Ctrl-T: Statusliste"));
+			LokalTextAusgabeP(PSTR("\r\nCtrl-T: Statusliste"));
 #endif				
 			LokalTextAusgabeP(PSTR(" --> "));
 			HauptmenueAusgeben = false;

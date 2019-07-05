@@ -679,6 +679,7 @@ static void VerbindungKommend()
 static void LokalbetriebSimulieren()
 	{
 	set_LEDROT();
+	Aktivieren(false);
 	
 	BefehlMark = true;
 	
@@ -701,6 +702,7 @@ static void LokalbetriebSimulieren()
 
 	ED1000Ausschalten();
 	
+	Aktivieren(true);
 	clr_LEDROT();
 	}
 
