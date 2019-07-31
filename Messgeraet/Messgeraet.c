@@ -120,6 +120,8 @@ const PROGMEM char Identifier[] = "___itlx_Messgeraet___" __DATE__ "___" __TIME_
 #define KENNUNG_MAXLEN 20 //!< maximale Länge der Kennungsgeber-Texte.
 #define KENNWORT_MAXLEN 20 //!< maximale Länge des Kennwortes für die Fernabfrage.
 
+#define STANDARD_NUMMER 80 //!< muss Vielfaches von 4 sein
+
 typedef char TKennung[KENNUNG_MAXLEN];
 
 
@@ -140,7 +142,7 @@ typedef char TKennung[KENNUNG_MAXLEN];
 // interner Eeprom-Speicher
 // ------------------------
 
-uint8_t BusEigenAdresse_EE EEMEM = 80 * 2; 
+uint8_t BusEigenAdresse_EE EEMEM = STANDARD_NUMMER << 1; 
 	//!< Eigene TWI-Adresse, nur Basisteil! (4 Sub-Adressen)
 
 TKennung Kennung_EE[BUS_MEHRFACH_ADR] EEMEM = 
@@ -148,6 +150,12 @@ TKennung Kennung_EE[BUS_MEHRFACH_ADR] EEMEM =
 
 char Kennwort_EE[KENNWORT_MAXLEN] EEMEM = "kennwort"; //!< Kennwort für Spezialfunktionen.
 
+uint8_t BusEigenAdressePruef_EE EEMEM = ~STANDARD_NUMMER; 
+	//!< Prüfwert Eigene TWI-Adresse: Muss gleich Komplement von (BusEigenAdresse_EE >> 1) sein
+
+
+// normales RAM
+// ------------
 // Kennung und Kennwort
 
 TKennung Kennung[BUS_MEHRFACH_ADR]; //!< Eigene Kennungen, da kein echter Fernschreiber angeschlossen.
@@ -1107,14 +1115,14 @@ int main()
 	init_TASTE();
 
 	init_LED_ROT(); 
-	clr_LED_ROT();
+	set_LED_ROT();
 	init_LED_GELB();
 	clr_LED_GELB();
 	init_LED_GRUEN();
 	clr_LED_GRUEN();
 	init_LED_BLAU();
 	clr_LED_BLAU();
-
+	
 	// Timer initialisieren
 	MsTimerInit();
 
@@ -1126,9 +1134,13 @@ int main()
 	StartTimer(&Timer);
 
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
-	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax || (BusEigenAdresse & 0x06) != 0)
-																//    ^^^^ muss durch 4 Teilbar sein, letztes Bit sowieso 0
-		BusEigenAdresse = 80 << 1; // Standardwert
+	
+	if (BusEigenAdresse < BusAdrMin 
+		|| BusEigenAdresse > BusAdrMax 
+		|| (BusEigenAdresse & 0x07) != 0 //    ^^^^ muss durch 4 Teilbar sein, letztes Bit sowieso 0
+		|| eeprom_read_byte(&BusEigenAdresse_EE) != ~(BusEigenAdresse >> 1))
+											
+		BusEigenAdresse = STANDARD_NUMMER << 1; // Standardwert
 
 	BusEigenAdrMehrfach = BUS_MEHRFACH_ADR;
 
