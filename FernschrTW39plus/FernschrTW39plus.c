@@ -887,9 +887,22 @@ static void Konfiguration()
 	LokalTextAusgabeP(PSTR("\r\n konfiguration tw39plus version " SVNVERSION " datum " __DATE__));
 #endif //def SPRACHE_EN
 
+	// Vorab die Frage nach "Expertenfunktionen"
+	// -----------------------------------------
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n simple configuration:    ")); 
+#else	
+	LokalTextAusgabeP(PSTR("\r\n einfache konfiguration:    ")); 
+#endif //def SPRACHE_EN
+
+	if (LokalBoolEingabe(&NoExpertSettings) == 0)
+		return;
+
+	LokalTextAusgabeP(OkStrP);
+
 	// Durchwahl und co.
 	// -----------------
-	Abbruch = !KonfigurationAllgemein();
+	Abbruch = !KonfigurationAllgemein(); 
 	if (Abbruch) 
 		return;
 	
@@ -912,7 +925,11 @@ static void Konfiguration()
 	if (MitWaehlscheibe)
 		{
 		// Länge Wahlaufforderungsimpuls?
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("\r\n duration call proceed pulse (current: "));
+#else		
 		LokalTextAusgabeP(PSTR("\r\n laenge wahlauff-imp. (akt. "));
+#endif //def SPRACHE_EN
 		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
 		LokalTextAusgabeP(PSTR("/100 sek)?      "));
 
@@ -924,20 +941,9 @@ static void Konfiguration()
 
 		LokalTextAusgabeP(OkStrP);
 		}
-		
-	// Experten-Optionen...
-	// --------------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n no special configuration:    ")); 
-#else	
-	LokalTextAusgabeP(PSTR("\r\n keine sonderfunktionen abfragen:    ")); 
-#endif //def SPRACHE_EN
 
-	if (LokalBoolEingabe(&NoExpertSettings) == 0)
-		return;
-
-	LokalTextAusgabeP(OkStrP);
-	
+	// jetzt bei einfacher Konfiguration abbrechen
+	// -------------------------------------------
 	if (NoExpertSettings)
 		{
 		KommendSperreWahl = KommendSperreWahl_Std;
@@ -947,7 +953,6 @@ static void Konfiguration()
 		LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
 		return;
 		}
-	
 
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
 	// -----------------------------------------------------------
