@@ -732,7 +732,7 @@ static void VerbindungGehend()
 
 	SperrzeitAussetzen();
 	
-	}
+	} // VerbindungGehend()
 
 
 /////////////////////////////////////////////////////////////
@@ -1015,8 +1015,6 @@ static void Konfiguration()
 	if (!SperrzeitEingabeDialog())
 		return;
 	
-	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
-	
 	// Modus für Tastendruck
 	// ---------------------
 #ifdef SPRACHE_EN
@@ -1075,6 +1073,8 @@ static void KonfigurationEnde()
 
 	if (TasteFunktion != eeprom_read_byte(&TasteFunktion_EE))
 		eeprom_write_byte(&TasteFunktion_EE, TasteFunktion);
+
+	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
 
 	Aktivieren(true);
 	clr_LEDROT();

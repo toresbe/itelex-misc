@@ -84,7 +84,5 @@ extern void Aktivieren(bool Aktiv);
 
 extern uint8_t LetzteInterneWahl();
 
-extern bool BetriebsartAusgeschaltet();
-
 
 #endif //ndef __ENDGERAET_H__

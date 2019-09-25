@@ -191,13 +191,6 @@ TUmsetzModus EmpfUmsetzModus;
 bool UmleitungAbweisen;
 
 
-//! Ist das Endgerät gerade ausgeschaltet?
-bool BetriebsartAusgeschaltet()
-	{
-	return FsBetriebsart == Ausgeschaltet;
-	}
-
-
 //! Umschaltung der Betriebsart.
 //------------------------------
 //! Wirkt letztendlich auf die globale Variable FsBetriebsart, macht aber auch

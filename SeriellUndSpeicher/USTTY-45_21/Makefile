@@ -40,7 +40,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 INCLUDES = -I"D:\Daten\AvrProgs\TxP2\SeriellUndSpeicher\..\Gemeinsam" -I"D:\Daten\AvrProgs\TxP2\SeriellUndSpeicher\..\..\C-Libs" 
 
 ## Objects that must be built in order to link
-OBJECTS = SeriellUndSpeicher.o Taste.o TxP2-Endgeraet.o BaudotCode.o BusKomm.o FifoPuffer.o KonfigDialog.o LokalAusgabe.o SeriellUmsetz.o EepromTools.o SwTwi.o MsTimer.o BusKomm2.o LokalUhr.o 
+OBJECTS = SeriellUndSpeicher.o Taste.o TxP2-Endgeraet.o BaudotCode.o BusKomm.o FifoPuffer.o KonfigDialog.o LokalAusgabe.o SeriellUmsetz.o EepromTools.o SwTwi.o MsTimer.o BusKomm2.o LokalUhr.o Zeitsperre.o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -87,6 +87,9 @@ BusKomm2.o: ../../Gemeinsam/BusKomm2.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 LokalUhr.o: ../../Gemeinsam/LokalUhr.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+Zeitsperre.o: ../../Gemeinsam/Zeitsperre.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link

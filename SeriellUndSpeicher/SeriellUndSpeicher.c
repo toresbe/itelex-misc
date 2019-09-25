@@ -59,6 +59,7 @@
 #include "KonfigDialog.h"
 #include "FifoPuffer.h"
 #include "LokalUhr.h"
+#include "Zeitsperre.h"
 
 #ifndef OHNE_SPEICHER
 #include "SwTwi.h"
@@ -159,6 +160,7 @@ EEMEM uint16_t BeginnErsteMeldung2_EE = 0xEEEE; //!< #BeginnErsteMeldung2, Kopie
 EEMEM uint8_t UmleitungAbweisen_EE = 0; //!< Bei true wird in Grundstellung Status 90 gemeldet.
 EEMEM uint8_t MenueImmerAusgeben_EE = 1; //!< siehe #MenueImmerAusgeben
 EEMEM uint8_t SeriellHwHandshake_EE = 1; //!< siehe #SeriellHwHandshake
+EEMEM TSperrzeitDaten Sperrzeit_EE = { 0, 0, 0, 0 } ;
 
 
 // sonstige Konfigurationen
@@ -477,14 +479,12 @@ char LokalZeichenLesen()
 
 void LokalZeichenAusgabe(char c)
 	{
-	if (GetCTS() && !SeriellHwHandshake)
-		{ // wenn Rechner empfangsbereit, dann ggf. auf ausreichend Platz im Puffer warten.
-		while (PufferVoll(&SerOutBuf))
-			{
-			SeriellIO();
-			UhrAktualisieren();
-			DoSwTwi();
-			}
+	while (!KoEinschalten() && PufferVoll(&SerOutBuf)) 
+		// im Verbindungszustand nicht warten, zeichen geht ggf. verloren
+		{
+		SeriellIO();
+		UhrAktualisieren();
+		DoSwTwi();
 		}
 
 	PufferSpeich(&SerOutBuf, c); 
@@ -651,7 +651,14 @@ static void VerbindungKommend()
 //! Kehrt erst nach Verbindungsabbau zurück.
 static void VerbindungGehend()
 	{
+	if (BusEigenAdresse == BusAdrUngueltig)
+		{
+		return;
+		}
+
 	LED_EIN(GELB);
+
+	SperrzeitAussetzen();
 
 	switch (GeEinschalten())
 		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
@@ -717,6 +724,8 @@ static void VerbindungGehend()
 #endif	
 
 	VerbindungSteht(false);
+
+	SperrzeitAussetzen();
 
 	}
 
@@ -1372,6 +1381,13 @@ static void Konfiguration()
 
 	if (MenueImmerAusgeben != (eeprom_read_byte(&MenueImmerAusgeben_EE) == 1))
 		eeprom_write_byte(&MenueImmerAusgeben_EE, MenueImmerAusgeben ? 1 : 0);
+
+	// Sperrzeiten
+	// -----------
+	if (!SperrzeitEingabeDialog())
+		return;
+
+	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
 		
 #ifdef SPRACHE_EN	
 	LokalTextAusgabeP(PSTR("\r\n config complete+++   \r\n"));
@@ -1488,6 +1504,8 @@ int main()
 	SET_BIT(TIMSK1, OCIE1A);
 	//SET_BIT(TIMSK1, OCIE1B); DoSwTwi wird jetzt direkt aufgerufen
 
+	SperrzeitInit();
+
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
 		BusEigenAdresse = 44 << 1; // Standardwert
@@ -1512,7 +1530,7 @@ int main()
 
 	SeriellHwHandshake = (eeprom_read_byte(&SeriellHwHandshake_EE) == 1);
 	MenueImmerAusgeben = (eeprom_read_byte(&MenueImmerAusgeben_EE) == 1);
-	
+		
 	UhrAktualisieren();
 	eeprom_read_string(Kennung, Kennung_EE, sizeof(Kennung));
 	if (Kennung[0] == '\377')
@@ -1525,6 +1543,8 @@ int main()
 		strcpy_P(Kennwort, PSTR("kennwort"));
 	else
 		Kennwort[sizeof(Kennwort)-1] = '\0'; // sicherheitshalber
+
+	SperrzeitLadeEeprom(&Sperrzeit_EE);
 
 #ifndef OHNE_SPEICHER
 	BeginnErsteMeldung2 = eeprom_read_word(&BeginnErsteMeldung2_EE);
@@ -1831,6 +1851,9 @@ int main()
 				; // ok, schön...
 			else
 				; // keine Ahnung, was hier gesendet wurde, ist aber auch egal...
+
+//TODO:			if (SperrzeitAktiv())
+//TODO:				KommendSperren(SperreZeit);
 				
 			RundsendAnzDaten = 0;
 			}
