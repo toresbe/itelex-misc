@@ -1139,7 +1139,7 @@ static void VerbindungSteht(bool AufzeichnungEin)
 
 		if (KoEmpfZeichen(&c))
 			{
-			if (c == CTRL('w'))
+			if (c == CodeChrWerDa) // TODO and Kennung nicht leer
 				{
 				if (KennungsausgabeUndKennwortAbfrage(AufzeichnungEin))
 					{ // richtiges Kennwort eingegeben
@@ -1184,9 +1184,9 @@ static void VerbindungSteht(bool AufzeichnungEin)
 			char c;
 			c = SerEmpfZ(true);
 			
-			if (c == CTRL('i'))
+			if (c == CTRL('i') || c == CTRL('f'))
 				// Eigene Kennung ausgeben
-				{
+				{ // TODO außer Kennung ist leer.
 				GeSendeText(Kennung);
 #ifndef OHNE_SPEICHER
 				if (AufzeichnungEin)
@@ -1217,7 +1217,11 @@ static void VerbindungSteht(bool AufzeichnungEin)
 #endif					
 				return;
 				}
-			else // kein CTRL('i')
+				
+			else if (c == CTRL('w') || c == CTRL('e'))
+				ZeichenSenden(CodeChrWerDa);
+				
+			else // kein besonderer CTRL-Code
 				ZeichenSenden(c);
 
 			} // if !PufferLeer(&SerInBuf)
@@ -1638,25 +1642,25 @@ int main()
 			LokalTextAusgabeP(PSTR(", Ctrl-L: Lokalbetrieb"));
 #endif				
 #ifdef SPRACHE_EN				
-			LokalTextAusgabeP(PSTR("\r\nCtrl-K: config"));
+			LokalTextAusgabeP(PSTR(", Ctrl-K: config"));
 #else
-			LokalTextAusgabeP(PSTR("\r\nCtrl-K: Konfiguration"));
+			LokalTextAusgabeP(PSTR(", Ctrl-K: Konfiguration"));
 #endif				
-#ifdef BUSDEBUG_DIALOG
-			LokalTextAusgabeP(PSTR(", Ctrl-D: Debug"));
-#endif
 #ifndef OHNE_SPEICHER
 #ifdef SPRACHE_EN				
-			LokalTextAusgabeP(PSTR(", Ctrl-Q: read messages"));
+			LokalTextAusgabeP(PSTR("\r\nCtrl-Q: read messages"));
 #else
-			LokalTextAusgabeP(PSTR(", Ctrl-Q: AB-Wiedergabe"));
+			LokalTextAusgabeP(PSTR("\r\nCtrl-Q: AB-Wiedergabe"));
 #endif				
 #endif //ndef OHNE_SPEICHER
 #ifdef SPRACHE_EN				
-			LokalTextAusgabeP(PSTR("\r\nCtrl-T: list modules"));
+			LokalTextAusgabeP(PSTR(", Ctrl-T: list modules"));
 #else
-			LokalTextAusgabeP(PSTR("\r\nCtrl-T: Statusliste"));
+			LokalTextAusgabeP(PSTR(", Ctrl-T: Statusliste"));
 #endif				
+#ifdef BUSDEBUG_DIALOG
+			LokalTextAusgabeP(PSTR("\r\nCtrl-D: Debug"));
+#endif
 			LokalTextAusgabeP(PSTR(" --> "));
 			HauptmenueAusgeben = false;
 			}
@@ -1738,7 +1742,7 @@ int main()
 					while (true)
 						LED_EIN(BLAU);
 					// wird beendet durch Watchdog-Reset
-//:HACK
+//:HACK*/
 
 				case CTRL('t'):
 					Aktivieren(false);
