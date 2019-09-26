@@ -163,6 +163,12 @@ EEMEM uint8_t SeriellHwHandshake_EE = 1; //!< siehe #SeriellHwHandshake
 EEMEM TSperrzeitDaten Sperrzeit_EE = { 0, 0, 0, 0 } ;
 
 
+// Typen
+// -----
+
+typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrund;
+
+
 // sonstige Konfigurationen
 // ------------------------
 
@@ -175,6 +181,8 @@ bool SeriellHwHandshake; //!< bei true werden Daten auf der seriellen Schnittste
 // ---
 
 uint8_t MinuteLetzeRundsendung; //!< Minute der letzten Rundsendung der Uhrzeit.
+bool UhrzeitUeberBus; //!< Uhrzeit wird über den Bus übertragen, somit kein Speichern im 
+					  //!< EEPROM und keine Abfrage in der Konfiguration.
 
 
 // Kennung und Kennwort
@@ -397,7 +405,7 @@ static void SeriellIO()
 		if (PufferAnzahl(&SerInBuf) > MaxPuffer / 2)
 			{
 			set_SER_RTS();
-			//LED_EIN(ROT); // Test HACK
+			//set_LEDROT(); // Test HACK
 			}
 
 		} // Serielles Zeichen empfangen
@@ -431,7 +439,7 @@ static char SerEmpfZ(bool Loesch)
 	if (PufferAnzahl(&SerInBuf) < MaxPuffer / 2)
 		{
 		clr_SER_RTS();
-		//LED_AUS(ROT); // Test HACK
+		//clr_LEDROT(); // Test HACK
 		}
 
 	return Res;
@@ -528,7 +536,7 @@ static void SerIOInit()
 
 //! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
 
-void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ )
+__attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit 0 */ ) 
 	// Fehler-Codes: 
 	// 1: Bus-Empfang trotz Sperre
 	// 2: General Call ohne entsprechende Freigabe
@@ -551,8 +559,6 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 		{
 		wdt_reset();
 
-		UhrAktualisieren();
-		
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
@@ -580,17 +586,17 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 			}
 		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
 		    {
-		    if (BIT_IS_SET(Nummer, 0)) LED_EIN(ROT);
-		    if (BIT_IS_SET(Nummer, 1)) LED_EIN(GELB);
-		    if (BIT_IS_SET(Nummer, 2)) LED_EIN(GRUEN);
-		    if (BIT_IS_SET(Nummer, 3)) LED_EIN(BLAU);
+		    bset_LEDROT(BIT_IS_SET(Nummer, 0));
+			bset_LEDGELB(BIT_IS_SET(Nummer, 1));
+		    bset_LEDGRUEN(BIT_IS_SET(Nummer, 2));
+		    bset_LEDBLAU(BIT_IS_SET(Nummer, 3));
 			}
 		else
 			{
-			LED_AUS(ROT);
-			LED_AUS(GELB);
-			LED_AUS(GRUEN);
-			LED_AUS(BLAU);
+			clr_LEDROT();
+			clr_LEDGELB();
+			clr_LEDGRUEN();
+			clr_LEDBLAU();
 			}
 		}
 	}	
@@ -602,13 +608,16 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 
 static void VerbindungSteht(bool AufzeichnungEin);
 
+static void KommendSperren(TSperreGrund Grund);
+
+
 //! Bearbeitet ankommende Verbindungen.
 //-------------------------------------
 //! Sendet an Verbindungspartner den Einschaltauftrag. Startet ggf. die 
 //! Aufzeichnung. Kehrt erst nach Verbindungsabbau zurück.
 static void VerbindungKommend()
 	{
-	LED_EIN(GRUEN);
+	set_LEDGRUEN();
 	
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\nIncall\r\n"));
@@ -656,13 +665,13 @@ static void VerbindungGehend()
 		return;
 		}
 
-	LED_EIN(GELB);
-
 	SperrzeitAussetzen();
 
+	set_LEDGELB();
 	switch (GeEinschalten())
 		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
 		case GeEinschFehler:
+			clr_LEDGELB();
 			return; 
 
 		case GeEinschWahl:
@@ -698,6 +707,7 @@ static void VerbindungGehend()
 #else
 					LokalTextAusgabeP(PSTR("\r\nAbbruch"));
 #endif
+					// TODO hier Lokalbetrieb / KommendSperre?
 					return;
 					}
 
@@ -734,20 +744,11 @@ static void VerbindungGehend()
 static void LEDAktualisieren()
 	{
 	if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
-		if (BIT_IS_SET(Status, StatBit_FsMeldEin))
-			LED_AUS(GELB);
-		else
-			LED_EIN(GELB);
+		bset_LEDGELB(!BIT_IS_SET(Status, StatBit_FsMeldEin));
 	else // !BIT_IS_SET(Status, StatBit_AngerufenBelegt))
-		if (BIT_IS_SET(Status, StatBit_FsMeldEin))
-			LED_AUS(GRUEN);
-		else
-			LED_EIN(GRUEN);
-			
-	if (BIT_IS_SET(Status, StatBit_FsBefEin)) // komme ich anders nicht dran...
-		LED_AUS(BLAU);
-	else
-		LED_EIN(BLAU);
+		bset_LEDGRUEN(!BIT_IS_SET(Status, StatBit_FsMeldEin));
+
+	bset_LEDBLAU(!BIT_IS_SET(Status, StatBit_FsBefEin));
 	}
 	
 
@@ -818,7 +819,7 @@ static bool KennungsausgabeUndKennwortAbfrage(bool AufzeichnungEin)
 				{
 				if (*p == '\0') // am Ende des Soll-Kennworts angekommen
 					{
-					// HACK TEST: LED_EIN(ROT);
+					// HACK TEST: set_LEDROT();
 					return true;
 					}
 				else if (p == Kennwort)
@@ -952,7 +953,7 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 			
 			if (c == '\n')
 				{
-				// LED_EIN(ROT); // HACK
+				// set_LEDROT(); // HACK
 				ZeilenZaehler++;
 				if (ZeichenZaehler > 160 || ZeilenZaehler > 3)
 					{
@@ -967,7 +968,7 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 						DoSwTwi();
 						}
 					} // 4. Zeile oder >160 Zeichen
-				// LED_AUS(ROT); // HACK
+				// clr_LEDROT(); // HACK
 				} // Zeilenvorschub
 				
 			if ((*FnUnterbrechung)())
@@ -975,7 +976,7 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 				
 			}
 
-		// LED_EIN(ROT); // HACK
+		// set_LEDROT(); // HACK
 
 		bool Verstanden = false;
 		bool SpringeNaechste = false;
@@ -1051,7 +1052,7 @@ static void Wiedergabe(void (*FnZchnAusg)(char c),
 				
 			} // while !Verstanden
 
-		// LED_AUS(ROT); // HACK
+		// clr_LEDROT(); // HACK
 
 #ifdef DEBUG_OUT
 		LokalTextAusgabeP(PSTR("\r\nNach WiedAktion: "));
@@ -1242,13 +1243,79 @@ static void VerbindungSteht(bool AufzeichnungEin)
 	} // VerbindungSteht
 
 
+/////////////////////////////////////////////////////////////
+
+//! Schaltet das Modul in einen Modus, der keine kommenden Verbindungen zulässt.
+//------------------------------------------------------------------------------
+//! Kann durch Wahl einer entsprechenden Ziffernfolge aufgerufen werden oder
+//! durch Tastendruck an der Platine oder durch die Zeitsperre oder durch eine 
+//! Nichterreichbarkeit des Geräts
+	
+static void KommendSperren(TSperreGrund Grund)
+	{
+	TMsTimer BlinkTimer;
+	uint8_t BlinkTaktFaktor;
+	
+	StartTimer(&BlinkTimer);
+	Aktivieren(false);
+	
+	if (Grund == SperreTaste || Grund == SperreWahl)
+		BlinkTaktFaktor = 2;
+	else if (Grund == SperreZeit)
+		BlinkTaktFaktor = 4;
+	else
+		BlinkTaktFaktor = 1;
+	
+	while (true)
+		{
+		TastePruefen();
+		if (Tastendruck != NichtGedr)
+			{
+			Tastendruck = NichtGedr;
+			SperrzeitAussetzen();
+			break;
+			}
+
+		DoSwTwi();
+		SeriellIO(); 
+			
+		if (!PufferLeer(&SerInBuf))
+			break; // jede Eingabe beendet den Kommend-Sperre-Modus
+			
+		if (TimerVal(&BlinkTimer) > 500 * BlinkTaktFaktor)
+			StartTimer(&BlinkTimer);
+		else
+			bset_LEDBLAU(TimerVal(&BlinkTimer) > 300 * BlinkTaktFaktor);
+		
+		if (RundsendAnzDaten > 0)
+			{
+			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
+				{
+				if (Grund == SperreZeit && !SperrzeitAktiv())
+					break;
+				UhrzeitUeberBus	= true;
+				}
+			// else Daten anderwertig auswerten
+			
+			RundsendAnzDaten = 0;
+			}
+		
+		}
+		
+	clr_LEDBLAU();
+	Aktivieren(true);
+		
+	} // KommendSperren()
+	
+	
+	
 //! wird nach kurzem Tastendruck aufgerufen
 static void Deaktivieren()
 	{
-	LED_AUS(ROT);
-	LED_AUS(GELB);
-	LED_AUS(GRUEN);
-	LED_EIN(BLAU);
+	clr_LEDROT();
+	clr_LEDGELB();
+	clr_LEDGRUEN();
+	set_LEDBLAU();
 	Aktivieren(false);
 
 	while (Tastendruck == NichtGedr)
@@ -1261,6 +1328,10 @@ static void Deaktivieren()
 	Tastendruck = NichtGedr;
 
 	Aktivieren(true);
+	
+	clr_LEDBLAU();
+
+	KommendSperren(SperreTaste);
 
 	} // Deaktivieren
 
@@ -1270,10 +1341,10 @@ static void Konfiguration()
 	{
 	bool Abbruch;
 	
-	LED_EIN(ROT);
-	LED_AUS(GELB);
-	LED_AUS(GRUEN);
-	LED_AUS(BLAU);
+	set_LEDROT();
+	clr_LEDGELB();
+	clr_LEDGRUEN();
+	clr_LEDBLAU();
 
 	Aktivieren(false);
 
@@ -1302,33 +1373,28 @@ static void Konfiguration()
 #endif	
 
 	Abbruch = !KonfigurationAllgemein();
-
-	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
-		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
-
-	if (UmleitungAbweisen != eeprom_read_byte(&UmleitungAbweisen_EE))
-		eeprom_write_byte(&UmleitungAbweisen_EE, UmleitungAbweisen);
-	
 	if (Abbruch) 
 		return;
 	
+	if (!UhrzeitUeberBus)
+		{
 #ifdef SPRACHE_EN	
-	LokalTextAusgabeP(PSTR("\r\n date/time: "));
+		LokalTextAusgabeP(PSTR("\r\n date/time: "));
 #else
-	LokalTextAusgabeP(PSTR("\r\n Datum/Uhrzeit: "));
+		LokalTextAusgabeP(PSTR("\r\n Datum/Uhrzeit: "));
 #endif
 	
-	DatumAusgabe();
-	LokalTextAusgabeP(NeuStrP);
-	if (LokalZahlEingabe(&Tag, 2) < 0
-		|| LokalZahlEingabe(&Monat, 2) < 0
-		|| LokalZahlEingabe(&Jahr, 2) < 0
-		|| LokalZahlEingabe(&Stunde, 2) < 0
-		|| LokalZahlEingabe(&Minute, 2) < 0)
-		return;
-		
-	Timer1OvfC = 0;
-	TCNT1 = 0;
+		DatumAusgabe();
+		LokalTextAusgabeP(NeuStrP);
+		if (LokalZahlEingabe(&Tag, 2) < 0
+			|| LokalZahlEingabe(&Monat, 2) < 0
+			|| LokalZahlEingabe(&Jahr, 2) < 0
+			|| LokalZahlEingabe(&Stunde, 2) < 0
+			|| LokalZahlEingabe(&Minute, 2) < 0)
+			return;
+		Timer1OvfC = 0;
+		TCNT1 = 0;
+		}
 
 #ifdef SPRACHE_EN	
 	LokalTextAusgabeP(PSTR("\r\n answerback: "));
@@ -1351,22 +1417,6 @@ static void Konfiguration()
 		return;
 
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n use hardware handshake on output? current: "));
-#else
-	LokalTextAusgabeP(PSTR("\r\n hardware handshake auf ser. sst. verwenden? aktuell: "));
-#endif
-
-	LokalBoolAusgabe(TempHwHandshake);
-	LokalTextAusgabeP(NeuStrP);
-
-	if (LokalBoolEingabe(&TempHwHandshake) == 0)
-		return;
-	LokalTextAusgabeP(OkStrP);
-
-	if (TempHwHandshake != (eeprom_read_byte(&SeriellHwHandshake_EE) == 1))
-		eeprom_write_byte(&SeriellHwHandshake_EE, TempHwHandshake ? 1 : 0);
-	
-#ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n print main menu frequently? current: "));
 #else
 	LokalTextAusgabeP(PSTR("\r\n hauptmenue regelmaessig ausgeben? aktuell: "));
@@ -1379,16 +1429,34 @@ static void Konfiguration()
 		return;
 	LokalTextAusgabeP(OkStrP);
 
-	if (MenueImmerAusgeben != (eeprom_read_byte(&MenueImmerAusgeben_EE) == 1))
-		eeprom_write_byte(&MenueImmerAusgeben_EE, MenueImmerAusgeben ? 1 : 0);
-
 	// Sperrzeiten
 	// -----------
 	if (!SperrzeitEingabeDialog())
 		return;
 
 	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
-		
+
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n use hardware handshake on output? current: "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n hardware handshake auf ser. sst. verwenden? aktuell: "));
+#endif
+
+	LokalBoolAusgabe(TempHwHandshake);
+	LokalTextAusgabeP(NeuStrP);
+
+	if (LokalBoolEingabe(&TempHwHandshake) == 0)
+		{
+		SeriellHwHandshake = TempHwHandshake;
+		return;
+		}
+
+	if (TempHwHandshake != (eeprom_read_byte(&SeriellHwHandshake_EE) == 1))
+		eeprom_write_byte(&SeriellHwHandshake_EE, TempHwHandshake ? 1 : 0);
+		// muss hier sein, da lokale Variable
+
+	LokalTextAusgabeP(OkStrP);
+	
 #ifdef SPRACHE_EN	
 	LokalTextAusgabeP(PSTR("\r\n config complete+++   \r\n"));
 #else
@@ -1406,8 +1474,27 @@ static void Konfiguration()
 
 static void KonfigurationEnde()
 	{
+	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
+		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
+
+	if (UmleitungAbweisen != eeprom_read_byte(&UmleitungAbweisen_EE))
+		eeprom_write_byte(&UmleitungAbweisen_EE, UmleitungAbweisen);
+	
+	/* TODO Vorausschau:
+	if (KommendSperreWahl != eeprom_read_byte(&KommendSperreWahl_EE))
+		eeprom_write_byte(&KommendSperreWahl_EE, KommendSperreWahl);
+
+	if (LokalbetriebWahl != eeprom_read_byte(&LokalbetriebWahl_EE))
+		eeprom_write_byte(&LokalbetriebWahl_EE, LokalbetriebWahl);
+	*/
+	
+	if (MenueImmerAusgeben != (eeprom_read_byte(&MenueImmerAusgeben_EE) == 1))
+		eeprom_write_byte(&MenueImmerAusgeben_EE, MenueImmerAusgeben ? 1 : 0);
+	
+	// Kennung und Kennwort wird in der Hauptschleife gespeichert.
+	
 	Aktivieren(true);
-	LED_AUS(ROT);
+	clr_LEDROT();
 	}
 	
 
@@ -1481,12 +1568,12 @@ int main()
 	DDRD = 0;
 
 	init_TASTE();
-	init_LED_ROT();
-	init_LED_GELB();
-	init_LED_GRUEN();
-	init_LED_BLAU();
+	init_LEDROT();
+	init_LEDGELB();
+	init_LEDGRUEN();
+	init_LEDBLAU();
 
-	LED_EIN(ROT);
+	set_LEDROT();
 
 	init_SER_RTS();
 	init_SER_CTS();
@@ -1519,6 +1606,7 @@ int main()
 	Tag = eeprom_read_byte(&Tag_EE);
 	Stunde = eeprom_read_byte(&Stunde_EE[Tag-1]);
 	Minute = eeprom_read_byte(&Minute_EE);
+	
 	if (Jahr >= 100 || Monat > 12 || Tag > 31 || Stunde >= 24 || Minute >= 60)
 		{
 		Jahr = 0;
@@ -1527,6 +1615,8 @@ int main()
 		Stunde = 0;
 		Minute = 0;
 		}
+		
+	UhrzeitUeberBus = true;
 
 	SeriellHwHandshake = (eeprom_read_byte(&SeriellHwHandshake_EE) == 1);
 	MenueImmerAusgeben = (eeprom_read_byte(&MenueImmerAusgeben_EE) == 1);
@@ -1566,8 +1656,8 @@ int main()
 	while (TimerVal(&Timer) < 250)
 		SeriellIO();
 
-	LED_AUS(ROT);
-	LED_EIN(GELB);
+	clr_LEDROT();
+	set_LEDGELB();
 
 	TwiInit();
 
@@ -1575,15 +1665,15 @@ int main()
 	while (TimerVal(&Timer) < 500)
 		SeriellIO();
 
-	LED_AUS(GELB);
-	LED_EIN(GRUEN);
+	clr_LEDGELB();
+	set_LEDGRUEN();
 
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 750)
 		SeriellIO();
 
-	LED_AUS(GRUEN);
-	LED_EIN(BLAU);
+	clr_LEDGRUEN();
+	set_LEDBLAU();
 
 #ifndef OHNE_SPEICHER
 	MsgSpeicherInit();
@@ -1613,35 +1703,31 @@ int main()
 		if (BusEigenAdresse == BusAdrUngueltig)
 			{ // Noch nicht korrekt konfiguriert
 			if (TimerVal(&Timer) <= 800)
-				LED_AUS(ROT);
-			else if (TimerVal(&Timer) <= 1000)
-				LED_EIN(ROT);
+				bset_LEDROT(TimerVal(&Timer) <= 400);
 			else
 				StartTimer(&Timer);
-			LED_AUS(GELB);
-			LED_AUS(GRUEN);
-			LED_AUS(BLAU);
+			clr_LEDGELB();
+			clr_LEDGRUEN();
+			clr_LEDBLAU();
 			}
 #ifndef OHNE_SPEICHER
 		else if (BeginnErsteMeldung != EndeLetzteMeldung) 		
 			{ // Nachricht ungelesen 
-			LED_AUS(ROT);
-			LED_AUS(GELB);
-			if (TimerVal(&Timer) <= 800)
-				LED_AUS(GRUEN);
-			else if (TimerVal(&Timer) <= 1600)
-				LED_EIN(GRUEN);
+			clr_LEDROT();
+			clr_LEDGELB();
+			if (TimerVal(&Timer) <= 1600)
+				bset_LEDGRUEN(TimerVal(&Timer) <= 800);
 			else
 				StartTimer(&Timer);
-			LED_AUS(BLAU);
+			clr_LEDBLAU();
 			}
 #endif //ndef OHNE_SPEICHER
 		else
 			{ // alles in Ordnung
-			LED_AUS(ROT);
-			LED_AUS(GELB);
-			LED_AUS(GRUEN);
-			LED_AUS(BLAU);
+			clr_LEDROT();
+			clr_LEDGELB();
+			clr_LEDGRUEN();
+			clr_LEDBLAU();
 			}
 			
 		DoSwTwi();
@@ -1760,7 +1846,7 @@ int main()
 					wdt_enable(WDTO_1S);
 					cli();
 					while (true)
-						LED_EIN(BLAU);
+						set_LEDBLAU();
 					// wird beendet durch Watchdog-Reset
 //:HACK*/
 
@@ -1812,10 +1898,13 @@ int main()
 		
 		// Parameter im eigenen Eeprom aktualisieren
 		eeprom_write_byte_noblock(&BusEigenAdresse_EE, BusEigenAdresse);
-		eeprom_write_byte_noblock(&Jahr_EE, Jahr);
-		eeprom_write_byte_noblock(&Monat_EE, Monat);
-		eeprom_write_byte_noblock(&Tag_EE, Tag);
-		eeprom_write_byte_noblock(&Stunde_EE[Tag-1], Stunde);
+		if (!UhrzeitUeberBus)
+			{
+			eeprom_write_byte_noblock(&Jahr_EE, Jahr);
+			eeprom_write_byte_noblock(&Monat_EE, Monat);
+			eeprom_write_byte_noblock(&Tag_EE, Tag);
+			eeprom_write_byte_noblock(&Stunde_EE[Tag-1], Stunde);
+			}
 		eeprom_write_string_noblock(Kennung_EE, Kennung);
 		eeprom_write_string_noblock(Kennwort_EE, Kennwort);
 
@@ -1848,12 +1937,13 @@ int main()
 		if (RundsendAnzDaten > 0)
 			{
 			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
-				; // ok, schön...
+				{
+				if (SperrzeitAktiv())
+					KommendSperren(SperreZeit);
+				UhrzeitUeberBus = true;
+				}
 			else
 				; // keine Ahnung, was hier gesendet wurde, ist aber auch egal...
-
-//TODO:			if (SperrzeitAktiv())
-//TODO:				KommendSperren(SperreZeit);
 				
 			RundsendAnzDaten = 0;
 			}
