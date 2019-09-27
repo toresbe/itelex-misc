@@ -487,12 +487,13 @@ char LokalZeichenLesen()
 
 void LokalZeichenAusgabe(char c)
 	{
-	while (!KoEinschalten() && PufferVoll(&SerOutBuf)) 
+	while (!KoEinschalten() && PufferVoll(&SerOutBuf) && Tastendruck == NichtGedr)
 		// im Verbindungszustand nicht warten, zeichen geht ggf. verloren
 		{
 		SeriellIO();
 		UhrAktualisieren();
 		DoSwTwi();
+		TastePruefen();
 		}
 
 	PufferSpeich(&SerOutBuf, c); 
