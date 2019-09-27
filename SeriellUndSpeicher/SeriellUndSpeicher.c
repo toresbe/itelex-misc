@@ -665,7 +665,9 @@ static void VerbindungGehend()
 		return;
 		}
 
+#ifdef SPERRZEIT
 	SperrzeitAussetzen();
+#endif //def SPERRZEIT
 
 	set_LEDGELB();
 	switch (GeEinschalten())
@@ -735,7 +737,9 @@ static void VerbindungGehend()
 
 	VerbindungSteht(false);
 
+#ifdef SPERRZEIT
 	SperrzeitAussetzen();
+#endif //def SPERRZEIT
 
 	}
 
@@ -1272,7 +1276,9 @@ static void KommendSperren(TSperreGrund Grund)
 		if (Tastendruck != NichtGedr)
 			{
 			Tastendruck = NichtGedr;
+#ifdef SPERRZEIT
 			SperrzeitAussetzen();
+#endif //def SPERRZEIT
 			break;
 			}
 
@@ -1291,8 +1297,10 @@ static void KommendSperren(TSperreGrund Grund)
 			{
 			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
 				{
+#ifdef SPERRZEIT
 				if (Grund == SperreZeit && !SperrzeitAktiv())
 					break;
+#endif //def SPERRZEIT
 				UhrzeitUeberBus	= true;
 				}
 			// else Daten anderwertig auswerten
@@ -1429,12 +1437,14 @@ static void Konfiguration()
 		return;
 	LokalTextAusgabeP(OkStrP);
 
+#ifdef SPERRZEIT
 	// Sperrzeiten
 	// -----------
 	if (!SperrzeitEingabeDialog())
 		return;
 
 	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
+#endif //def SPERRZEIT
 
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n use hardware handshake on output? current: "));
@@ -1591,7 +1601,9 @@ int main()
 	SET_BIT(TIMSK1, OCIE1A);
 	//SET_BIT(TIMSK1, OCIE1B); DoSwTwi wird jetzt direkt aufgerufen
 
+#ifdef SPERRZEIT
 	SperrzeitInit();
+#endif //def SPERRZEIT
 
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
@@ -1634,7 +1646,9 @@ int main()
 	else
 		Kennwort[sizeof(Kennwort)-1] = '\0'; // sicherheitshalber
 
+#ifdef SPERRZEIT
 	SperrzeitLadeEeprom(&Sperrzeit_EE);
+#endif //def SPERRZEIT
 
 #ifndef OHNE_SPEICHER
 	BeginnErsteMeldung2 = eeprom_read_word(&BeginnErsteMeldung2_EE);
@@ -1938,8 +1952,10 @@ int main()
 			{
 			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
 				{
+#ifdef SPERRZEIT
 				if (SperrzeitAktiv())
 					KommendSperren(SperreZeit);
+#endif //def SPERRZEIT
 				UhrzeitUeberBus = true;
 				}
 			else
