@@ -15,7 +15,7 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -fgnu89-inline -DUSTTY -DBIT_LENGTH=22 -DPLATINE_VERSION=21   -DPROGIDZUSATZ=\"US45\"  -DSPRACHE_EN         -DF_CPU=6144000UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -fgnu89-inline -DUSTTY -DBIT_LENGTH=22 -DPLATINE_VERSION=21   -DPROGIDZUSATZ=\"US45\"  -DSPRACHE_EN                -DOHNE_ZEITSPERRE        -DF_CPU=6144000UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 
 ## Assembly specific flags

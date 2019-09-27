@@ -8,12 +8,16 @@
 #include "Zeitsperre.h"
 
 
+#ifndef OHNE_ZEITSPERRE
+// damit Konfig-Abhängig alles entfallen kann
+
+
 typedef struct 
 	{
 	uint16_t Anf; //!< Anfangszeit in Minuten ab 0:00 Uhr
 	uint16_t End; //!< Endzeit in Minuten ab 0:00 Uhr
 	} TZeitspanne;
-	
+
 
 //! Zeitraum, in der das EndgerÃ¤t nicht aktiv sein soll
 TZeitspanne Sperrzeit[2];
@@ -206,3 +210,6 @@ bool SperrzeitEingabeDialog()
 
 	return true;
 	}
+
+
+#endif //ndef OHNE_ZEITSPERRE

@@ -665,9 +665,9 @@ static void VerbindungGehend()
 		return;
 		}
 
-#ifdef SPERRZEIT
+#ifndef OHNE_ZEITSPERRE
 	SperrzeitAussetzen();
-#endif //def SPERRZEIT
+#endif //ndef OHNE_ZEITSPERRE
 
 	set_LEDGELB();
 	switch (GeEinschalten())
@@ -737,9 +737,9 @@ static void VerbindungGehend()
 
 	VerbindungSteht(false);
 
-#ifdef SPERRZEIT
+#ifndef OHNE_ZEITSPERRE
 	SperrzeitAussetzen();
-#endif //def SPERRZEIT
+#endif //ndef OHNE_ZEITSPERRE
 
 	}
 
@@ -1276,9 +1276,9 @@ static void KommendSperren(TSperreGrund Grund)
 		if (Tastendruck != NichtGedr)
 			{
 			Tastendruck = NichtGedr;
-#ifdef SPERRZEIT
+#ifndef OHNE_ZEITSPERRE
 			SperrzeitAussetzen();
-#endif //def SPERRZEIT
+#endif //ndef OHNE_ZEITSPERRE
 			break;
 			}
 
@@ -1297,10 +1297,10 @@ static void KommendSperren(TSperreGrund Grund)
 			{
 			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
 				{
-#ifdef SPERRZEIT
+#ifndef OHNE_ZEITSPERRE
 				if (Grund == SperreZeit && !SperrzeitAktiv())
 					break;
-#endif //def SPERRZEIT
+#endif //ndef OHNE_ZEITSPERRE
 				UhrzeitUeberBus	= true;
 				}
 			// else Daten anderwertig auswerten
@@ -1437,14 +1437,14 @@ static void Konfiguration()
 		return;
 	LokalTextAusgabeP(OkStrP);
 
-#ifdef SPERRZEIT
+#ifndef OHNE_ZEITSPERRE
 	// Sperrzeiten
 	// -----------
 	if (!SperrzeitEingabeDialog())
 		return;
 
 	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
-#endif //def SPERRZEIT
+#endif //ndef OHNE_ZEITSPERRE
 
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n use hardware handshake on output? current: "));
@@ -1601,9 +1601,9 @@ int main()
 	SET_BIT(TIMSK1, OCIE1A);
 	//SET_BIT(TIMSK1, OCIE1B); DoSwTwi wird jetzt direkt aufgerufen
 
-#ifdef SPERRZEIT
+#ifndef OHNE_ZEITSPERRE
 	SperrzeitInit();
-#endif //def SPERRZEIT
+#endif //ndef OHNE_ZEITSPERRE
 
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
@@ -1646,9 +1646,9 @@ int main()
 	else
 		Kennwort[sizeof(Kennwort)-1] = '\0'; // sicherheitshalber
 
-#ifdef SPERRZEIT
+#ifndef OHNE_ZEITSPERRE
 	SperrzeitLadeEeprom(&Sperrzeit_EE);
-#endif //def SPERRZEIT
+#endif //ndef OHNE_ZEITSPERRE
 
 #ifndef OHNE_SPEICHER
 	BeginnErsteMeldung2 = eeprom_read_word(&BeginnErsteMeldung2_EE);
@@ -1952,10 +1952,10 @@ int main()
 			{
 			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
 				{
-#ifdef SPERRZEIT
+#ifndef OHNE_ZEITSPERRE
 				if (SperrzeitAktiv())
 					KommendSperren(SperreZeit);
-#endif //def SPERRZEIT
+#endif //ndef OHNE_ZEITSPERRE
 				UhrzeitUeberBus = true;
 				}
 			else
