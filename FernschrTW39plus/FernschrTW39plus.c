@@ -99,11 +99,16 @@ typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrun
 // ---------
 
 bool MitWaehlscheibe; //!< Gerät het eine Wählscheibe
+
 uint8_t WahlauffordImpulsLaenge; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
 
 uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 
 uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
+
+enum AutoWahlMaxZiffern = 10;
+uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
+	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
 
 typedef enum { Deaktivierung, DemoBetriebStarten } TTasteFunktion;
 
@@ -527,7 +532,15 @@ static bool WahlMitWaehlscheibe()
 		TW39IO();
 		
 	BefehlMark = true;
-	
+
+	// AutoWahlZiffern vorweg in den Wählpuffer schreiben
+	for (Wahlziffer = 0 ; Wahlziffer < AutoWahlMaxZiffern ; Wahlziffer++)
+		// Wahlziffer wird als Index missbraucht
+		if (AutoWahlZiffern[Wahlziffer] <= 9)
+			GeWaehlen(AutoWahlZiffern[Wahlziffer]);
+		else
+			break;
+		
 	Wahlziffer = 0;
 	StartTimer(&WahlendeTimer); // der Timer prüft auch, ob überhaupt gewählt wird...
 	while (true)
@@ -588,6 +601,14 @@ static bool WahlMitTastatur()
 		
 	LokalCodeAusgabe(TtyCodeZiUm);
 	BaudotMode_SetZiffern(BaudotMode);
+
+	// AutoWahlZiffern vorweg in den Wählpuffer schreiben
+	for (c = 0 ; c < AutoWahlMaxZiffern ; c++)
+		// c wird als Index missbraucht
+		if (AutoWahlZiffern[c] <= 9)
+			GeWaehlen(AutoWahlZiffern[c]);
+		else
+			break;
 
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
@@ -931,7 +952,7 @@ static void Konfiguration()
 		LokalTextAusgabeP(PSTR("\r\n laenge wahlauff-imp. (akt. "));
 #endif //def SPRACHE_EN
 		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
-		LokalTextAusgabeP(PSTR("/100 sek)?      "));
+		LokalTextAusgabeP(PSTR("/100 sek) neu:      "));
 
 		if (LokalZahlEingabe(&WahlauffordImpulsLaenge, 0) < 0)
 			return;
@@ -950,6 +971,7 @@ static void Konfiguration()
 		LokalbetriebWahl = LokalbetriebWahl_Std;
 		SperrzeitInit();
 		TasteFunktion = 0;
+		AutoWahlZiffern[0] = 255; // Ende-Kennzeichen
 		LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
 		return;
 		}
@@ -1015,12 +1037,71 @@ static void Konfiguration()
 	if (!SperrzeitEingabeDialog())
 		return;
 	
+	// Feste Verbindung
+	// ----------------
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n automated prefix dialing? current:   ")); 
+#else	
+	LokalTextAusgabeP(PSTR("\r\n automatische vorwahl? aktuell:   ")); 
+#endif //def SPRACHE_EN
+
+	bool AutoWahlJa = AutoWahlZiffern[0] <= 9;
+
+	LokalBoolAusgabe(AutoWahlJa);
+	LokalTextAusgabeP(NeuStrP);
+
+	if (LokalBoolEingabe(&AutoWahlJa) == 0)
+		return;
+
+	LokalTextAusgabeP(OkStrP);
+
+	if (AutoWahlJa)
+		{
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("\r\n enter dialing digits, finish with + (cur.: "));
+#else		
+		LokalTextAusgabeP(PSTR("\r\n wahlziffern eingeben, ende mit + (akt.: "));
+#endif //def SPRACHE_EN
+		uint8_t i;
+		
+		for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
+			if (AutoWahlZiffern[i] <= 9)
+				LokalZahlAusgabe(AutoWahlZiffern[i], 0);
+			else
+				break;
+			
+		LokalTextAusgabeP(PSTR("+) neu:      "));
+
+		i = 0;
+		while (i < AutoWahlMaxZiffern - 1)
+			{
+			char c = LokalZeichenLesen();
+			if (c >= '0' && c <= '9')
+				AutoWahlZiffern[i++] = c - '0';
+			else if (c == '+')
+				break;
+			else if (c == '\0')
+				{
+				if (i != 0)
+					AutoWahlZiffern[i] = 255; // Ende-Zeichen
+				// sonst unverändert lassen
+				return; 
+				}
+			}
+		AutoWahlZiffern[i] = 255; // Ende-Zeichen
+		LokalTextAusgabeP(OkStrP);
+		}
+	else // not AutoWahlJa
+		{
+		AutoWahlZiffern[0] = 255;
+		}
+		
 	// Modus für Tastendruck
 	// ---------------------
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n module button function (cur. "));
 #else
-	LokalTextAusgabeP(PSTR("\r\n funktion taste am modul: (akt. "));
+	LokalTextAusgabeP(PSTR("\r\n funktion taste am modul (akt. "));
 #endif //def SPRACHE_EN
 
 	LokalZahlAusgabe(TasteFunktion, 0);
@@ -1230,6 +1311,8 @@ int main()
 	SperrzeitLadeEeprom(&Sperrzeit_EE);
 
 	TasteFunktion = eeprom_read_byte(&TasteFunktion_EE);
+
+	AutoWahlZiffern[0] = 255; // TODO read from EEPROM
 	
 	BefehlEinschalten = false;
 	BefehlMark = true;
