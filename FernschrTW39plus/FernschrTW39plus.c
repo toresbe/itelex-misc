@@ -76,6 +76,8 @@ PROGMEM const char Identifier[] = "___itlx_TW39plus___" __DATE__ "___" __TIME__ 
 
 enum { LokalbetriebWahl_Std = 88 };
 enum { KommendSperreWahl_Std = 0 };
+enum { AutoWahlMaxZiffern = 10 };
+
 
 // Eeprom-Speicher
 // ---------------
@@ -88,7 +90,7 @@ EEMEM TSperrzeitDaten Sperrzeit_EE = { 0, 0, 0, 0 } ;
 EEMEM uint8_t TasteFunktion_EE = 0 ; //!< Was macht die Taste
 EEMEM uint8_t UmleitungAbweisen_EE = 0 ; //!< Bei true wird in Grundstellung Status 90 gemeldet.
 EEMEM uint8_t LokalbetriebWahl_EE = LokalbetriebWahl_Std;
-
+EEMEM uint8_t AutoWahlZiffern_EE[AutoWahlMaxZiffern] = { 255,255, 255, 255 };
 
 // Typen
 // -----
@@ -106,7 +108,6 @@ uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankom
 
 uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
 
-enum AutoWahlMaxZiffern = 10;
 uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
 	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
 
@@ -603,10 +604,11 @@ static bool WahlMitTastatur()
 	BaudotMode_SetZiffern(BaudotMode);
 
 	// AutoWahlZiffern vorweg in den Wählpuffer schreiben
-	for (c = 0 ; c < AutoWahlMaxZiffern ; c++)
+	uint8_t i;
+	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
 		// c wird als Index missbraucht
-		if (AutoWahlZiffern[c] <= 9)
-			GeWaehlen(AutoWahlZiffern[c]);
+		if (AutoWahlZiffern[i] <= 9)
+			GeWaehlen(AutoWahlZiffern[i]);
 		else
 			break;
 
@@ -911,9 +913,9 @@ static void Konfiguration()
 	// Vorab die Frage nach "Expertenfunktionen"
 	// -----------------------------------------
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n simple configuration:    ")); 
+	LokalTextAusgabeP(PSTR("\r\n simple configuration?    ")); 
 #else	
-	LokalTextAusgabeP(PSTR("\r\n einfache konfiguration:    ")); 
+	LokalTextAusgabeP(PSTR("\r\n einfache konfiguration?    ")); 
 #endif //def SPRACHE_EN
 
 	if (LokalBoolEingabe(&NoExpertSettings) == 0)
@@ -947,12 +949,13 @@ static void Konfiguration()
 		{
 		// Länge Wahlaufforderungsimpuls?
 #ifdef SPRACHE_EN
-		LokalTextAusgabeP(PSTR("\r\n duration call proceed pulse (current: "));
+		LokalTextAusgabeP(PSTR("\r\n duration call proceed pulse? cur. "));
 #else		
-		LokalTextAusgabeP(PSTR("\r\n laenge wahlauff-imp. (akt. "));
+		LokalTextAusgabeP(PSTR("\r\n laenge wahlauff-imp.? akt. "));
 #endif //def SPRACHE_EN
 		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
-		LokalTextAusgabeP(PSTR("/100 sek) neu:      "));
+		LokalTextAusgabeP(PSTR("/100 sek,"));
+		LokalTextAusgabeP(NeuStrP);
 
 		if (LokalZahlEingabe(&WahlauffordImpulsLaenge, 0) < 0)
 			return;
@@ -1070,7 +1073,8 @@ static void Konfiguration()
 			else
 				break;
 			
-		LokalTextAusgabeP(PSTR("+) neu:      "));
+		LokalTextAusgabeP(PSTR("+)\r\n  "));
+		LokalTextAusgabeP(NeuStrP);
 
 		i = 0;
 		while (i < AutoWahlMaxZiffern - 1)
@@ -1155,6 +1159,10 @@ static void KonfigurationEnde()
 	if (TasteFunktion != eeprom_read_byte(&TasteFunktion_EE))
 		eeprom_write_byte(&TasteFunktion_EE, TasteFunktion);
 
+	uint8_t i;
+	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
+		eeprom_write_byte(&AutoWahlZiffern_EE[i], AutoWahlZiffern[i]);
+	
 	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
 
 	Aktivieren(true);
@@ -1313,6 +1321,10 @@ int main()
 	TasteFunktion = eeprom_read_byte(&TasteFunktion_EE);
 
 	AutoWahlZiffern[0] = 255; // TODO read from EEPROM
+	
+	uint8_t i;
+	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
+		AutoWahlZiffern[i] = eeprom_read_byte(&AutoWahlZiffern_EE[i]);
 	
 	BefehlEinschalten = false;
 	BefehlMark = true;
