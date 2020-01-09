@@ -186,10 +186,17 @@ bool UhrzeitUeberBus; //!< Uhrzeit wird über den Bus übertragen, somit kein Spei
 
 
 // Kennung und Kennwort
+// --------------------
 
 char Kennung[KENNUNG_MAXLEN]; //!< Eigene Kennung, da kein echter Fernschreiber angeschlossen.
 char Kennwort[KENNWORT_MAXLEN]; //!< Kennwort für Fernabfrage des Anrufspeichers.
 
+
+// Sonstiges
+// ---------
+
+bool LokalAusgabeNichtBlockieren; //!< Auf true setzen, wenn die Lokale Ausgabe nur "Nebensache" ist
+								  //!< und den Programmablauf nicht bremsen darf.
 
 // Grundfunktionen
 // ---------------
@@ -351,8 +358,16 @@ ISR(USART_UDRE_vect)
 //! \retval true bei Empfangsbereitschaft der Gegenstelle.
 static bool GetCTS()
 	{ 
-	return !get_SER_CTS() || !SeriellHwHandshake; 
+	static TMsTimer CheckCtsTimer;
+	
+	if (!get_SER_CTS() || !SeriellHwHandshake)
 		// wenn kein HW-Handshake = RTS/CTS, dann CTS auf "Dauer-OK" setzen.
+		{
+		StartTimer(&CheckCtsTimer);
+		return true;
+		}
+	else
+		return TimerVal(&CheckCtsTimer) > 1500;
 	}
 	
 	
@@ -363,7 +378,7 @@ static bool GetCTS()
 static void SeriellIO()
 	{
 	if (BIT_IS_SET(UCSR0A, RXC0))
-		{
+		{ // Zeichen empfangen
 		if (PufferAnzahl(&SerInBuf) < MaxPuffer - 3)
 			{
 			char c = UDR0;
@@ -487,7 +502,7 @@ char LokalZeichenLesen()
 
 void LokalZeichenAusgabe(char c)
 	{
-	while (!KoEinschalten() && PufferVoll(&SerOutBuf) && Tastendruck == NichtGedr)
+	while (!LokalAusgabeNichtBlockieren && PufferVoll(&SerOutBuf) && Tastendruck == NichtGedr)
 		// im Verbindungszustand nicht warten, zeichen geht ggf. verloren
 		{
 		SeriellIO();
@@ -620,6 +635,8 @@ static void VerbindungKommend()
 	{
 	set_LEDGRUEN();
 	
+	LokalAusgabeNichtBlockieren = true;
+	
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\nIncall\r\n"));
 #else
@@ -652,7 +669,7 @@ static void VerbindungKommend()
 
 		}
 		
-	}
+	} // VerbindungKommend()
 	
 
 //! Bearbeitet gehende Verbindungen.
@@ -666,6 +683,8 @@ static void VerbindungGehend()
 		return;
 		}
 
+	LokalAusgabeNichtBlockieren = true;
+	
 #ifndef OHNE_ZEITSPERRE
 	SperrzeitAussetzen();
 #endif //ndef OHNE_ZEITSPERRE
@@ -704,12 +723,12 @@ static void VerbindungGehend()
 
 				if (KoAusschalten())
 					{
-					GeAusschalten(false); // zu warten ist nicht mehr nötig.
 #ifdef SPRACHE_EN					
 					LokalTextAusgabeP(PSTR("\r\nAbort"));
 #else
 					LokalTextAusgabeP(PSTR("\r\nAbbruch"));
 #endif
+					GeAusschalten(false); // zu warten ist nicht mehr nötig.
 					// TODO hier Lokalbetrieb / KommendSperre?
 					return;
 					}
@@ -742,7 +761,7 @@ static void VerbindungGehend()
 	SperrzeitAussetzen();
 #endif //ndef OHNE_ZEITSPERRE
 
-	}
+	} // VerbindungGehend()
 
 
 //! Schaltet LED entspechend der Status-Bits an.
@@ -1185,12 +1204,14 @@ static void VerbindungSteht(bool AufzeichnungEin)
 				AufzeichnungEnde();
 #endif //ndef OHNE_SPEICHER
 
-			GeAusschalten(true);
 #ifdef SPRACHE_EN				
 			LokalTextAusgabeP(PSTR("\r\nDisconnected\r\n"));
 #else
 			LokalTextAusgabeP(PSTR("\r\nGetrennt\r\n"));
 #endif			
+
+			GeAusschalten(true);
+
 			return;
 			}
 
@@ -1245,7 +1266,7 @@ static void VerbindungSteht(bool AufzeichnungEin)
 		LEDAktualisieren();
 		}
 
-	} // VerbindungSteht
+	} // VerbindungSteht()
 
 
 /////////////////////////////////////////////////////////////
@@ -1326,6 +1347,8 @@ static void Deaktivieren()
 	clr_LEDGRUEN();
 	set_LEDBLAU();
 	Aktivieren(false);
+	
+	LokalAusgabeNichtBlockieren = true;
 
 	while (Tastendruck == NichtGedr)
 		{
@@ -1356,6 +1379,8 @@ static void Konfiguration()
 	clr_LEDBLAU();
 
 	Aktivieren(false);
+	
+	LokalAusgabeNichtBlockieren = false;
 
 	bool TempHwHandshake = SeriellHwHandshake;
 	SeriellHwHandshake = false; // damit das Menü immer aufgerufen werden kann.
@@ -1512,6 +1537,8 @@ static void KonfigurationEnde()
 //! Testfunktion zur Auflistung aller angeschlossenen Module	
 static void BusteilnehmerListen()
 	{
+	LokalAusgabeNichtBlockieren = false;
+	
 #ifdef SPRACHE_EN	
 	LokalTextAusgabeP(PSTR("\r\nstatus of connected modules:\r\n"));
 #else	
@@ -1602,6 +1629,8 @@ int main()
 	SET_BIT(TIMSK1, OCIE1A);
 	//SET_BIT(TIMSK1, OCIE1B); DoSwTwi wird jetzt direkt aufgerufen
 
+	LokalAusgabeNichtBlockieren = false;
+	
 #ifndef OHNE_ZEITSPERRE
 	SperrzeitInit();
 #endif //ndef OHNE_ZEITSPERRE
@@ -1707,7 +1736,11 @@ int main()
 
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
 
-	while (true)
+#ifdef TTYCODE_MULTI
+	CodeTabWechsel(0); // TODO: Wählbarer Standard-Zeichensatz
+#endif //def TTYCODE_MULTI
+
+	while (true) // Hauptschleife
 		{
 #ifndef OHNE_SPEICHER
 		extern uint16_t BeginnErsteMeldung;
@@ -1725,6 +1758,7 @@ int main()
 			clr_LEDGRUEN();
 			clr_LEDBLAU();
 			}
+			
 #ifndef OHNE_SPEICHER
 		else if (BeginnErsteMeldung != EndeLetzteMeldung) 		
 			{ // Nachricht ungelesen 
@@ -1737,6 +1771,7 @@ int main()
 			clr_LEDBLAU();
 			}
 #endif //ndef OHNE_SPEICHER
+
 		else
 			{ // alles in Ordnung
 			clr_LEDROT();
@@ -1749,6 +1784,8 @@ int main()
 
 		if (HauptmenueAusgeben)
 			{
+			LokalAusgabeNichtBlockieren = false;
+
 			LokalTextAusgabeP(PSTR("\r\n"));
 
 			DatumAusgabe();
@@ -1762,23 +1799,31 @@ int main()
 #else
 			LokalTextAusgabeP(PSTR(", Ctrl-L: Lokalbetrieb"));
 #endif				
-#ifdef SPRACHE_EN				
-			LokalTextAusgabeP(PSTR(", Ctrl-K: config"));
-#else
-			LokalTextAusgabeP(PSTR(", Ctrl-K: Konfiguration"));
-#endif				
 #ifndef OHNE_SPEICHER
 #ifdef SPRACHE_EN				
-			LokalTextAusgabeP(PSTR("\r\nCtrl-Q: read messages"));
+			LokalTextAusgabeP(PSTR(", Ctrl-Q: read messages"));
 #else
-			LokalTextAusgabeP(PSTR("\r\nCtrl-Q: AB-Wiedergabe"));
+			LokalTextAusgabeP(PSTR(", Ctrl-Q: AB-Wiedergabe"));
 #endif				
 #endif //ndef OHNE_SPEICHER
+#ifdef SPRACHE_EN				
+			LokalTextAusgabeP(PSTR("\r\nCtrl-K: config"));
+#else
+			LokalTextAusgabeP(PSTR("\r\nCtrl-K: Konfiguration"));
+#endif				
 #ifdef SPRACHE_EN				
 			LokalTextAusgabeP(PSTR(", Ctrl-T: list modules"));
 #else
 			LokalTextAusgabeP(PSTR(", Ctrl-T: Statusliste"));
 #endif				
+#ifdef TTYCODE_MULTI
+#ifdef SPRACHE_EN				
+			LokalTextAusgabeP(PSTR(", Ctrl-E: set encoding"));
+#else
+			LokalTextAusgabeP(PSTR(", Ctrl-E: Zeichensatz"));
+#endif				
+#endif //def TTYCODE_MULTI
+
 #ifdef BUSDEBUG_DIALOG
 			LokalTextAusgabeP(PSTR("\r\nCtrl-D: Debug"));
 #endif
@@ -1800,6 +1845,7 @@ int main()
 			{
 			char c;
 			c = SerEmpfZ(true);
+			LokalAusgabeNichtBlockieren = false;
 			switch (c)
 				{
 				case CTRL('a'):
@@ -1870,6 +1916,33 @@ int main()
 					BusteilnehmerListen();
 					Aktivieren(true);
 					break;
+					
+#ifdef TTYCODE_MULTI
+				case CTRL('E'):
+				{
+#ifdef SPRACHE_EN				
+					LokalTextAusgabeP(PSTR("\r\nselect character set: 0=ita2 1=ustty 2=KOI7N2 3=KOI8-R 4=Greek 5=Nordic: "));
+#else
+					LokalTextAusgabeP(PSTR("\r\nZeichensatz waehlen: 0=ita2 1=ustty 2=KOI7N2 3=KOI8-R 4=Griechisch 5=Nordisch: "));
+#endif					
+					uint8_t CodeIndex;
+					if (LokalZahlEingabe(&CodeIndex, 1) < 0)
+						break;
+					
+					if (CodeIndex > 5)
+						{
+#ifdef SPRACHE_EN				
+						LokalTextAusgabeP(PSTR("\r\ninvalid selection"));
+#else
+						LokalTextAusgabeP(PSTR("\r\nungueltige Eingabe"));
+#endif					
+						break;
+						}
+						
+					CodeTabWechsel(CodeIndex);
+					break;
+				}
+#endif //def TTYCODE_MULTI
 
 				case CTRL('m'):
 				case CTRL('j'):

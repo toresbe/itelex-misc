@@ -11,7 +11,7 @@
 
 // 15.01.2019: komplette umstrukturierung für verschiedene 'codepages':
 // defines für codepages: 
-//   TTYCODE_MULTI für umschaltbare Tabellen (noch nicht vollständig implementiert)
+//   TTYCODE_MULTI für umschaltbare Tabellen (ungetestet)
 //   TTYCODE_US für US_TTY
 //   TTYCODE_RUSSIAN_KOI7N2 für Kyrillisch mit 7 Bit (ohne lateinische Kleinbuchstaben!)
 //   TTYCODE_RUSSIAN_KOI8R für Kyrillisch mit 8 Bit
@@ -35,7 +35,6 @@ PROGMEM char TtyCodeTab_Gross_Bu[]		= { '#', 'T','\r', 'O', ' ', 'H', 'N', 'M','
 //                          			    16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
 											'E', 'Z', 'D', 'B', 'S', 'Y', 'F', 'X', 'A', 'W', 'J', '#', 'U', 'Q', 'K', '#'};
 
-#define KEIN_GROSS_ZU_KLEIN
 
 #ifndef TTYCODE_MULTI
 #define TtyCodeTabBu TtyCodeTab_Gross_Bu
@@ -87,9 +86,10 @@ PROGMEM char TtyCodeTab_US_Zi[]         = { '#', '5','\r', '9', ' ', '#', ',', '
 #if defined(TTYCODE_MULTI) || defined(TTYCODE_RUSSIAN_KOI8R)
 //                          			     0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   
 PROGMEM char TtyCodeTab_RU8_Zi[] 		= { '#', '5','\r', '9', ' ', 253, ',', '.','\n', ')', '4', 251, '8', '0', ':', '=',   
+//                                                                    ²                             ¹ 
 			
 //                          			    16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
-											'3', '+', WD, '?', '\'', '6', 252, '/', '-', '2', 224, '#', '7', '1', '(', '#'};
+											'3', '+', WD,  '?','\'', '6', 252, '/', '-', '2', 224, '#', '7', '1', '(', '#'};
 #ifndef TTYCODE_MULTI
 #define TtyCodeTabZi TtyCodeTab_RU8_Zi
 #endif					
@@ -119,7 +119,7 @@ PROGMEM char TtyCodeTab_RU7_Zi[]		= { '#', '5','\r', '9', ' ', 125, ',', '.','\n
 PROGMEM char TtyCodeTab_GR_Zi[]			= { '#', '5','\r', '9', ' ', 254, ',', '.','\n', ')', '4', '%', '8', '0', ':', '=', 
 			
 //                          			    16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
-											'3', '+', WD , '?','\'', '6', 248, '/', '-', '2', KL,  '#', '7', '1', '(', '#'};
+											'3', '+', WD , '?','\'', '6',248,  '/', '-', '2', KL,  '#', '7', '1', '(', '#'};
 #ifndef TTYCODE_MULTI
 #define TtyCodeTabZi TtyCodeTab_GR_Zi
 #endif					
@@ -159,9 +159,8 @@ PROGMEM char TtyCodeTab_RU8_3E[]		= { '#', 244,'\r', 239, ' ', 232, 238, 237,'\n
 											229, 250, 228, 226, 243, 249, 230, 248, 225, 247, 234, '#', 245, 241, 235, '#'};
 #ifndef TTYCODE_MULTI
 #define TtyCodeTab3E TtyCodeTab_RU8_3E
+#define DritteEbeneVorhanden 1
 #endif					
-
-#define DRITTE_EBENE
 
 #endif // Russisch KOI8R
 
@@ -173,12 +172,11 @@ PROGMEM char TtyCodeTab_RU8_3E[]		= { '#', 244,'\r', 239, ' ', 232, 238, 237,'\n
 PROGMEM char TtyCodeTab_RU7_3E[]		= { '#', 116,'\r', 111, ' ', 104, 110, 109,'\n', 108, 114, 103, 105, 112, 99, 118, 
 			
 //                          			    16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
-											101, 122, 100, 98,  115, 121, 102, 120, 97,  119, 106, '#', 117, 113, 107, '#'};
+										   101, 122, 100,  98, 115, 121, 102, 120,  97, 119, 106,  '#',117, 113, 107,  '#'};
 #ifndef TTYCODE_MULTI
 #define TtyCodeTab3E TtyCodeTab_RU7_3E
+#define DritteEbeneVorhanden 1
 #endif					
-
-#define DRITTE_EBENE
 
 #endif // Russisch KOI7N2
 
@@ -187,17 +185,45 @@ PROGMEM char TtyCodeTab_RU7_3E[]		= { '#', 116,'\r', 111, ' ', 104, 110, 109,'\n
 // ----==========
 #if defined(TTYCODE_MULTI) || defined(TTYCODE_GREEK_CP737)
 //                          			     0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   
-PROGMEM char TtyCodeTabGr[] 			= { '#', 146,'\r', 142, ' ', 134, 140, 139,'\n', 138, 144, 130, 136, 143, 150, 151, 
+PROGMEM char TtyCodeTab_GR_3E[]			= { '#', 146,'\r', 142, ' ', 134, 140, 139,'\n', 138,144, 130, 136, 143, 150, 151, 
 			
 //                          			    16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
-											132, 133, 131, 129, 145, 147, 148, 149, 128, 254, 141, '#', 135, 254, 137, '#'};									
+										   132, 133, 131, 129, 145, 147, 148, 149, 128, 254, 141,  '#',135, 254, 137,  '#'};									
 #ifndef TTYCODE_MULTI
-#define TtyCodeTab3E TtyCodeTab_RU7_3E
+#define TtyCodeTab3E TtyCodeTab_GR_3E 
+#define DritteEbeneVorhanden 1
 #endif					
 
-#define DRITTE_EBENE
-
 #endif // Griechisch
+
+
+#ifdef TTYCODE_MULTI
+
+// Variablen, die auf die aktuelle Code-Tabelle zeigen:
+prog_char * TtyCodeTabBu;
+prog_char * TtyCodeTabZi;
+prog_char * TtyCodeTab3E;
+bool GrossZuKleinbuchstaben;
+bool DritteEbeneVorhanden;
+
+#else
+// die Tabellen TtyCodeTabBu und TtyCodeTabZi sind bereits per #define auf die einzig gültige Tabelle gesetzt
+// nun müssen noch die (sonst) Variablen GrossZuKleinbuchstaben und DritteEbeneVorhanden 'simuliert' werden
+// Falls DritteEbeneVorhanden nicht gesetzt ist wird dies auf false definiert und die Tabelle TtyCodeTab3E
+// auf einen unschädlichen Bereich gesetzt, aber nur damit der Compiler nicht jammert.
+	
+#if defined(TTYCODE_RUSSIAN_KOI7N2)
+#define GrossZuKleinbuchstaben 0
+#else
+#define GrossZuKleinbuchstaben 1
+#endif //else not defined(TTYCODE_RUSSIAN_KOI7N2)
+
+#ifndef DritteEbeneVorhanden
+#define DritteEbeneVorhanden 0
+#define TtyCodeTab3E TtyCodeTabBu
+#endif
+
+#endif //def TTYCODE_MULTI
 
 
 
@@ -245,19 +271,16 @@ char CodeZuZeichen(uint8_t code, TBaudotMode *Mode)
 		*Mode = BaudotMode_ZiffernEmpfangen; 
 	else if (code == TtyCodeBuUm)
 		*Mode = BaudotMode_BuchstabenEmpfangen; 
-#ifdef DRITTE_EBENE
-	else if (code == TtyCode3EUm)
+	else if (DritteEbeneVorhanden && code == TtyCode3EUm)
 		*Mode = BaudotMode_DritteEbEmpfangen; 
-#endif 
+
 	else
 		{
 		BaudotMode_SetEmpfangen(*Mode); // dies bewirkt, dass beim nächsten Aufruf von ZeichenZuCode2 auf jeden Fall ein Bu oder Zi vorweg gesendet wird.
 		if (BaudotMode_IstZiffern(*Mode))
 			return pgm_read_byte(&TtyCodeTabZi[code]);
-#ifdef DRITTE_EBENE
-		else if (BaudotMode_IstDritteEb(*Mode))
+		else if (DritteEbeneVorhanden && BaudotMode_IstDritteEb(*Mode))
 			return pgm_read_byte(&TtyCodeTab3E[code]);
-#endif 
 		else 
 			return pgm_read_byte(&TtyCodeTabBu[code]);
 		}
@@ -276,17 +299,13 @@ uint8_t ZeichenZuCode(char c, TBaudotMode Mode)
 	prog_char* tp;
 	if (BaudotMode_IstZiffern(Mode))
 		tp = TtyCodeTabZi;
-#ifdef DRITTE_EBENE
-	else if (BaudotMode_IstDritteEb(Mode))
+	else if (DritteEbeneVorhanden && BaudotMode_IstDritteEb(Mode))
 		tp = TtyCodeTab3E;
-#endif 
 	else 
 		tp = TtyCodeTabBu;
 
-#ifndef KEIN_GROSS_ZU_KLEIN
-	if (c >= 'A' && c <= 'Z')
+	if (c >= 'A' && c <= 'Z' && GrossZuKleinbuchstaben)
 		c += 'a' - 'A';
-#endif
 	
 	for (uint8_t i = 0 ; i < 32 ; i++)
 		if (c == pgm_read_byte(tp))
@@ -295,6 +314,58 @@ uint8_t ZeichenZuCode(char c, TBaudotMode Mode)
 			tp++;
 	return 255;
 	}
+
+
+#ifdef TTYCODE_MULTI
+
+void CodeTabWechsel(uint8_t Mode)
+	{
+	switch (Mode)
+		{
+		case 1: // US
+			TtyCodeTabBu = TtyCodeTab_STD_Bu;
+			TtyCodeTabZi = TtyCodeTab_US_Zi;
+			DritteEbeneVorhanden = false;
+			GrossZuKleinbuchstaben = true;
+			break;
+			
+		case 2: // KOI7N2
+			TtyCodeTabBu = TtyCodeTab_Gross_Bu;
+			TtyCodeTabZi = TtyCodeTab_RU7_Zi;
+			TtyCodeTab3E = TtyCodeTab_RU7_3E;
+			DritteEbeneVorhanden = true;
+			GrossZuKleinbuchstaben = false;
+			break;
+		
+		case 3: // KOI8R
+			TtyCodeTabBu = TtyCodeTab_STD_Bu;
+			TtyCodeTabZi = TtyCodeTab_RU8_Zi;
+			TtyCodeTab3E = TtyCodeTab_RU8_3E;
+			DritteEbeneVorhanden = true;
+			GrossZuKleinbuchstaben = true;
+			break;
+		
+		case 4: // GRIECHISCH
+			TtyCodeTabBu = TtyCodeTab_STD_Bu;
+			TtyCodeTabZi = TtyCodeTab_GR_Zi;
+			TtyCodeTab3E = TtyCodeTab_GR_3E;
+			DritteEbeneVorhanden = true;
+			GrossZuKleinbuchstaben = true;
+			break;
+			
+		default: // ITA2
+			TtyCodeTabBu = TtyCodeTab_STD_Bu;
+			TtyCodeTabZi = TtyCodeTab_STD_Zi;
+			DritteEbeneVorhanden = false;
+			GrossZuKleinbuchstaben = true;
+			break;
+			
+		} // switch (Mode)
+		
+	} // CodeTabWechsel(uint8_t Mode)
+
+
+#endif //def TTYCODE_MULTI
 
 
 	/*
@@ -337,14 +408,12 @@ bool ZeichenZuCode2(char c, TBaudotMode *Mode, uint8_t* Code1, uint8_t* Code2)
 		return true;
 		}		
 		
-#ifdef DRITTE_EBENE		
-	if (c == CodeChr3EUm)
+	if (DritteEbeneVorhanden && c == CodeChr3EUm)
 		{
 		*Code1 = TtyCode3EUm;
 		*Mode = BaudotMode_DritteEbGesendet;
 		return true;
 		}		
-#endif
 		
 	// Umwandlung von GROSS in klein macht ZeichenZuCode
 	if (BaudotMode_IstSenden(*Mode) && c != CodeChrWerDa)
@@ -373,15 +442,16 @@ bool ZeichenZuCode2(char c, TBaudotMode *Mode, uint8_t* Code1, uint8_t* Code2)
 		return true;
 		}
 
-#ifdef DRITTE_EBENE
-	*Code2 = ZeichenZuCode(c, BaudotMode_DritteEbBitMaske); // 3. Ebene Tabelle probieren
-	if (*Code2 != 255)
+	if (DritteEbeneVorhanden)
 		{
-		*Code1 = TtyCode3EUm;
-		*Mode = BaudotMode_DritteEbGesendet;
-		return true;
+		*Code2 = ZeichenZuCode(c, BaudotMode_DritteEbBitMaske); // 3. Ebene Tabelle probieren
+		if (*Code2 != 255)
+			{
+			*Code1 = TtyCode3EUm;
+			*Mode = BaudotMode_DritteEbGesendet;
+			return true;
+			}
 		}
-#endif
 
 	return false; // Zeichen gar nicht umsetzbar
 	}
