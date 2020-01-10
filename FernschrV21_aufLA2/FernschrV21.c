@@ -1132,6 +1132,9 @@ int main()
 	clr_LEDGRUEN();
 	set_LEDBLAU();
 
+	// V21 grundstellen
+	ModemReset();
+
 	// TWI nochmal resetten
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (1<<TWSTO) | (0<<TWEN) | (0<<TWIE);
 

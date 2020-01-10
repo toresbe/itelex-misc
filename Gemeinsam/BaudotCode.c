@@ -20,6 +20,12 @@
 //   TTYCODE_NORDIC für Norwegen / Schweden (noch nicht implementiert)
 
 
+// falls ich mal UTF-8 verwenden will: Umsetzung v.u.n. Unicode siehe 
+// https://www.fileformat.info/info/unicode/utf8.htm
+
+
+// Das Russische Alphabet in Großbuchstaben:
+//  
 
 // ===================================
 // Code-Tabellen für Buchstaben-Ebene:
