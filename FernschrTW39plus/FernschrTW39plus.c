@@ -1083,7 +1083,17 @@ static void Konfiguration()
 			if (c >= '0' && c <= '9')
 				AutoWahlZiffern[i++] = c - '0';
 			else if (c == '+')
-				break;
+				break; // Eingabe beenden, setzt auch Ende-Zeichen
+			else if (c == '=' || c == '.' || c == '/')
+				{ 
+				if (i == 0)
+					{
+					LokalTextAusgabeP(OkStrP);
+					return; // unverändert lassen
+					}
+				else
+					break; // wie Ende behandeln
+				}
 			else if (c == '\0')
 				{
 				if (i != 0)
