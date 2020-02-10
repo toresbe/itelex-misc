@@ -104,9 +104,6 @@ bool MitWaehlscheibe; //!< Gerät het eine Wählscheibe
 
 uint8_t WahlauffordImpulsLaenge; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
 
-typedef enum { Deaktivierung, DemoBetriebStarten } TTasteFunktion;
-
-TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb
 
 bool BefehlEinschalten; //!< Fs soll laufen
 bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
@@ -211,6 +208,10 @@ uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalb
 
 uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
 	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
+
+typedef enum { Deaktivierung, DemoBetriebStarten } TTasteFunktion;
+
+TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb
 
 //////////////////////////////////////////////////////////////////
 
@@ -1176,6 +1177,7 @@ static void KonfigurationEnde()
 	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
 
 	Aktivieren(true);
+
 	clr_LEDROT();
 	}
 	

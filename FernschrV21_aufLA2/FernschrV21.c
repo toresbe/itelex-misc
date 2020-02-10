@@ -463,7 +463,7 @@ static void LokalbetriebSimulieren()
 		V21IO();
 		}
 
-	TW39Ausschalten();
+	V21Ausschalten();
 	
 	Aktivieren(true);
 	clr_LEDROT();

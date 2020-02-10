@@ -123,6 +123,7 @@ enum { AutoWahlMaxZiffern = 10 };
 EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
 EEMEM uint8_t KommendSperreWahl_EE =  KommendSperreWahl_Std; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 EEMEM TSperrzeitDaten Sperrzeit_EE = { 0, 0, 0, 0 };
+EEMEM uint8_t TasteFunktion_EE = 0 ; //!< Was macht die Taste
 EEMEM uint8_t UmleitungAbweisen_EE = 0 ; //!< Bei true wird in Grundstellung Status 90 gemeldet.
 EEMEM uint8_t LokalbetriebWahl_EE = LokalbetriebWahl_Std;
 EEMEM uint8_t AutoWahlZiffern_EE[AutoWahlMaxZiffern] = { 255,255, 255, 255 };
@@ -434,6 +435,10 @@ uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalb
 
 uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
 	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
+
+typedef enum { Deaktivierung, DemoBetriebStarten } TTasteFunktion;
+
+TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb
 
 //////////////////////////////////////////////////////////////////
 
@@ -975,6 +980,51 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 /////////////////////////////////////////////////////////////
 
+//! Demo-Betrieb
+// ----------------------------------------------------------
+//! Ein fester Text wird gedruckt, bis die Taste gedrückt wird
+//! oder der Fs mit der Schlusstaste abgeschaltet wird.
+
+PROGMEM const char DemoText[] = 
+#include "DemoText.h"
+;
+
+static void DemoBetrieb()
+	{
+	PGM_P p;
+	
+	SeriellUmsetzInit();
+	Aktivieren(false);
+	
+	if (!ED1000Einschalten())
+		return;
+	
+	set_LEDBLAU();
+	
+	p = DemoText;
+	
+	while (pgm_read_byte(p) != '\0')
+		{
+		LokalZeichenAusgabe(pgm_read_byte(p));	
+			// macht intern TW39IO also auch Schlusstaste-Erkennung
+		p++;
+		TastePruefen();
+		if (Tastendruck != NichtGedr)
+			break;
+		if (!MeldungEingeschaltet)
+			break;
+		}
+
+	Tastendruck = NichtGedr;
+	ED1000Ausschalten();
+	Aktivieren(true);
+	clr_LEDBLAU();
+	
+	}
+
+
+/////////////////////////////////////////////////////////////
+
 //! Behandelt die Selbstkonfiguration des Moduls.
 //-----------------------------------------------
 //! Arbeitet mit dem angeschlossenen Endgerät zusammen.
@@ -1031,7 +1081,7 @@ static void Konfiguration()
 		LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
 		return;
 		}
-	
+
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
 	// -----------------------------------------------------------
 #ifdef SPRACHE_EN
@@ -1212,6 +1262,9 @@ static void KonfigurationEnde()
 	if (LokalbetriebWahl != eeprom_read_byte(&LokalbetriebWahl_EE))
 		eeprom_write_byte(&LokalbetriebWahl_EE, LokalbetriebWahl);
 
+	if (TasteFunktion != eeprom_read_byte(&TasteFunktion_EE))
+		eeprom_write_byte(&TasteFunktion_EE, TasteFunktion);
+
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
 		eeprom_write_byte(&AutoWahlZiffern_EE[i], AutoWahlZiffern[i]);
@@ -1296,6 +1349,7 @@ static void KommendSperren(TSperreGrund Grund)
 //! Kann nur durch Tastendruck an der Platine aktiviert werden.
 	
 static void Deaktivieren()
+// wird nach kurzem Tastendruck aufgerufen
 	{
 	set_LEDBLAU();
 	Aktivieren(false);
@@ -1365,7 +1419,9 @@ int main()
 		LokalbetriebWahl = LokalbetriebWahl_Std;
 
 	SperrzeitLadeEeprom(&Sperrzeit_EE);
-	
+
+	TasteFunktion = eeprom_read_byte(&TasteFunktion_EE);
+
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
 		AutoWahlZiffern[i] = eeprom_read_byte(&AutoWahlZiffern_EE[i]);
@@ -1507,8 +1563,17 @@ int main()
 		if (Tastendruck == Kurz)
 			{
 			Tastendruck = NichtGedr;
-			Deaktivieren();
-			}
+			switch (TasteFunktion)
+				{
+				case DemoBetriebStarten:
+					DemoBetrieb();
+					break;
+				default:
+					Deaktivieren();
+					break;
+				}	
+				
+			} // if (Tastendruck == Kurz)
 
 		if (MeldungEingeschaltet)
 			{
