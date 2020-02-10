@@ -104,13 +104,6 @@ bool MitWaehlscheibe; //!< Gerät het eine Wählscheibe
 
 uint8_t WahlauffordImpulsLaenge; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
 
-uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
-
-uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
-
-uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
-	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
-
 typedef enum { Deaktivierung, DemoBetriebStarten } TTasteFunktion;
 
 TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb
@@ -212,6 +205,13 @@ static void TW39IO()
 	} // TW39IO
 	
 	
+uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
+
+uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
+
+uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
+	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
+
 //////////////////////////////////////////////////////////////////
 
 //! Einschaltung des Fs auslösen.
@@ -1330,8 +1330,6 @@ int main()
 
 	TasteFunktion = eeprom_read_byte(&TasteFunktion_EE);
 
-	AutoWahlZiffern[0] = 255; // TODO read from EEPROM
-	
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
 		AutoWahlZiffern[i] = eeprom_read_byte(&AutoWahlZiffern_EE[i]);
@@ -1354,6 +1352,13 @@ int main()
 	while (TimerVal(&Timer) < 250)
 		;
 	
+	// Bei Tastendruck Selbsttest
+#ifdef TASTE_NACH_PLUS
+	bool SelbsttestAusfuehen = get_TASTE();
+#else
+	bool SelbsttestAusfuehen = !get_TASTE();
+#endif
+
 	/*/ Bei Tastendruck Watchdog AUS
 #ifdef TASTE_NACH_PLUS
 	if (get_TASTE()) 
@@ -1397,30 +1402,40 @@ int main()
 	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
 
-/*/ Selbsttest
+	if (SelbsttestAusfuehen)
+		{
+		BefehlEinschalten = false;
+		MeldungEingeschaltet = false;
+		BefehlMark = false;
+		MeldungMark = false;
 
-	BefehlEinschalten = false;
-	MeldungEingeschaltet = false;
-	BefehlMark = false;
-	MeldungMark = false;
-
+		StartTimer(&Timer);
 	while (1)
 		{
-		BefehlMark = BIT_IS_SET(TAST_IPORT, TAST_BIT);
-			// Gedrückt = LOW
+#ifdef TASTE_NACH_PLUS
+			if (get_TASTE())
+#else
+			if (!get_TASTE())
+#endif
+				{ // gedrückt
+				BefehlMark = false;
+				}
+			else
+				{ // nicht gedrückt
+				BefehlMark = true;
+				StartTimer(&Timer);
+				}
+			TW39IO();
 
-		TW39IO();
+			bset_LEDROT(BefehlEinschalten);
+			bset_LEDGELB(MeldungEingeschaltet);
+			bset_LEDGRUEN(BefehlMark);
+			bset_LEDBLAU(MeldungMark);
 
-		if (BefehlEinschalten) 		LED_EIN(ROT); 	else LED_AUS(ROT);
-		if (MeldungEingeschaltet) 	LED_EIN(GELB); 	else LED_AUS(GELB);
-		if (BefehlMark) 			LED_EIN(GRUEN); else LED_AUS(GRUEN);
-		if (MeldungMark)			LED_EIN(BLAU); 	else LED_AUS(BLAU);
+			BefehlEinschalten = MeldungEingeschaltet || (TimerVal(&Timer) > 1000);
 
-		BefehlEinschalten = MeldungEingeschaltet;
-
-		}
-
-// Selbsttest Ende */
+			}
+		} // if SelbsttestAusfuehren
 
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
 

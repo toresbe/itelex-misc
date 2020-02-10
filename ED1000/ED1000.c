@@ -114,17 +114,18 @@ const PROGMEM char Identifier[] = "___itlx_ED1000___" __DATE__ "___" __TIME__ "_
 
 enum { LokalbetriebWahl_Std = 88 };
 enum { KommendSperreWahl_Std = 0 };
+enum { AutoWahlMaxZiffern = 10 };
 
 
 // Eeprom-Speicher
 // ---------------
 
 EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
-EEMEM uint8_t KommendSperreWahl_EE = 0; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
-EEMEM TSperrzeitDaten Sperrzeit_EE = { 0 };
+EEMEM uint8_t KommendSperreWahl_EE =  KommendSperreWahl_Std; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
+EEMEM TSperrzeitDaten Sperrzeit_EE = { 0, 0, 0, 0 };
 EEMEM uint8_t UmleitungAbweisen_EE = 0 ; //!< Bei true wird in Grundstellung Status 90 gemeldet.
 EEMEM uint8_t LokalbetriebWahl_EE = LokalbetriebWahl_Std;
-
+EEMEM uint8_t AutoWahlZiffern_EE[AutoWahlMaxZiffern] = { 255,255, 255, 255 };
 
 // Typen
 // -----
@@ -431,7 +432,8 @@ uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankom
 
 uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
 
-
+uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
+	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
 
 //////////////////////////////////////////////////////////////////
 
@@ -654,6 +656,7 @@ static void VerbindungKommend()
 	if (!ED1000Einschalten())
 		{ // Timeout...
 		clr_LEDGRUEN();
+		GeAusschalten(true);
 		KommendSperren(SperreStoerung);
 		clr_LEDROT();
 		return;
@@ -747,6 +750,15 @@ static bool WahlMitTastatur()
 		
 	LokalCodeAusgabe(TtyCodeZiUm);
 	BaudotMode_SetZiffern(BaudotMode);
+
+	// AutoWahlZiffern vorweg in den Wählpuffer schreiben
+	uint8_t i;
+	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
+		// c wird als Index missbraucht
+		if (AutoWahlZiffern[i] <= 9)
+			GeWaehlen(AutoWahlZiffern[i]);
+		else
+			break;
 
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
@@ -988,41 +1000,46 @@ static void Konfiguration()
 	LokalTextAusgabeP(PSTR("\r\n konfiguration ed1000 version " SVNVERSION " datum " __DATE__));
 #endif //def SPRACHE_EN
 	
-	// Durchwahl...
-	Abbruch = !KonfigurationAllgemein();
-	if (Abbruch) 
-		return;
-
-	// Experten-Optionen...
-	// --------------------
+	// Vorab die Frage nach "Expertenfunktionen"
+	// -----------------------------------------
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n no special configuration:    ")); 
+	LokalTextAusgabeP(PSTR("\r\n simple configuration?    ")); 
 #else	
-	LokalTextAusgabeP(PSTR("\r\n keine sonderfunktionen abfragen:    ")); 
+	LokalTextAusgabeP(PSTR("\r\n einfache konfiguration?    ")); 
 #endif //def SPRACHE_EN
 
 	if (LokalBoolEingabe(&NoExpertSettings) == 0)
 		return;
 
 	LokalTextAusgabeP(OkStrP);
+
+	// Durchwahl...
+	Abbruch = !KonfigurationAllgemein();
+	if (Abbruch) 
+		return;
+
 	
+	// jetzt bei einfacher Konfiguration abbrechen
+	// -------------------------------------------
 	if (NoExpertSettings)
 		{
 		KommendSperreWahl = KommendSperreWahl_Std;
 		LokalbetriebWahl = LokalbetriebWahl_Std;
 		SperrzeitInit();
+		TasteFunktion = 0;
+		AutoWahlZiffern[0] = 255; // Ende-Kennzeichen
 		LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
 		return;
 		}
 	
-	
-	
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
+	// -----------------------------------------------------------
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n block incoming calls by: (cur. "));
 #else
 	LokalTextAusgabeP(PSTR("\r\n kommende anrufe sperren mit: (akt. "));
 #endif //def SPRACHE_EN
+
 	if (KommendSperreWahl != 0)
 		LokalZahlAusgabe(KommendSperreWahl, 2);
 	else
@@ -1031,6 +1048,7 @@ static void Konfiguration()
 #else
 		LokalTextAusgabeP(PSTR("aus"));
 #endif //def SPRACHE_EN
+
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR(") new (0 = off):     "));
 #else
@@ -1070,10 +1088,101 @@ static void Konfiguration()
 
 	LokalTextAusgabeP(OkStrP);
 	
+	// Sperrzeiten
+	// -----------
 	if (!SperrzeitEingabeDialog())
 		return;
 	
-	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
+	// Feste Verbindung
+	// ----------------
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n automated prefix dialing? current:   ")); 
+#else	
+	LokalTextAusgabeP(PSTR("\r\n automatische vorwahl? aktuell:   ")); 
+#endif //def SPRACHE_EN
+
+	bool AutoWahlJa = AutoWahlZiffern[0] <= 9;
+
+	LokalBoolAusgabe(AutoWahlJa);
+	LokalTextAusgabeP(NeuStrP);
+
+	if (LokalBoolEingabe(&AutoWahlJa) == 0)
+		return;
+
+	LokalTextAusgabeP(OkStrP);
+
+	if (AutoWahlJa)
+		{
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("\r\n enter dialing digits, finish with + (cur.: "));
+#else		
+		LokalTextAusgabeP(PSTR("\r\n wahlziffern eingeben, ende mit + (akt.: "));
+#endif //def SPRACHE_EN
+		uint8_t i;
+		
+		for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
+			if (AutoWahlZiffern[i] <= 9)
+				LokalZahlAusgabe(AutoWahlZiffern[i], 0);
+			else
+				break;
+			
+		LokalTextAusgabeP(PSTR("+)\r\n  "));
+		LokalTextAusgabeP(NeuStrP);
+
+		i = 0;
+		while (i < AutoWahlMaxZiffern - 1)
+			{
+			char c = LokalZeichenLesen();
+			if (c >= '0' && c <= '9')
+				AutoWahlZiffern[i++] = c - '0';
+			else if (c == '+')
+				break; // Eingabe beenden, setzt auch Ende-Zeichen
+			else if (c == '=' || c == '.' || c == '/')
+				{ 
+				if (i == 0)
+					{
+					LokalTextAusgabeP(OkStrP);
+					return; // unverändert lassen
+					}
+				else
+					break; // wie Ende behandeln
+				}
+			else if (c == '\0')
+				{
+				if (i != 0)
+					AutoWahlZiffern[i] = 255; // Ende-Zeichen
+				// sonst unverändert lassen
+				return; 
+				}
+			}
+		AutoWahlZiffern[i] = 255; // Ende-Zeichen
+		LokalTextAusgabeP(OkStrP);
+		}
+	else // not AutoWahlJa
+		{
+		AutoWahlZiffern[0] = 255;
+		}
+		
+	// Modus für Tastendruck
+	// ---------------------
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n module button function (cur. "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n funktion taste am modul (akt. "));
+#endif //def SPRACHE_EN
+
+	LokalZahlAusgabe(TasteFunktion, 0);
+
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(") new:     "));
+#else
+	LokalTextAusgabeP(PSTR(") neu:     "));
+#endif //def SPRACHE_EN
+
+	if (LokalZahlEingabe(&TasteFunktion, 0) < 0)
+		return;
+
+	LokalTextAusgabeP(OkStrP);
 	
 	// weitere Eingaben
 
@@ -1102,6 +1211,12 @@ static void KonfigurationEnde()
 
 	if (LokalbetriebWahl != eeprom_read_byte(&LokalbetriebWahl_EE))
 		eeprom_write_byte(&LokalbetriebWahl_EE, LokalbetriebWahl);
+
+	uint8_t i;
+	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
+		eeprom_write_byte(&AutoWahlZiffern_EE[i], AutoWahlZiffern[i]);
+	
+	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
 
 	Aktivieren(true);
 
@@ -1250,6 +1365,10 @@ int main()
 		LokalbetriebWahl = LokalbetriebWahl_Std;
 
 	SperrzeitLadeEeprom(&Sperrzeit_EE);
+	
+	uint8_t i;
+	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
+		AutoWahlZiffern[i] = eeprom_read_byte(&AutoWahlZiffern_EE[i]);
 	
 	BefehlEinschalten = false;
 	BefehlMark = true;

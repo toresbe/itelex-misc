@@ -73,6 +73,7 @@ PROGMEM const char Identifier[] = "___itlx_FsV21-aufLA21___" __DATE__ "___" __TI
 
 enum { LokalbetriebWahl_Std = 88 };
 enum { KommendSperreWahl_Std = 0 };
+enum { AutoWahlMaxZiffern = 10 };
 
 // Eeprom-Speicher
 // ---------------
@@ -83,7 +84,7 @@ EEMEM TSperrzeitDaten Sperrzeit_EE = { 0, 0, 0, 0 } ;
 EEMEM uint8_t TasteFunktion_EE = 0 ; //!< Was macht die Taste
 EEMEM uint8_t UmleitungAbweisen_EE = 0 ; //!< Bei true wird in Grundstellung Status 90 gemeldet.
 EEMEM uint8_t LokalbetriebWahl_EE = LokalbetriebWahl_Std;
-
+EEMEM uint8_t AutoWahlZiffern_EE[AutoWahlMaxZiffern] = { 255,255, 255, 255 };
 
 // Typen
 // -----
@@ -92,10 +93,6 @@ typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrun
 
 // Variablen
 // ---------
-
-uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
-
-uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
 
 typedef enum { Deaktivierung, DemoBetriebStarten } TTasteFunktion;
 
@@ -180,6 +177,13 @@ static void V21IO()
 	} // V21IO
 	
 	
+uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
+
+uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
+
+uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
+	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
+
 //////////////////////////////////////////////////////////////////
 
 //! Einschaltung des Fs auslösen.
@@ -507,6 +511,15 @@ static bool WahlMitTastatur()
 	LokalCodeAusgabe(TtyCodeZiUm);
 	BaudotMode_SetZiffern(BaudotMode);
 
+	// AutoWahlZiffern vorweg in den Wählpuffer schreiben
+	uint8_t i;
+	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
+		// c wird als Index missbraucht
+		if (AutoWahlZiffern[i] <= 9)
+			GeWaehlen(AutoWahlZiffern[i]);
+		else
+			break;
+
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
 	Falschziffern = 0;
@@ -794,31 +807,35 @@ static void Konfiguration()
 	LokalTextAusgabeP(PSTR("\r\n konfiguration V21plus version " SVNVERSION " datum " __DATE__));
 #endif //def SPRACHE_EN
 
-	// Durchwahl und co.
-	// -----------------
-	Abbruch = !KonfigurationAllgemein();
-	if (Abbruch) 
-		return;
-		
-	// Experten-Optionen...
-	// --------------------
+	// Vorab die Frage nach "Expertenfunktionen"
+	// -----------------------------------------
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n no special configuration:    ")); 
+	LokalTextAusgabeP(PSTR("\r\n simple configuration?    ")); 
 #else	
-	LokalTextAusgabeP(PSTR("\r\n keine sonderfunktionen abfragen:    ")); 
+	LokalTextAusgabeP(PSTR("\r\n einfache konfiguration?    ")); 
 #endif //def SPRACHE_EN
 
 	if (LokalBoolEingabe(&NoExpertSettings) == 0)
 		return;
 
 	LokalTextAusgabeP(OkStrP);
+
+	// Durchwahl und co.
+	// -----------------
+	Abbruch = !KonfigurationAllgemein();
+	if (Abbruch) 
+		return;
+		
 	
+	// jetzt bei einfacher Konfiguration abbrechen
+	// -------------------------------------------
 	if (NoExpertSettings)
 		{
 		KommendSperreWahl = KommendSperreWahl_Std;
 		LokalbetriebWahl = LokalbetriebWahl_Std;
 		SperrzeitInit();
 		TasteFunktion = 0;
+		AutoWahlZiffern[0] = 255; // Ende-Kennzeichen
 		LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
 		return;
 		}
@@ -885,14 +902,82 @@ static void Konfiguration()
 	if (!SperrzeitEingabeDialog())
 		return;
 	
-	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
-	
+	// Feste Verbindung
+	// ----------------
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n automated prefix dialing? current:   ")); 
+#else	
+	LokalTextAusgabeP(PSTR("\r\n automatische vorwahl? aktuell:   ")); 
+#endif //def SPRACHE_EN
+
+	bool AutoWahlJa = AutoWahlZiffern[0] <= 9;
+
+	LokalBoolAusgabe(AutoWahlJa);
+	LokalTextAusgabeP(NeuStrP);
+
+	if (LokalBoolEingabe(&AutoWahlJa) == 0)
+		return;
+
+	LokalTextAusgabeP(OkStrP);
+
+	if (AutoWahlJa)
+		{
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("\r\n enter dialing digits, finish with + (cur.: "));
+#else		
+		LokalTextAusgabeP(PSTR("\r\n wahlziffern eingeben, ende mit + (akt.: "));
+#endif //def SPRACHE_EN
+		uint8_t i;
+		
+		for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
+			if (AutoWahlZiffern[i] <= 9)
+				LokalZahlAusgabe(AutoWahlZiffern[i], 0);
+			else
+				break;
+			
+		LokalTextAusgabeP(PSTR("+)\r\n  "));
+		LokalTextAusgabeP(NeuStrP);
+
+		i = 0;
+		while (i < AutoWahlMaxZiffern - 1)
+			{
+			char c = LokalZeichenLesen();
+			if (c >= '0' && c <= '9')
+				AutoWahlZiffern[i++] = c - '0';
+			else if (c == '+')
+				break; // Eingabe beenden, setzt auch Ende-Zeichen
+			else if (c == '=' || c == '.' || c == '/')
+				{ 
+				if (i == 0)
+					{
+					LokalTextAusgabeP(OkStrP);
+					return; // unverändert lassen
+					}
+				else
+					break; // wie Ende behandeln
+				}
+			else if (c == '\0')
+				{
+				if (i != 0)
+					AutoWahlZiffern[i] = 255; // Ende-Zeichen
+				// sonst unverändert lassen
+				return; 
+				}
+			}
+		AutoWahlZiffern[i] = 255; // Ende-Zeichen
+		LokalTextAusgabeP(OkStrP);
+		}
+	else // not AutoWahlJa
+		{
+		AutoWahlZiffern[0] = 255;
+		}
+		
 	// Modus für Tastendruck
 	// ---------------------
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n module button function (cur. "));
 #else
-	LokalTextAusgabeP(PSTR("\r\n funktion taste am modul: (akt. "));
+	LokalTextAusgabeP(PSTR("\r\n funktion taste am modul (akt. "));
 #endif //def SPRACHE_EN
 
 	LokalZahlAusgabe(TasteFunktion, 0);
@@ -939,6 +1024,12 @@ static void KonfigurationEnde()
 
 	if (TasteFunktion != eeprom_read_byte(&TasteFunktion_EE))
 		eeprom_write_byte(&TasteFunktion_EE, TasteFunktion);
+
+	uint8_t i;
+	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
+		eeprom_write_byte(&AutoWahlZiffern_EE[i], AutoWahlZiffern[i]);
+	
+	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
 
 	Aktivieren(true);
 	clr_LEDROT();
@@ -1081,6 +1172,10 @@ int main()
 	SperrzeitLadeEeprom(&Sperrzeit_EE);
 
 	TasteFunktion = eeprom_read_byte(&TasteFunktion_EE);
+
+	uint8_t i;
+	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
+		AutoWahlZiffern[i] = eeprom_read_byte(&AutoWahlZiffern_EE[i]);
 	
 	BefehlEinschalten = false;
 	BefehlMark = true;
@@ -1100,6 +1195,12 @@ int main()
 	while (TimerVal(&Timer) < 250)
 		;
 	
+#ifdef TASTE_NACH_PLUS
+	bool SelbsttestAusfuehen = get_TASTE();
+#else
+	bool SelbsttestAusfuehen = !get_TASTE();
+#endif
+
 	/*/ Bei Tastendruck Watchdog AUS
 #ifdef TASTE_NACH_PLUS
 	if (get_TASTE()) 
@@ -1146,30 +1247,40 @@ int main()
 	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
 
-/*/ Selbsttest
-
-	BefehlEinschalten = false;
-	MeldungEingeschaltet = false;
-	BefehlMark = false;
-	MeldungMark = false;
-
-	while (1)
+	if (SelbsttestAusfuehen)
 		{
-		BefehlMark = BIT_IS_SET(TAST_IPORT, TAST_BIT);
-			// Gedrückt = LOW
+		BefehlEinschalten = false;
+		MeldungEingeschaltet = false;
+		BefehlMark = false;
+		MeldungMark = false;
 
-		V21IO();
+		StartTimer(&Timer);
+		while (1)
+			{
+#ifdef TASTE_NACH_PLUS
+			if (get_TASTE())
+#else
+			if (!get_TASTE())
+#endif
+				{ // gedrückt
+				BefehlMark = false;
+				}
+			else
+				{ // nicht gedrückt
+				BefehlMark = true;
+				StartTimer(&Timer);
+				}
+			V21IO();
 
-		if (BefehlEinschalten) 		LED_EIN(ROT); 	else LED_AUS(ROT);
-		if (MeldungEingeschaltet) 	LED_EIN(GELB); 	else LED_AUS(GELB);
-		if (BefehlMark) 			LED_EIN(GRUEN); else LED_AUS(GRUEN);
-		if (MeldungMark)			LED_EIN(BLAU); 	else LED_AUS(BLAU);
+			bset_LEDROT(BefehlEinschalten);
+			bset_LEDGELB(MeldungEingeschaltet);
+			bset_LEDGRUEN(BefehlMark);
+			bset_LEDBLAU(MeldungMark);
 
-		BefehlEinschalten = MeldungEingeschaltet;
+			BefehlEinschalten = MeldungEingeschaltet || (TimerVal(&Timer) > 1000);
 
-		}
-
-// Selbsttest Ende */
+			}
+		} // if SelbsttestAusfuehren
 
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
 
