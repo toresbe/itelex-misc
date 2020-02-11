@@ -55,7 +55,7 @@
 #if PLATINE_VERSION >= 13 // 1.3x
 // aktuelle Version
 
-DEFPORTINPULL	(TASTE,		D, 0)	
+DEFPORTINPULLAL	(TASTE,		D, 0)	
 
 DEFPORTOUT		(LEDROT, 	D, 1)
 DEFPORTOUT		(LEDGELB, 	D, 2)
@@ -78,7 +78,7 @@ DEFPORTINPULL	(FS2_EING,	D, 5) // Strom-Einlesung
 
 #warning Nur fuer alte Platinen-Version 1.0 bis 1.2
 
-DEFPORTINPULL	(TASTE,		D, 6)	
+DEFPORTINPULLAL	(TASTE,		D, 6)	
 
 DEFPORTOUT		(LEDROT, 	D, 7)
 DEFPORTOUT		(LEDGELB, 	B, 0)

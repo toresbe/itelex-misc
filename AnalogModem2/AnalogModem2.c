@@ -284,8 +284,8 @@ void FehlerStop(int Nummer)
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
-			if (get_TASTE())
-				{ // Taste nicht gedrückt (schaltet gegen Masse)
+			if (!get_TASTE())
+				{ // Taste nicht gedrückt
 				if (TasteZ > 0)
 					{
 					TasteZ--;
@@ -614,7 +614,7 @@ bool Anruferkennung()
 		if (TimerVal(&T1) >= 700 + 700) // 700 ms mindest Klingellänge + 700 ms Pausenbeginn (aus While-Schleife oben)
 			KlingelZaehler++;
 
-		if (KlingelZaehler >= AnnahmeKlingelzeichen || !get_TASTE()) // HACK Taste (schaltet gegen Masse) nimmt Anruf an 
+		if (KlingelZaehler >= AnnahmeKlingelzeichen || get_TASTE()) // HACK Taste nimmt Anruf an 
 			return true;
 			
 		while (!Klingelsignal())

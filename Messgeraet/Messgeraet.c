@@ -194,7 +194,7 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
-			if (get_TASTE())
+			if (!get_TASTE())
 				{ // Taste nicht gedrückt
 				if (TasteZ > 0)
 					{

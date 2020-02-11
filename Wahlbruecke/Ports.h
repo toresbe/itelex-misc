@@ -16,7 +16,7 @@
 
 								// 		  Mega168
 								//			 1  Reset
-DEFPORTINPULL(TASTE,	D, 0)	//			 2  RXD
+DEFPORTINPULLAL(TASTE,	D, 0)	//			 2  RXD
 
 DEFPORTOUT(LEDROT,		D, 1)	//			 3  TXD
 DEFPORTOUT(LEDGELB,		D, 2)	//			 4
@@ -39,9 +39,9 @@ DEFPORTOUT(FS_AUSG,		D, 7)	//			13
 								//			21	AREF
 								//			22	AGND
 //DEFPORTIN(SIGEIN,	 	C, 0)	//			23	ADC0
-//DEFPORTINPULL(TASTE, 	C, 1)	//			24
+//DEFPORTINPULLAL(TASTE, 	C, 1)	//			24
 //DEFPORTOUT(LEDROT, 	C, 2)	//			25
-//DEFPORTINPULL(TASTE2,	C, 3)	//			26
+//DEFPORTINPULLAL(TASTE2,	C, 3)	//			26
 //						C, 4)	//			27	SDA
 //						C, 5)	//			28	SCL
 

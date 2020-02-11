@@ -271,11 +271,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
-#ifdef TASTE_NACH_PLUS
 			if (get_TASTE()) 
-#else
-			if (!get_TASTE()) 
-#endif
 				{ // Taste gedrückt
 				if (TasteZ < 5)
 					TasteZ++;
@@ -1007,11 +1003,7 @@ __attribute__ ((noreturn)) int main()
 		;
 	
 	/*/ Bei Tastendruck Watchdog AUS
-#ifdef TASTE_NACH_PLUS
 	if (get_TASTE()) 
-#else
-	if (!get_TASTE()) 
-#endif
 		{ 
 		wdt_disable();
 		set_LEDGELB();

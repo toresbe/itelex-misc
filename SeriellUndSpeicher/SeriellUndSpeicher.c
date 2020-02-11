@@ -578,7 +578,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
-			if (get_TASTE())
+			if (!get_TASTE())
 				{ // Taste nicht gedrückt
 				if (TasteZ > 0)
 					{

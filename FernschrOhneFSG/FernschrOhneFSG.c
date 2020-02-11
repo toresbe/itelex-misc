@@ -179,7 +179,7 @@ static void FernschrIO(bool TasteMachtBreak)
 		clr_LEDBLAU();
 		set_FS_AUSG();
 		
-		if (get_FS_EING() || (TasteMachtBreak && !get_TASTE()))
+		if (get_FS_EING() || (TasteMachtBreak && get_TASTE()))
 			{ // Schleifenstrom ist aus (negierter Eingang) ODER bei aktivierter Taste ist diese gedrückt.
 			if (MeldungMark)
 				{ // noch wird aber 'Mark' gemeldet
@@ -328,11 +328,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
-#ifdef TASTE_NACH_PLUS
 			if (get_TASTE()) 
-#else
-			if (!get_TASTE()) 
-#endif
 				{ // Taste gedrückt
 				if (TasteZ < 5)
 					TasteZ++;
@@ -1286,12 +1282,11 @@ int main()
 	while (TimerVal(&Timer) < 250)
 		;
 	
+	// Bei Tastendruck Selbsttest
+	bool SelbsttestAusfuehen = get_TASTE();
+
 	/*/ Bei Tastendruck Watchdog AUS
-#ifdef TASTE_NACH_PLUS
 	if (get_TASTE()) 
-#else
-	if (!get_TASTE()) 
-#endif
 		{ 
 		wdt_disable();
 		set_LEDGELB();
@@ -1329,33 +1324,44 @@ int main()
 	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
 
-/*/ Selbsttest
-
-	BefehlEinschalten = false;
-	MeldungEingeschaltet = false;
-	BefehlMark = false;
-	MeldungMark = false;
-
-	while (1)
+	if (SelbsttestAusfuehen)
 		{
-		BefehlMark = BIT_IS_SET(TAST_IPORT, TAST_BIT);
-			// Gedrückt = LOW
+		BefehlEinschalten = false;
+		MeldungEingeschaltet = false;
+		BefehlMark = false;
+		MeldungMark = false;
 
-		FernschrIO();
+		StartTimer(&Timer);
+		while (1)
+			{
+			if (get_TASTE())
+				{ // gedrückt
+				BefehlMark = false;
+				}
+			else
+				{ // nicht gedrückt
+				BefehlMark = true;
+				StartTimer(&Timer);
+				}
+			FernschrIO();
 
-		if (BefehlEinschalten) 		LED_EIN(ROT); 	else LED_AUS(ROT);
-		if (MeldungEingeschaltet) 	LED_EIN(GELB); 	else LED_AUS(GELB);
-		if (BefehlMark) 			LED_EIN(GRUEN); else LED_AUS(GRUEN);
-		if (MeldungMark)			LED_EIN(BLAU); 	else LED_AUS(BLAU);
+			bset_LEDROT(BefehlEinschalten);
+			bset_LEDGELB(MeldungEingeschaltet);
+			bset_LEDGRUEN(BefehlMark);
+			bset_LEDBLAU(MeldungMark);
 
-		BefehlEinschalten = MeldungEingeschaltet;
+			if (TimerVal(&Timer) > 1000)
+				{
+				BefehlEinschalten = !BefehlEinschalten;
+				StartTimer(&Timer);
+				}
 
-		}
-
-// Selbsttest Ende */
+			}
+		} // if SelbsttestAusfuehren
 
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
 
+	BefehlEinschalten = false;
 	BefehlMark = true;
 
 	while (true)
@@ -1417,7 +1423,7 @@ int main()
 			RundsendAnzDaten = 0;
 			}
 		
-		} // while (1)
+		} // while (true)
 	} // main()
 
 

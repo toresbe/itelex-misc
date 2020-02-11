@@ -298,11 +298,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
-#ifdef TASTE_NACH_PLUS
 			if (get_TASTE()) 
-#else
-			if (!get_TASTE()) 
-#endif
 				{ // Taste gedrückt
 				if (TasteZ < 5)
 					TasteZ++;
@@ -1355,18 +1351,10 @@ int main()
 		;
 	
 	// Bei Tastendruck Selbsttest
-#ifdef TASTE_NACH_PLUS
 	bool SelbsttestAusfuehen = get_TASTE();
-#else
-	bool SelbsttestAusfuehen = !get_TASTE();
-#endif
 
 	/*/ Bei Tastendruck Watchdog AUS
-#ifdef TASTE_NACH_PLUS
 	if (get_TASTE()) 
-#else
-	if (!get_TASTE()) 
-#endif
 		{ 
 		wdt_disable();
 		set_LEDGELB();
@@ -1412,13 +1400,9 @@ int main()
 		MeldungMark = false;
 
 		StartTimer(&Timer);
-	while (1)
-		{
-#ifdef TASTE_NACH_PLUS
+		while (1)
+			{
 			if (get_TASTE())
-#else
-			if (!get_TASTE())
-#endif
 				{ // gedrückt
 				BefehlMark = false;
 				}
@@ -1434,7 +1418,11 @@ int main()
 			bset_LEDGRUEN(BefehlMark);
 			bset_LEDBLAU(MeldungMark);
 
-			BefehlEinschalten = MeldungEingeschaltet || (TimerVal(&Timer) > 1000);
+			if (TimerVal(&Timer) > 1000)
+				{
+				BefehlEinschalten = !BefehlEinschalten;
+				StartTimer(&Timer);
+				}
 
 			}
 		} // if SelbsttestAusfuehren

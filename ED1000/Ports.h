@@ -38,7 +38,7 @@ DEFPORTOUT(SIGAUS5,		B, 5)	//			19	SCK
 								//			21	AREF
 								//			22	AGND
 DEFPORTIN(SIGEIN,	 	C, 0)	//			23	ADC0
-DEFPORTINPULL(TASTE, 	C, 1)	//			24
+DEFPORTINPULLAL(TASTE, 	C, 1)	//			24
 //DEFPORTOUT(LEDROT, 	C, 2)	//			25
 //DEFPORTINPULL(TASTE2,	C, 3)	//			26
 //						C, 4)	//			27	SDA
@@ -72,13 +72,12 @@ DEFPORTOUT(SIGAUS5,		B, 5)	//			19	SCK
 								//			21	AREF
 								//			22	AGND
 DEFPORTIN(SIGEIN,	 	C, 0)	//			23	ADC0
-DEFPORTIN(TASTE,	 	C, 1)	//			24
+DEFPORTIN(TASTE,	 	C, 1)	//			24  
+// ausnahmsweise schaltet Taste nach Plus!
 //DEFPORTOUT(LEDROT, 	C, 2)	//			25
 //DEFPORTINPULL(TASTE2,	C, 3)	//			26
 //						C, 4)	//			27	SDA
 //						C, 5)	//			28	SCL
-
-#define TASTE_NACH_PLUS 1
 
 #else
 

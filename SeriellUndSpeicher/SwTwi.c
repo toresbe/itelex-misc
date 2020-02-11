@@ -1098,7 +1098,7 @@ void MsgSpeicherInit()
 	{
 	bool StartGefunden = false;
 
-	if (!get_TASTE() || BeginnErsteMeldung2 == 0xEEEE)
+	if (get_TASTE() || BeginnErsteMeldung2 == 0xEEEE)
 		{ // Taste ist gedrückt --> Initialisierungs des externen Eeprom
 		MsgSpeicherLoeschen();
 		return;
