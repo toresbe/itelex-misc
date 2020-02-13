@@ -9,13 +9,13 @@
 
 
 uint8_t FehlerCode;
-uint8_t FehlerAdresse;
+uint16_t FehlerAdresse;
 
 
-enum { BankOffset = 80 }; // Offset der redundanten Speicherbereiche.
+enum { BankOffset = 160 }; // Offset der redundanten Speicherbereiche.
 
 
-static void FehlerSpeichern(uint8_t code, uint8_t adresse)
+static void FehlerSpeichern(uint8_t code, uint16_t adresse)
 	{
 	if (code > FehlerCode)
 		{
@@ -32,13 +32,13 @@ void KonfigSpeicherInit()
 	}
 	
 
-uint8_t KonfigLeseByte(uint8_t Adresse, uint8_t Default)
+uint8_t KonfigLeseByte(uint16_t Adresse, uint8_t Default)
 	{
 	uint8_t a, b, c;
 	
-	a = eeprom_read_byte(Adresse);
-	b = eeprom_read_byte(Adresse + BankOffset);
-	c = eeprom_read_byte(Adresse + 2 * BankOffset);
+	a = eeprom_read_byte((uint8_t *) Adresse);
+	b = eeprom_read_byte((uint8_t *) Adresse + BankOffset);
+	c = eeprom_read_byte((uint8_t *) Adresse + 2 * BankOffset);
 
 	if (a == b && b == c)
 		return a;
@@ -70,13 +70,13 @@ uint8_t KonfigLeseByte(uint8_t Adresse, uint8_t Default)
 		return b;
 		}
 		
-	FehlerSpeichern(KonfigSpeicherLesefehler, Adresse);
+	FehlerSpeichern(KonfigSpeicherLesefehlerSchwer, Adresse);
 	KonfigSchreibeByte(Adresse, Default);
 	return Default;
 	} // KonfigLeseByte()
 
 	
-uint8_t KonfigLeseByteBegrenzt(uint8_t Adresse, uint8_t Default, uint8_t Min, uint8_t Max)
+uint8_t KonfigLeseByteBegrenzt(uint16_t Adresse, uint8_t Default, uint8_t Min, uint8_t Max)
 	{
 	uint8_t wert;
 	
@@ -91,21 +91,33 @@ uint8_t KonfigLeseByteBegrenzt(uint8_t Adresse, uint8_t Default, uint8_t Min, ui
 	}
 
 
-void SchreibeEinzelByte(uint8_t Adresse, uint8_t Wert)
+bool KonfigLeseBool(uint16_t Adresse, bool Default)
 	{
-	if (Wert == eeprom_read_byte(Adresse))
+	return KonfigLeseByteBegrenzt(Adresse, Default ? 1 : 0, 0, 1) == 1;
+	}
+
+
+void SchreibeEinzelByte(uint16_t Adresse, uint8_t Wert)
+	{
+	if (Wert == eeprom_read_byte((uint8_t *) Adresse))
 		return; // nichts zu tun
-	eeprom_write_byte(Adresse, Wert);
-	if (Wert != eeprom_read_byte(Adresse)) // rücklesen zur Fehleroffenbarung
+	eeprom_write_byte((uint8_t *) Adresse, Wert);
+	if (Wert != eeprom_read_byte((uint8_t *) Adresse)) // rücklesen zur Fehleroffenbarung
 		FehlerSpeichern(KonfigSpeicherSchreibfehler, Adresse);
 	}
 	
 	
-void KonfigSchreibeByte(uint8_t Adresse, uint8_t Wert)
+void KonfigSchreibeByte(uint16_t Adresse, uint8_t Wert)
 	{
 	SchreibeEinzelByte(Adresse, Wert);
 	SchreibeEinzelByte(Adresse + BankOffset, Wert);
 	SchreibeEinzelByte(Adresse + 2 * BankOffset, Wert);
+	}
+
+
+void KonfigSchreibeBool(uint16_t Adresse, bool Wert)
+	{
+	KonfigSchreibeByte(Adresse, Wert ? 1 : 0);
 	}
 
 
@@ -118,8 +130,8 @@ uint8_t KonfigSpeicherFehlercode(bool Loeschen)
 	}
 	
 	
-uint8_t KonfigSpeicherFehlerAdresse()
+uint16_t KonfigSpeicherFehlerAdresse()
 	{
-	return KonfigSpeicherFehlerAdresse;
+	return FehlerAdresse;
 	}
 	

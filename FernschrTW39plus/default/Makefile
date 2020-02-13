@@ -40,7 +40,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 INCLUDES = -I"D:\Daten\AvrProgs\TxP2\FernschrTW39plus\..\..\C-Libs" -I"D:\Daten\AvrProgs\TxP2\FernschrTW39plus\..\Gemeinsam" 
 
 ## Objects that must be built in order to link
-OBJECTS = FernschrTW39plus.o TxP2-Endgeraet.o FifoPuffer.o BaudotCode.o BusKomm.o Taste.o SeriellUmsetz.o KonfigDialog.o LokalAusgabe.o MsTimer.o LokalUhr.o Zeitsperre.o 
+OBJECTS = FernschrTW39plus.o TxP2-Endgeraet.o FifoPuffer.o BaudotCode.o BusKomm.o Taste.o SeriellUmsetz.o KonfigDialog.o LokalAusgabe.o MsTimer.o LokalUhr.o Zeitsperre.o KonfigSpeicher.o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -81,6 +81,9 @@ LokalUhr.o: ../../Gemeinsam/LokalUhr.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 Zeitsperre.o: ../../Gemeinsam/Zeitsperre.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+KonfigSpeicher.o: ../../Gemeinsam/KonfigSpeicher.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
