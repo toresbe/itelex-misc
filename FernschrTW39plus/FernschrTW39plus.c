@@ -94,6 +94,7 @@ EEMEM uint8_t UmleitungAbweisen_EE = 0 ; //!< Bei true wird in Grundstellung Sta
 EEMEM uint8_t LokalbetriebWahl_EE = LokalbetriebWahl_Std;
 EEMEM uint8_t AutoWahlZiffern_EE[AutoWahlMaxZiffern] = { 255,255, 255, 255 };
 
+
 //NEU:
 enum {
 	EEAdr_BusEigenAdresse = 0,
