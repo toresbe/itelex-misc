@@ -1425,7 +1425,7 @@ int main()
 	
 	SperrzeitInit();
 
-	BusEigenAdresse = KonfigLeseByteBegrenzt(EEAdr_BusEigenAdresse, 31 << 1/*Standardwert*/, BusAdrMin, BusAdrMax);
+	BusEigenAdresse = KonfigLeseByteBegrenzt(EEAdr_BusEigenAdresse, 31 << 1/*Standardwert*/, BusAdrMin, BusAdrMax) & 0xFE; // Bit 0 löschen
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
 	
