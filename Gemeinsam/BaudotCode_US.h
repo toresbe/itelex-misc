@@ -13,5 +13,4 @@ PROGMEM char TtyCodeTab_US_Zi[]         = { '#', '5','\r', '9', ' ', '#', ',', '
 // third level: NONE
 
 
-PROGMEM char PreTranslation_US[] = "";
-// first charater defines delimiter. HERE: None
+// ErsetzTab: Keine

@@ -20,5 +20,4 @@ PROGMEM char TtyCodeTab_GR737_3E[]		= { '#', 146,'\r', 142, ' ', 134, 140, 139,'
 // latin ITA2 equivalent:                   'E', 'Z', 'D', 'B', 'S', 'Y', 'F', 'X', 'A', 'W', 'J', '#', 'U', 'Q', 'K', '#'};
 
 
-PROGMEM char PreTranslation_GR737[] = "";
-// first charater defines delimiter.
+// ErsetzTab: Keine
