@@ -1,9 +1,9 @@
 #include <inttypes.h>
-#include <avr/eeprom.h>
 
 #include "LokalUhr.h"
 #include "LokalAusgabe.h"
 #include "KonfigDialog.h"
+#include "KonfigSpeicher.h"
 
 #include "Zeitsperre.h"
 
@@ -19,21 +19,22 @@ typedef struct
 	} TZeitspanne;
 
 
-//! Zeitraum, in der das Endger√§t nicht aktiv sein soll
+//! Zeitraum, in der das Endger‰t nicht aktiv sein soll
 TZeitspanne Sperrzeit[2];
 
-//! Soll der Sperrzeitraum Wochenend-Abh√§ngig sein.
-//! bei false gelten beide Sperrzeiten t√§glich.
+//! Soll der Sperrzeitraum Wochenend-Abh‰ngig sein.
+//! bei false gelten beide Sperrzeiten t‰glich.
 //! bei true gilt Mo-Fr Sperrzeit[0] und Samstag/Sonntag Sperrzeit[1].
 bool SperrzeitWochenendAbhaengig;
 
-//! Wird gesetzt wenn w√§rend der Sperrzeit eine Bedienung vorgenommen wird.
-//! nach der n√§chsten Zeit-Aktualisierung wird dann f√ºr 10 Minuten die Sperre 
+//! Wird gesetzt wenn w‰rend der Sperrzeit eine Bedienung vorgenommen wird.
+//! nach der n‰chsten Zeit-Aktualisierung wird dann f¸r 10 Minuten die Sperre 
 //! ausgesetzt
 static bool AussetzenAktivieren;
 
 //! Speichert den Zeitraum der Aussetzung der Zeitsperre.
 static TZeitspanne Aussetzung;
+
 
 void SperrzeitInit()
 	{
@@ -83,7 +84,7 @@ bool SperrzeitAktiv()
 	if (InZeitspanne(Stunde, Minute, &Aussetzung))
 		return false; // Aussetzung wirkt noch
 	else
-		Aussetzung.Anf = 0, Aussetzung.End = 0; // keine erneute Wirksamkeit der Aussetzung, jetzt die gesetzten Sperrzeiten pr√ºfen
+		Aussetzung.Anf = 0, Aussetzung.End = 0; // keine erneute Wirksamkeit der Aussetzung, jetzt die gesetzten Sperrzeiten pr¸fen
 	
 	if (!SperrzeitWochenendAbhaengig)
 		return InZeitspanne(Stunde, Minute, &(Sperrzeit[0])) || InZeitspanne(Stunde, Minute, &(Sperrzeit[1]));
@@ -100,35 +101,24 @@ void SperrzeitAussetzen()
 	}
 
 	
-void SperrzeitLadeEeprom(TSperrzeitDaten *eedat)
+void SperrzeitLadeEeprom(uint16_t Adresse)
 	{
-	Sperrzeit[0].Anf = eeprom_read_word(&(*eedat)[0]);
-	ZeitBereichKorrektur(&Sperrzeit[0].Anf);
-	Sperrzeit[0].End = eeprom_read_word(&(*eedat)[1]);
-	ZeitBereichKorrektur(&Sperrzeit[0].End);
-	Sperrzeit[1].Anf = eeprom_read_word(&(*eedat)[2]);
-	ZeitBereichKorrektur(&Sperrzeit[1].Anf);
-	Sperrzeit[1].End = eeprom_read_word(&(*eedat)[3]);
-	ZeitBereichKorrektur(&Sperrzeit[1].End);
-	SperrzeitWochenendAbhaengig = (eeprom_read_word(&(*eedat)[8]) == 1);
+	Sperrzeit[0].Anf = KonfigLeseWortBegrenzt(Adresse, 0, 0, 24*60);
+	Sperrzeit[0].End = KonfigLeseWortBegrenzt(Adresse + 2, 0, 0, 24*60);
+	Sperrzeit[1].Anf = KonfigLeseWortBegrenzt(Adresse + 4, 0, 0, 24*60);
+	Sperrzeit[1].End = KonfigLeseWortBegrenzt(Adresse + 6, 0, 0, 24*60);
+	SperrzeitWochenendAbhaengig = KonfigLeseBool(Adresse + 8, false);
 	}
 
 
-
-void SperrzeitSpeicherEeprom(TSperrzeitDaten *eedat)
+void SperrzeitSpeicherEeprom(uint16_t Adresse)
 	{
-	if (Sperrzeit[0].Anf != eeprom_read_word(&(*eedat)[0]))
-		eeprom_write_word(&(*eedat)[0], Sperrzeit[0].Anf);
-	if (Sperrzeit[0].End != eeprom_read_word(&(*eedat)[1]))
-		eeprom_write_word(&(*eedat)[1], Sperrzeit[0].End);
-	if (Sperrzeit[1].Anf != eeprom_read_word(&(*eedat)[2]))
-		eeprom_write_word(&(*eedat)[2], Sperrzeit[1].Anf);
-	if (Sperrzeit[1].End != eeprom_read_word(&(*eedat)[3]))
-		eeprom_write_word(&(*eedat)[3], Sperrzeit[1].End);
-	if (SperrzeitWochenendAbhaengig != (eeprom_read_word(&(*eedat)[8]) == 1))
-		eeprom_write_word(&(*eedat)[8], SperrzeitWochenendAbhaengig ? 1 : 0);
+	KonfigSchreibeWort(Adresse, Sperrzeit[0].Anf);
+	KonfigSchreibeWort(Adresse + 2, Sperrzeit[0].End);
+	KonfigSchreibeWort(Adresse + 4, Sperrzeit[1].Anf);
+	KonfigSchreibeWort(Adresse + 6, Sperrzeit[1].End);
+	KonfigSchreibeBool(Adresse + 8, SperrzeitWochenendAbhaengig);
 	}
-
 
 
 static bool ZeitEingabe(uint16_t *hm)
@@ -147,7 +137,7 @@ static bool ZeitEingabe(uint16_t *hm)
 	res = LokalZahlEingabe(&h, 2);
 	if (res < 0) // abbruch
 		return false;
-	if (res == 0) // unver√§ndert ( . eingegeben)
+	if (res == 0) // unver‰ndert ( . eingegeben)
 		return true;
 	if (LokalZahlEingabe(&m, 2) < 0)
 		return false;

@@ -4,10 +4,7 @@
 
 #include <stdbool.h>
 #include <inttypes.h>
-#include <avr/eeprom.h>
 
-
-typedef uint16_t TSperrzeitDaten[10]; // nur im EEPROM verwenden
 
 extern bool SperrzeitAktiv();
 
@@ -17,9 +14,9 @@ extern void SperrzeitAussetzen();
 
 extern bool SperrzeitEingabeDialog();
 
-extern void SperrzeitLadeEeprom(TSperrzeitDaten *eedat);
+extern void SperrzeitLadeEeprom(uint16_t Adresse);
 
-extern void SperrzeitSpeicherEeprom(TSperrzeitDaten *eedat);
+extern void SperrzeitSpeicherEeprom(uint16_t Adresse);
 
 
 #endif //ndef __ZEITSPERRE_H__

@@ -6,7 +6,6 @@
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
-#include <avr/eeprom.h>
 #include <avr/wdt.h>
 #include <inttypes.h>
 
@@ -24,6 +23,7 @@
 #include "SeriellUmsetz.h"
 #include "BaudotCode.h"
 #include "KonfigDialog.h"
+#include "KonfigSpeicher.h"
 #include "LokalAusgabe.h"
 #include "LokalUhr.h"
 #include "Zeitsperre.h"
@@ -75,16 +75,21 @@ enum { LokalbetriebWahl_Std = 88 };
 enum { KommendSperreWahl_Std = 0 };
 enum { AutoWahlMaxZiffern = 10 };
 
-// Eeprom-Speicher
-// ---------------
 
-EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
-EEMEM uint8_t KommendSperreWahl_EE = KommendSperreWahl_Std; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
-EEMEM TSperrzeitDaten Sperrzeit_EE = { 0, 0, 0, 0 } ;
-EEMEM uint8_t TasteFunktion_EE = 0 ; //!< Was macht die Taste
-EEMEM uint8_t UmleitungAbweisen_EE = 0 ; //!< Bei true wird in Grundstellung Status 90 gemeldet.
-EEMEM uint8_t LokalbetriebWahl_EE = LokalbetriebWahl_Std;
-EEMEM uint8_t AutoWahlZiffern_EE[AutoWahlMaxZiffern] = { 255,255, 255, 255 };
+// Eeprom-Speicher-Adressen
+// ------------------------
+
+enum {
+	EEAdr_BusEigenAdresse = 0,
+	TODO abgleich mit MAP-File
+    EEAdr_KommendSperreWahl = 3,
+    EEAdr_Sperrzeit = 4, // Beansprucht 20 Bytes
+    EEAdr_TasteFunktion = 24,
+    EEAdr_UmleitungAbweisen = 25,
+    EEAdr_LokalbetriebWahl = 26,
+    EEAdr_AutoWahlZiffern = 27,
+};
+
 
 // Typen
 // -----
@@ -93,10 +98,6 @@ typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrun
 
 // Variablen
 // ---------
-
-typedef enum { Deaktivierung, DemoBetriebStarten } TTasteFunktion;
-
-TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb
 
 bool BefehlEinschalten; //!< Fs soll laufen
 bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
@@ -183,6 +184,10 @@ uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalb
 
 uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
 	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
+
+typedef enum { Deaktivierung, DemoBetriebStarten } TTasteFunktion;
+
+TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb
 
 //////////////////////////////////////////////////////////////////
 
@@ -835,7 +840,6 @@ static void Konfiguration()
 		LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
 		return;
 		}
-	
 
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
 	// -----------------------------------------------------------
@@ -1006,32 +1010,52 @@ static void KonfigurationEnde()
 	{
 	V21Ausschalten();
 	
-	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
-		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
+	KonfigSchreibeByte(EEAdr_BusEigenAdresse, BusEigenAdresse);
+	
+	KonfigSchreibeByte(EEAdr_UmleitungAbweisen, UmleitungAbweisen);
 
-	if (UmleitungAbweisen != eeprom_read_byte(&UmleitungAbweisen_EE))
-		eeprom_write_byte(&UmleitungAbweisen_EE, UmleitungAbweisen);
+	KonfigSchreibeByte(EEAdr_KommendSperreWahl, KommendSperreWahl);
 
-	if (KommendSperreWahl != eeprom_read_byte(&KommendSperreWahl_EE))
-		eeprom_write_byte(&KommendSperreWahl_EE, KommendSperreWahl);
+	KonfigSchreibeByte(EEAdr_LokalbetriebWahl, LokalbetriebWahl);
 
-	if (LokalbetriebWahl != eeprom_read_byte(&LokalbetriebWahl_EE))
-		eeprom_write_byte(&LokalbetriebWahl_EE, LokalbetriebWahl);
-
-	if (TasteFunktion != eeprom_read_byte(&TasteFunktion_EE))
-		eeprom_write_byte(&TasteFunktion_EE, TasteFunktion);
+	KonfigSchreibeByte(EEAdr_TasteFunktion, TasteFunktion);
 
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
-		eeprom_write_byte(&AutoWahlZiffern_EE[i], AutoWahlZiffern[i]);
+		KonfigSchreibeByte(EEAdr_AutoWahlZiffern + i, AutoWahlZiffern[i]);
 	
-	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
+	SperrzeitSpeicherEeprom(EEAdr_Sperrzeit);
 
 	Aktivieren(true);
 	clr_LEDROT();
 	}
 	
 	
+/////////////////////////////////////////////////////////////
+
+//! Fehlertext-Ausgabe
+
+static void FehlermeldungDrucken()
+	{
+	SeriellUmsetzInit();
+	Aktivieren(false);
+	set_LEDROT();
+	
+	if (!V21Einschalten())
+		return;
+	
+	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
+	
+	KonfigSpeicherFehlerAusgeben();
+	
+	V21Ausschalten();
+
+	Aktivieren(true);
+
+	clr_LEDROT();
+	}
+
+
 /////////////////////////////////////////////////////////////
 
 //! Schaltet das Modul in einen Modus, der keine kommenden Verbindungen zulässt.
@@ -1142,36 +1166,31 @@ int main()
 
 	set_LEDROT();
 
-	// Timer initialisieren
+	KonfigSpeicherInit();
+	
 	MsTimerInit();
 
 	V21Init();
 	
 	SperrzeitInit();
 
-	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
-	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
-		BusEigenAdresse = 31 << 1; // Standardwert
+	BusEigenAdresse = KonfigLeseByteBegrenzt(EEAdr_BusEigenAdresse, 31 << 1/*Standardwert*/, BusAdrMin, BusAdrMax);
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
 	
-	UmleitungAbweisen = eeprom_read_byte(&UmleitungAbweisen_EE) == true; // damit bei "leerem" EEPROM eher "nein" das Ergebnis ist.
+	UmleitungAbweisen = KonfigLeseBool(EEAdr_UmleitungAbweisen, false);
 
-	KommendSperreWahl = eeprom_read_byte(&KommendSperreWahl_EE);
-	if (KommendSperreWahl > 99)
-		KommendSperreWahl = KommendSperreWahl_Std;
+	KommendSperreWahl = KonfigLeseByteBegrenzt(EEAdr_KommendSperreWahl, KommendSperreWahl_Std, 0, 99);
 
-	LokalbetriebWahl = eeprom_read_byte(&LokalbetriebWahl_EE);
-	if (LokalbetriebWahl > 99)
-		LokalbetriebWahl = LokalbetriebWahl_Std;
+	LokalbetriebWahl = KonfigLeseByteBegrenzt(EEAdr_LokalbetriebWahl, LokalbetriebWahl_Std, 0, 99);
 
-	SperrzeitLadeEeprom(&Sperrzeit_EE);
+	SperrzeitLadeEeprom(EEAdr_Sperrzeit);
 
-	TasteFunktion = eeprom_read_byte(&TasteFunktion_EE);
+	TasteFunktion = KonfigLeseByteBegrenzt(EEAdr_TasteFunktion, 0, 0, 1); // KEIN Bool
 
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
-		AutoWahlZiffern[i] = eeprom_read_byte(&AutoWahlZiffern_EE[i]);
+		AutoWahlZiffern[i] = KonfigLeseByte(EEAdr_AutoWahlZiffern + i, 255); // nicht begrenzt, da alles über 9 das Endezeichen ist.
 	
 	BefehlEinschalten = false;
 	BefehlMark = true;
@@ -1191,6 +1210,7 @@ int main()
 	while (TimerVal(&Timer) < 250)
 		;
 	
+	// Bei Tastendruck Selbsttest
 	bool SelbsttestAusfuehen = get_TASTE();
 
 	/*/ Bei Tastendruck Watchdog AUS
@@ -1345,6 +1365,9 @@ int main()
 			VerbindungKommend();
 			}
 
+		if (KonfigSpeicherFehlercode(false) != KonfigSpeicherOK)
+			FehlermeldungDrucken();
+		
 		// Rundsendedaten auswerten:
 		if (RundsendAnzDaten > 0)
 			{

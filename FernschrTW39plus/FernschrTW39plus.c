@@ -6,7 +6,6 @@
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
-#include <avr/eeprom.h> // TODO wird ersetzt
 #include <avr/wdt.h>
 #include <inttypes.h>
 
@@ -80,28 +79,15 @@ enum { KommendSperreWahl_Std = 0 };
 enum { AutoWahlMaxZiffern = 10 };
 
 
-// Eeprom-Speicher
-// ---------------
+// Eeprom-Speicher-Adressen
+// ------------------------
 
-// ALT:
-EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< Eigene Busadresse auf dem I²C-Bus
-EEMEM uint8_t MitWaehlscheibe_EE = 1; //!< Hat das Gerät eine Wählscheibe
-EEMEM uint8_t WahlauffordImpulsLaenge_EE = 30; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
-EEMEM uint8_t KommendSperreWahl_EE = KommendSperreWahl_Std; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
-EEMEM TSperrzeitDaten Sperrzeit_EE = { 0, 0, 0, 0 } ;
-EEMEM uint8_t TasteFunktion_EE = 0 ; //!< Was macht die Taste
-EEMEM uint8_t UmleitungAbweisen_EE = 0 ; //!< Bei true wird in Grundstellung Status 90 gemeldet.
-EEMEM uint8_t LokalbetriebWahl_EE = LokalbetriebWahl_Std;
-EEMEM uint8_t AutoWahlZiffern_EE[AutoWahlMaxZiffern] = { 255,255, 255, 255 };
-
-
-//NEU:
 enum {
 	EEAdr_BusEigenAdresse = 0,
     EEAdr_MitWaehlscheibe = 1,
     EEAdr_WahlauffordImpulsLaenge = 2,
     EEAdr_KommendSperreWahl = 3,
-    EEAdr_Sperrzeit = 4, // sizeof(TSperrzeitDaten) = 20
+    EEAdr_Sperrzeit = 4, // Beansprucht 20 Bytes
     EEAdr_TasteFunktion = 24,
     EEAdr_UmleitungAbweisen = 25,
     EEAdr_LokalbetriebWahl = 26,
@@ -1180,7 +1166,7 @@ static void KonfigurationEnde()
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
 		KonfigSchreibeByte(EEAdr_AutoWahlZiffern + i, AutoWahlZiffern[i]);
 	
-	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
+	SperrzeitSpeicherEeprom(EEAdr_Sperrzeit);
 
 	Aktivieren(true);
 
@@ -1203,18 +1189,7 @@ static void FehlermeldungDrucken()
 	
 	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
 	
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n eeprom fehler ")); 
-#else	
-	LokalTextAusgabeP(PSTR("\r\n eeprom error ")); 
-#endif //def SPRACHE_EN
-
-	LokalZahlAusgabe(KonfigSpeicherFehlercode(true), 0); // true löscht auch den code
-	LokalZeichenAusgabe('/');
-	LokalHexAusgabe(KonfigSpeicherFehlerAdresse() >> 8);
-	LokalHexAusgabe(KonfigSpeicherFehlerAdresse() & 0xFF);
-
-	LokalTextAusgabeP(PSTR("    \r\n")); 
+	KonfigSpeicherFehlerAusgeben();
 	
 	TW39Ausschalten();
 
@@ -1363,7 +1338,7 @@ int main()
 
 	LokalbetriebWahl = KonfigLeseByteBegrenzt(EEAdr_LokalbetriebWahl, LokalbetriebWahl_Std, 0, 99);
 
-	SperrzeitLadeEeprom(&Sperrzeit_EE);
+	SperrzeitLadeEeprom(EEAdr_Sperrzeit);
 
 	TasteFunktion = KonfigLeseByteBegrenzt(EEAdr_TasteFunktion, 0, 0, 1); // KEIN Bool
 
