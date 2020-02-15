@@ -92,7 +92,7 @@ uint8_t KonfigLeseByteBegrenzt(uint16_t Adresse, uint8_t Default, uint8_t Min, u
 	}
 
 
-uint8_t KonfigLeseWortBegrenzt(uint16_t Adresse, uint16_t Default, uint16_t Min, uint16_t Max)
+uint16_t KonfigLeseWortBegrenzt(uint16_t Adresse, uint16_t Default, uint16_t Min, uint16_t Max)
 	{
 	uint16_t wert;
 	
@@ -184,7 +184,7 @@ void KonfigSpeicherFehlerAusgeben()
 			case KonfigSpeicherLesefehler:			LokalTextAusgabeP(PSTR("warnung lesefehler"));	break;
 			case KonfigSpeicherLesefehlerSchwer:	LokalTextAusgabeP(PSTR("schwerer lesefehler")); break;
 			case KonfigSpeicherSchreibfehler:		LokalTextAusgabeP(PSTR("schreibfehler")); 		break;
-			default: LokalTextAusgabeP(PSTR("fehlercode ")); 	LokalZahlAusgabe(FehlerCode);		break;
+			default: LokalTextAusgabeP(PSTR("fehlercode ")); 	LokalZahlAusgabe(FehlerCode, 0);	break;
 #endif //def SPRACHE_EN
 		} // switch (FehlerCode)
 
@@ -199,7 +199,7 @@ void KonfigSpeicherFehlerAusgeben()
 
 	LokalTextAusgabeP(PSTR("    \r\r\n")); 
 
-	FehlerCode = KonfigSpeicherOK
+	FehlerCode = KonfigSpeicherOK;
 	}
 	
 	

@@ -122,13 +122,13 @@ enum { AutoWahlMaxZiffern = 10 };
 
 enum {
 	EEAdr_BusEigenAdresse = 0,
-	TODO abgleich mit Map-File
     EEAdr_KommendSperreWahl = 1,
     EEAdr_Sperrzeit = 2, // Beansprucht 20 Bytes
     EEAdr_TasteFunktion = 22,
     EEAdr_UmleitungAbweisen = 23,
     EEAdr_LokalbetriebWahl = 24,
     EEAdr_AutoWahlZiffern = 25,
+	EEAdr_Ende = 35 // darf erhöht werden
 };
 
 

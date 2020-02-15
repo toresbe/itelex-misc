@@ -15,7 +15,7 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -fgnu89-inline   -DPLATINE_VERSION=12                            -DF_CPU=14745600UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -fgnu89-inline   -DPLATINE_VERSION=12                                  -DF_CPU=14745600UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 
 ## Assembly specific flags
@@ -40,7 +40,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 INCLUDES = -I"D:\Daten\AvrProgs\TxP2\ED1000\..\Gemeinsam" -I"D:\Daten\AvrProgs\TxP2\ED1000\..\..\C-Libs" 
 
 ## Objects that must be built in order to link
-OBJECTS = ED1000.o MsTimer.o Taste.o BusKomm.o BaudotCode.o KonfigDialog.o SeriellUmsetz.o TxP2-Endgeraet.o LokalAusgabe.o FifoPuffer.o BusKomm2.o LokalUhr.o Zeitsperre.o 
+OBJECTS = ED1000.o MsTimer.o Taste.o BusKomm.o BaudotCode.o KonfigDialog.o SeriellUmsetz.o TxP2-Endgeraet.o LokalAusgabe.o FifoPuffer.o BusKomm2.o LokalUhr.o Zeitsperre.o KonfigSpeicher.o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -84,6 +84,9 @@ LokalUhr.o: ../../Gemeinsam/LokalUhr.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 Zeitsperre.o: ../../Gemeinsam/Zeitsperre.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+KonfigSpeicher.o: ../../Gemeinsam/KonfigSpeicher.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link

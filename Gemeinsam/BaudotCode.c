@@ -1,5 +1,6 @@
 #include "BaudotCode.h"
 
+#include <stddef.h> // for NULL
 #include <avr/pgmspace.h>
 
 // Übersetzer-Tabellen
@@ -399,7 +400,7 @@ bool ZeichenZuCode2(char c, TBaudotMode *Mode, uint8_t* Code1, uint8_t* Code2)
 		while (pgm_read_byte(p) != '\0')
 			if (pgm_read_byte(p) == c)
 				{
-				c == pgm_read_byte(p+1);
+				c = pgm_read_byte(p+1);
 				break;
 				}
 			else

@@ -81,13 +81,13 @@ enum { AutoWahlMaxZiffern = 10 };
 
 enum {
 	EEAdr_BusEigenAdresse = 0,
-	TODO abgleich mit MAP-File
-    EEAdr_KommendSperreWahl = 3,
-    EEAdr_Sperrzeit = 4, // Beansprucht 20 Bytes
-    EEAdr_TasteFunktion = 24,
-    EEAdr_UmleitungAbweisen = 25,
-    EEAdr_LokalbetriebWahl = 26,
-    EEAdr_AutoWahlZiffern = 27,
+	EEAdr_KommendSperreWahl = 1,
+    EEAdr_Sperrzeit = 2, // Beansprucht 20 Bytes
+    EEAdr_TasteFunktion = 22,
+    EEAdr_UmleitungAbweisen = 23,
+    EEAdr_LokalbetriebWahl = 24,
+    EEAdr_AutoWahlZiffern = 25,
+    EEAdr_Ende = 26 // darf erhöht werden
 };
 
 
@@ -124,24 +124,25 @@ static void V21IO()
 	// Pegel & Polung ausgeben
 	// -----------------------
 	if (BefehlEinschalten && BefehlMark)
-		set_TXD();
+		clr_TXD();
 	else
 		{
-		clr_TXD();
+		set_TXD();
 		SpaceSperre = true;
 		}
 		
 	// Schleifenstrom auswerten: Einschaltung oder nicht
 	// -------------------------------------------------
-	if (get_RXD())
+	if (!get_RXD())
 		{
 		MeldungMark = true;
 		SpaceSperre = false;
 		}
-	else if (SpaceSperre)
-		MeldungMark = true;
-	else
-		MeldungMark = false;
+	else 
+		if (SpaceSperre)
+			MeldungMark = true;
+		else
+			MeldungMark = false;
 		
 	if (get_RXD())
 		{ // Schleifenstrom ist aus (negierter Eingang)
@@ -250,6 +251,7 @@ static void V21Ausschalten()
 void V21Init()
 {
 	ModemInit();
+	ModemReset();
 	StartV21(true); // Testen!
 }
 
@@ -1240,9 +1242,6 @@ int main()
 
 	clr_LEDGRUEN();
 	set_LEDBLAU();
-
-	// V21 grundstellen
-	ModemReset();
 
 	// TWI nochmal resetten
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (1<<TWSTO) | (0<<TWEN) | (0<<TWIE);
