@@ -164,7 +164,7 @@ bool SperrzeitEingabeDialog()
 	LokalTextAusgabeP(NeuStrP);
 
 	if (LokalBoolEingabe(&Verwendet) == 0)
-		return;
+		return false;
 
 	if (!Verwendet)
 		{
