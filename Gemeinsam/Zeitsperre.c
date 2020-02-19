@@ -146,10 +146,32 @@ static bool ZeitEingabe(uint16_t *hm)
 	return true;
 	}
 
-	
+
+//! \retval true, wenn Eingabe abgeschlossen; false, wenn Eingabe abgebrochen.
 bool SperrzeitEingabeDialog()
 	{
 	uint8_t i;
+	bool Verwendet;
+
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n activate timed call blocking? current: "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n zeitsperre verwenden? aktuell: "));
+#endif
+
+	Verwendet = (Sperrzeit[0].Anf != Sperrzeit[0].End) || (Sperrzeit[1].Anf != Sperrzeit[1].End);
+	LokalBoolAusgabe(Verwendet);
+	LokalTextAusgabeP(NeuStrP);
+
+	if (LokalBoolEingabe(&Verwendet) == 0)
+		return;
+
+	if (!Verwendet)
+		{
+		Sperrzeit[0].End = Sperrzeit[0].Anf;
+		Sperrzeit[1].End = Sperrzeit[1].Anf;
+		return true;
+		}
 	
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n enter times with 4 digits without punctuation"));
@@ -160,7 +182,7 @@ bool SperrzeitEingabeDialog()
 	for (i = 0 ; i < 2 ; i++)
 		{
 #ifdef SPRACHE_EN
-		LokalTextAusgabeP(PSTR("\r\n lock time "));
+		LokalTextAusgabeP(PSTR("\r\n block time "));
 		LokalZeichenAusgabe('a' + i);
 		LokalTextAusgabeP(PSTR(" starting at: "));
 #else
@@ -182,11 +204,10 @@ bool SperrzeitEingabeDialog()
 		if (!ZeitEingabe(&Sperrzeit[i].End))
 			return false;
 		LokalTextAusgabeP(OkStrP);
-		
 		}
 
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n lock times depending on weekend? current: "));
+	LokalTextAusgabeP(PSTR("\r\n block times depending on weekend? current: "));
 #else
 	LokalTextAusgabeP(PSTR("\r\n sperrzeit wochenend-abhaengig? aktuell: "));
 #endif
