@@ -135,7 +135,7 @@ void KonfigSchreibeByte(uint16_t Adresse, uint8_t Wert)
 void KonfigSchreibeWort(uint16_t Adresse, uint16_t Wert)
 	{
 	KonfigSchreibeByte(Adresse + 1, Wert >> 8); // little endian
-	KonfigSchreibeByte(Adresse, Wert && 0xFF);
+	KonfigSchreibeByte(Adresse, Wert & 0xFF);
 	}
 
 
