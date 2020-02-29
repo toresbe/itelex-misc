@@ -306,7 +306,7 @@ void CodeTabWechsel(uint8_t Mode)
 			TtyCodeTabBu = TtyCodeTab_Gross_Bu;
 			TtyCodeTabZi = TtyCodeTab_RU7_Zi;
 			TtyCodeTab3E = TtyCodeTab_RU7_3E;
-			ErsetzTab = ErsetzTab_RU7;
+			//ErsetzTab = ErsetzTab_RU7; TODO
 			DritteEbeneVorhanden = true;
 			GrossZuKleinbuchstaben = false;
 			break;

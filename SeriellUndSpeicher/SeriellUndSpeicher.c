@@ -160,7 +160,6 @@ EEMEM uint16_t BeginnErsteMeldung2_EE = 0xEEEE; //!< #BeginnErsteMeldung2, Kopie
 EEMEM uint8_t UmleitungAbweisen_EE = 0; //!< Bei true wird in Grundstellung Status 90 gemeldet.
 EEMEM uint8_t MenueImmerAusgeben_EE = 1; //!< siehe #MenueImmerAusgeben
 EEMEM uint8_t SeriellHwHandshake_EE = 1; //!< siehe #SeriellHwHandshake
-EEMEM TSperrzeitDaten Sperrzeit_EE = { 0, 0, 0, 0 } ;
 
 
 // Typen

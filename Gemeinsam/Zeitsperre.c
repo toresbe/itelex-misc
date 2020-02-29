@@ -156,7 +156,7 @@ bool SperrzeitEingabeDialog()
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n activate timed call blocking? current: "));
 #else
-	LokalTextAusgabeP(PSTR("\r\n zeitsperre verwenden? aktuell: "));
+	LokalTextAusgabeP(PSTR("\r\n zeitsperre aktivieren? aktuell: "));
 #endif
 
 	Verwendet = (Sperrzeit[0].Anf != Sperrzeit[0].End) || (Sperrzeit[1].Anf != Sperrzeit[1].End);

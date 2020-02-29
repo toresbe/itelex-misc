@@ -27,7 +27,7 @@ PROGMEM char ErsetzTab_RU8[] = { 'þ','4', '\0','\0' };
 // Zeichenpaare, erstes Zeichen wird durch zweites ersetzt.
 
 
-#if ('ì' != 236) || 'å' != 229)
+#if ('ì' != 236) || ('å' != 229)
 #error the characterset / codepage was changed erroneously
 #endif
 

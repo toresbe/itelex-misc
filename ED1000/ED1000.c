@@ -1146,9 +1146,9 @@ static void Konfiguration()
 	// Feste Verbindung
 	// ----------------
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n automated prefix dialing? current:   ")); 
+	LokalTextAusgabeP(PSTR("\r\n activate automated prefix dialing? current:   ")); 
 #else	
-	LokalTextAusgabeP(PSTR("\r\n automatische vorwahl? aktuell:   ")); 
+	LokalTextAusgabeP(PSTR("\r\n automatische vorwahl aktivieren? aktuell:   ")); 
 #endif //def SPRACHE_EN
 
 	bool AutoWahlJa = AutoWahlZiffern[0] <= 9;

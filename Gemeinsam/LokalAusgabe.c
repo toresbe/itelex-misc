@@ -78,3 +78,17 @@ void LokalZahlAusgabe(uint8_t i, int8_t minzif)
 	}
 	
 
+#ifndef FUER_TW39
+
+void LokalBoolAusgabe(bool b)
+	{
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(b ? PSTR("yes") : PSTR("no"));
+#else
+	LokalTextAusgabeP(b ? PSTR("ja") : PSTR("nein"));
+#endif
+	}
+
+
+#endif //def FUER_TW39
+
