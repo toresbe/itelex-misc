@@ -39,7 +39,6 @@
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
-#include <avr/eeprom.h>
 #include <avr/wdt.h>
 #include <inttypes.h>
 
@@ -147,6 +146,8 @@ const char PROGMEM Identifier[] = "___itlx_SeriellUndSpeicher___" __DATE__ "___"
 // interner Eeprom-Speicher
 // ------------------------
 
+/* TODO LÖSCHEN
+
 EEMEM uint8_t Platzhalter[4]; //!< Anfang des EEPROM ist gern von Störungen betroffen
 EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< #BusEigenAdresse, Kopie im EEPROM
 EEMEM char Kennung_EE[KENNUNG_MAXLEN] = "\r\ntxp2-ab"; //!< #Kennung, Kopie im EEPROM
@@ -160,6 +161,31 @@ EEMEM uint16_t BeginnErsteMeldung2_EE = 0xEEEE; //!< #BeginnErsteMeldung2, Kopie
 EEMEM uint8_t UmleitungAbweisen_EE = 0; //!< Bei true wird in Grundstellung Status 90 gemeldet.
 EEMEM uint8_t MenueImmerAusgeben_EE = 1; //!< siehe #MenueImmerAusgeben
 EEMEM uint8_t SeriellHwHandshake_EE = 1; //!< siehe #SeriellHwHandshake
+
+*/
+
+
+// Eeprom-Speicher-Adressen
+// ------------------------
+
+enum {
+TODO alle gegen letzte Map-Datei prüfen
+	EEAdr_BusEigenAdresse = 4,
+    EEAdr_Kennung = 5,
+	EEAdr_Kennwort = 25,
+    EEAdr_Jahr = 45,
+	EEAdr_Monat = 46,
+	EEAdr_Tag = 47,
+	EEAdr_Stunde = 48, // Je Tag eine andere Speicherstelle, damit die Abnutzung nicht so groß ist.
+	EEAdr_Minute = 60,
+	EEAdr_BeginnErsteMeldung2 = 61,
+    EEAdr_UmleitungAbweisen = 63,
+	EEAdr_MenueImmerAusgeben = 64,
+	EEAdr_SeriellHwHandshake = 65,
+    EEAdr_Zeichensatz = 66,
+	EEAdr_Sperrzeiten = 67,
+};
+
 
 
 // Typen
@@ -1468,7 +1494,6 @@ static void Konfiguration()
 	if (!SperrzeitEingabeDialog())
 		return;
 
-	SperrzeitSpeicherEeprom(&Sperrzeit_EE);
 #endif //ndef OHNE_ZEITSPERRE
 
 #ifdef SPRACHE_EN
@@ -1486,8 +1511,7 @@ static void Konfiguration()
 		return;
 		}
 
-	if (TempHwHandshake != (eeprom_read_byte(&SeriellHwHandshake_EE) == 1))
-		eeprom_write_byte(&SeriellHwHandshake_EE, TempHwHandshake ? 1 : 0);
+	KonfigSchreibeBool(EEAdr_SeriellHwHandshake, TempHwHandshake);
 		// muss hier sein, da lokale Variable
 
 	LokalTextAusgabeP(OkStrP);
@@ -1509,24 +1533,20 @@ static void Konfiguration()
 
 static void KonfigurationEnde()
 	{
-	if (BusEigenAdresse != eeprom_read_byte(&BusEigenAdresse_EE))
-		eeprom_write_byte(&BusEigenAdresse_EE, BusEigenAdresse);
+	KonfigSchreibeByte(EEAdr_BusEigenAdresse, BusEigenAdresse);
 
-	if (UmleitungAbweisen != eeprom_read_byte(&UmleitungAbweisen_EE))
-		eeprom_write_byte(&UmleitungAbweisen_EE, UmleitungAbweisen);
-	
-	/* TODO Vorausschau:
-	if (KommendSperreWahl != eeprom_read_byte(&KommendSperreWahl_EE))
-		eeprom_write_byte(&KommendSperreWahl_EE, KommendSperreWahl);
+	KonfigSchreibeBool(EEAdr_UmleitungAbweisen, UmleitungAbweisen);
 
-	if (LokalbetriebWahl != eeprom_read_byte(&LokalbetriebWahl_EE))
-		eeprom_write_byte(&LokalbetriebWahl_EE, LokalbetriebWahl);
-	*/
+	KonfigSchreibeBool(EEAdr_MenueImmerAusgeben, MenueImmerAusgeben);
+
+	SperrzeitSpeicherEeprom(EEAdr_Sperrzeiten);
 	
-	if (MenueImmerAusgeben != (eeprom_read_byte(&MenueImmerAusgeben_EE) == 1))
-		eeprom_write_byte(&MenueImmerAusgeben_EE, MenueImmerAusgeben ? 1 : 0);
+	KonfigSchreibeString(EEAdr_Kennung, Kennung);
 	
-	// Kennung und Kennwort wird in der Hauptschleife gespeichert.
+	KonfigSchreibeString(EEAdr_Kennwort, Kennwort);
+
+	if (!UhrzeitUeberBus)
+		KonfigSchreibeByte(EEAdr_Minute, Minute);
 	
 	Aktivieren(true);
 	clr_LEDROT();
@@ -1634,53 +1654,38 @@ int main()
 	SperrzeitInit();
 #endif //ndef OHNE_ZEITSPERRE
 
-	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
-	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
-		BusEigenAdresse = 44 << 1; // Standardwert
+	KonfigSpeicherInit();
+	
+	BusEigenAdresse = KonfigLeseByteBegrenzt(EEAdr_BusEigenAdresse, 31 << 1/*Standardwert*/, BusAdrMin, BusAdrMax) & 0xFE; // Bit 0 löschen
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
 	
-	UmleitungAbweisen = eeprom_read_byte(&UmleitungAbweisen_EE) == true; // damit bei "leerem" EEPROM eher "nein" das Ergebnis ist.
+	UmleitungAbweisen = KonfigLeseBool(EEAdr_UmleitungAbweisen, false);
 	
-	Jahr = eeprom_read_byte(&Jahr_EE);
-	Monat = eeprom_read_byte(&Monat_EE);
-	Tag = eeprom_read_byte(&Tag_EE);
-	Stunde = eeprom_read_byte(&Stunde_EE[Tag-1]);
-	Minute = eeprom_read_byte(&Minute_EE);
+	Jahr = KonfigLeseByteBegrenzt(EEAdr_Jahr, 20, 0, 99);
+	Monat = KonfigLeseByteBegrenzt(EEAdr_Monat, 1, 1, 12);
+	Tag = KonfigLeseByteBegrenzt(EEAdr_Tag, 1, 1,  31);
+	Stunde = KonfigLeseByteBegrenzt(EEAdr_Stunde + Tag - 1, 0, 0, 23);
+	Minute = KonfigLeseByteBegrenzt(EEAdr_Minute, 0, 0, 59);
 	
-	if (Jahr >= 100 || Monat > 12 || Tag > 31 || Stunde >= 24 || Minute >= 60)
-		{
-		Jahr = 0;
-		Monat = 1;
-		Tag = 1;
-		Stunde = 0;
-		Minute = 0;
-		}
-		
-	UhrzeitUeberBus = true;
+	UhrzeitUeberBus = false;
 
-	SeriellHwHandshake = (eeprom_read_byte(&SeriellHwHandshake_EE) == 1);
-	MenueImmerAusgeben = (eeprom_read_byte(&MenueImmerAusgeben_EE) == 1);
+	SeriellHwHandshake = KonfigLeseBool(EEAdr_SeriellHwHandshake, false);
+	
+	MenueImmerAusgeben = KonfigLeseBool(EEAdr_MenueImmerAusgeben, true);
 		
 	UhrAktualisieren();
-	eeprom_read_string(Kennung, Kennung_EE, sizeof(Kennung));
-	if (Kennung[0] == '\377')
-		strcpy_P(Kennung, PSTR("\r\ntxp-ab"));
-	else
-		Kennung[sizeof(Kennung)-1] = '\0'; // sicherheitshalber
-		
-	eeprom_read_string(Kennwort, Kennwort_EE, sizeof(Kennwort));
-	if (Kennwort[0] == '\377')
-		strcpy_P(Kennwort, PSTR("kennwort"));
-	else
-		Kennwort[sizeof(Kennwort)-1] = '\0'; // sicherheitshalber
+	
+	KonfigLeseString(Kennung, EEAdr_Kennung, sizeof(Kennung), PSTR("\r\ntxp-ab"));
+
+	KonfigLeseString(Kennwort, EEAdr_Kennwort, sizeof(Kennwort), PSTR("kennwort"));
 
 #ifndef OHNE_ZEITSPERRE
-	SperrzeitLadeEeprom(&Sperrzeit_EE);
+	SperrzeitLadeEeprom(EEAdr_Sperrzeit);
 #endif //ndef OHNE_ZEITSPERRE
 
 #ifndef OHNE_SPEICHER
-	BeginnErsteMeldung2 = eeprom_read_word(&BeginnErsteMeldung2_EE);
+	BeginnErsteMeldung2 = KonfigLeseWortBegrenzt(EEAdr_BeginnErsteMeldung2, 0, 0, 0xFFFF);
 	//! \todo Prüfen auf Sinigkeit?
 #endif //ndef OHNE_SPEICHER
 
@@ -1837,6 +1842,9 @@ int main()
 		if (KoEinschalten())
 			{
 			VerbindungKommend();
+#ifndef OHNE_SPEICHER
+			KonfigSchreibeWort(EEAdr_BeginnErsteMeldung2, BeginnErsteMeldung2);
+#endif //ndef OHNE_SPEICHER
 			HauptmenueAusgeben = MenueImmerAusgeben;
 			}
 		
@@ -1849,7 +1857,13 @@ int main()
 				{
 				case CTRL('a'):
 					if (BusEigenAdresse != BusAdrUngueltig)
+						{
 						VerbindungGehend();
+#ifndef OHNE_SPEICHER
+						KonfigSchreibeWort(EEAdr_BeginnErsteMeldung2, BeginnErsteMeldung2);
+#endif //ndef OHNE_SPEICHER
+						}
+						
 					else
 #ifdef SPRACHE_EN						
 						LokalTextAusgabeP(PSTR(" Error: not configured"));
@@ -1860,7 +1874,6 @@ int main()
 					break;
 				
 				case CTRL('k'):
-					eeprom_write_byte(&Minute_EE, Minute);
 					Konfiguration();
 					KonfigurationEnde();
 					HauptmenueAusgeben = MenueImmerAusgeben;
@@ -1879,6 +1892,7 @@ int main()
 							   &LokalEingabeErfolgt,
 							   &LokalZeichenLesen);
 					Aktivieren(true);
+					KonfigSchreibeWort(EEAdr_BeginnErsteMeldung2, BeginnErsteMeldung2);
 					HauptmenueAusgeben = MenueImmerAusgeben;
 					break;
 
@@ -1974,7 +1988,8 @@ int main()
 		else if (Tastendruck == Kurz)
 			{
 			Tastendruck = NichtGedr;
-			eeprom_write_byte(&Minute_EE, Minute);
+			if (!UhrzeitUeberBus)
+				KonfigSchreibeByte(EEAdr_Minute, Minute);
 			Deaktivieren();
 			}
 
@@ -1984,7 +1999,7 @@ int main()
 #endif //ndef OHNE_SPEICHER
 		
 		// Parameter im eigenen Eeprom aktualisieren
-		eeprom_write_byte_noblock(&BusEigenAdresse_EE, BusEigenAdresse);
+/* TODO an bessere Stelle verschieben		
 		if (!UhrzeitUeberBus)
 			{
 			eeprom_write_byte_noblock(&Jahr_EE, Jahr);
@@ -1992,33 +2007,7 @@ int main()
 			eeprom_write_byte_noblock(&Tag_EE, Tag);
 			eeprom_write_byte_noblock(&Stunde_EE[Tag-1], Stunde);
 			}
-		eeprom_write_string_noblock(Kennung_EE, Kennung);
-		eeprom_write_string_noblock(Kennwort_EE, Kennwort);
-
-#ifndef OHNE_SPEICHER
-		eeprom_write_word_noblock(&BeginnErsteMeldung2_EE, BeginnErsteMeldung2);
-#endif //ndef OHNE_SPEICHER
-
-/* Reserve für später: Uhrzeit senden.
-
-		if (Minute != MinuteLetzeRundsendung && BusFrei && (BusAuftrag == Nichts || BusAuftrag == Fertig))
-			{
-			MinuteLetzeRundsendung = Minute;
-			
-			RundsendDaten[0] = 'c';
-			RundsendDaten[1] = 'l';
-			RundsendDaten[2] = 'k';
-			RundsendDaten[3] = Jahr;
-			RundsendDaten[4] = Monat;
-			RundsendDaten[5] = Tag;
-			RundsendDaten[6] = Stunde;
-			RundsendDaten[7] = Minute;
-			RundsendAnzDaten = 8;
-
-			BusRundsenden();
-			}
-
-*/
+		*/
 
 		// Rundsendedaten auswerten:
 		if (RundsendAnzDaten > 0)

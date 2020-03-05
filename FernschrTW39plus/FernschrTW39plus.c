@@ -1324,6 +1324,13 @@ int main()
 
 	SperrzeitInit();
 
+	// Testweise umsortiert:
+	TasteFunktion = KonfigLeseByteBegrenzt(EEAdr_TasteFunktion, 0, 0, 1); // KEIN Bool
+
+	SperrzeitLadeEeprom(EEAdr_Sperrzeit);
+
+	KommendSperreWahl = KonfigLeseByteBegrenzt(EEAdr_KommendSperreWahl, KommendSperreWahl_Std, 0, 99);
+
 	BusEigenAdresse = KonfigLeseByteBegrenzt(EEAdr_BusEigenAdresse, 11 << 1/*Standardwert*/, BusAdrMin, BusAdrMax) & 0xFE; // Bit 0 löschen
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
@@ -1333,14 +1340,8 @@ int main()
 	MitWaehlscheibe = KonfigLeseBool(EEAdr_MitWaehlscheibe, true);
 
 	WahlauffordImpulsLaenge = KonfigLeseByteBegrenzt(EEAdr_WahlauffordImpulsLaenge, 20, 1, 100);
-	
-	KommendSperreWahl = KonfigLeseByteBegrenzt(EEAdr_KommendSperreWahl, KommendSperreWahl_Std, 0, 99);
 
 	LokalbetriebWahl = KonfigLeseByteBegrenzt(EEAdr_LokalbetriebWahl, LokalbetriebWahl_Std, 0, 99);
-
-	SperrzeitLadeEeprom(EEAdr_Sperrzeit);
-
-	TasteFunktion = KonfigLeseByteBegrenzt(EEAdr_TasteFunktion, 0, 0, 1); // KEIN Bool
 
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
