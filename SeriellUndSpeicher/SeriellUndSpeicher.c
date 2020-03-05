@@ -56,6 +56,7 @@
 #include "LokalAusgabe.h"
 #include "BusKomm.h"
 #include "KonfigDialog.h"
+#include "KonfigSpeicher.h"
 #include "FifoPuffer.h"
 #include "LokalUhr.h"
 #include "Zeitsperre.h"
@@ -169,7 +170,6 @@ EEMEM uint8_t SeriellHwHandshake_EE = 1; //!< siehe #SeriellHwHandshake
 // ------------------------
 
 enum {
-TODO alle gegen letzte Map-Datei prüfen
 	EEAdr_BusEigenAdresse = 4,
     EEAdr_Kennung = 5,
 	EEAdr_Kennwort = 25,
@@ -1539,11 +1539,13 @@ static void KonfigurationEnde()
 
 	KonfigSchreibeBool(EEAdr_MenueImmerAusgeben, MenueImmerAusgeben);
 
+#ifndef OHNE_ZEITSPERRE
 	SperrzeitSpeicherEeprom(EEAdr_Sperrzeiten);
+#endif
 	
-	KonfigSchreibeString(EEAdr_Kennung, Kennung);
+	KonfigSchreibeString(EEAdr_Kennung, Kennung, sizeof(Kennung));
 	
-	KonfigSchreibeString(EEAdr_Kennwort, Kennwort);
+	KonfigSchreibeString(EEAdr_Kennwort, Kennwort, sizeof(Kennwort));
 
 	if (!UhrzeitUeberBus)
 		KonfigSchreibeByte(EEAdr_Minute, Minute);
@@ -1676,12 +1678,12 @@ int main()
 		
 	UhrAktualisieren();
 	
-	KonfigLeseString(Kennung, EEAdr_Kennung, sizeof(Kennung), PSTR("\r\ntxp-ab"));
+	KonfigLeseString(EEAdr_Kennung, Kennung, sizeof(Kennung), PSTR("\r\ntxp-ab"));
 
-	KonfigLeseString(Kennwort, EEAdr_Kennwort, sizeof(Kennwort), PSTR("kennwort"));
+	KonfigLeseString(EEAdr_Kennwort, Kennwort, sizeof(Kennwort), PSTR("kennwort"));
 
 #ifndef OHNE_ZEITSPERRE
-	SperrzeitLadeEeprom(EEAdr_Sperrzeit);
+	SperrzeitLadeEeprom(EEAdr_Sperrzeiten);
 #endif //ndef OHNE_ZEITSPERRE
 
 #ifndef OHNE_SPEICHER

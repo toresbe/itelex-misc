@@ -4,6 +4,7 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <avr/pgmspace.h>
 
 
 // Fehlerkonstanten
@@ -26,12 +27,16 @@ uint16_t KonfigLeseWortBegrenzt(uint16_t Adresse, uint16_t Default, uint16_t Min
 
 bool KonfigLeseBool(uint16_t Adresse, bool Default);
 
+void KonfigLeseString(uint16_t Adresse, char *s, uint8_t len, PGM_P defstr);
+
 
 void KonfigSchreibeByte(uint16_t Adresse, uint8_t Wert);
 
 void KonfigSchreibeWort(uint16_t Adresse, uint16_t Wert);
 
 void KonfigSchreibeBool(uint16_t Adresse, bool Wert);
+
+void KonfigSchreibeString(uint16_t Adresse, char *s, uint8_t len);
 
 
 uint8_t KonfigSpeicherFehlercode(bool Loeschen);

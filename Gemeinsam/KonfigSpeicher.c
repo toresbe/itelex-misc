@@ -114,6 +114,23 @@ bool KonfigLeseBool(uint16_t Adresse, bool Default)
 	}
 
 
+void KonfigLeseString(uint16_t Adresse, char *s, uint8_t len, PGM_P defstr)
+	{
+	uint8_t i;
+	
+	for (i = 0 ; i < len ; i++)
+		{
+		s[i] = KonfigLeseByte(Adresse + i, pgm_read_byte(defstr + i));
+		if (s[i] == '\0')
+			break;
+		}
+	if (i >= len)
+		s[len - 1] = '\0';
+	
+	// TODO: read full string in case of failure
+	}
+
+
 void SchreibeEinzelByte(uint16_t Adresse, uint8_t Wert)
 	{
 	if (Wert == eeprom_read_byte((uint8_t *) Adresse))
@@ -145,6 +162,17 @@ void KonfigSchreibeBool(uint16_t Adresse, bool Wert)
 	}
 
 
+void KonfigSchreibeString(uint16_t Adresse, char *s, uint8_t len)
+	{
+	uint8_t i;
+
+	for (i = 0 ; i < len - 1 && s[i] != '\0' ; i++)
+		KonfigSchreibeByte(Adresse + i, (uint8_t) s[i]);
+
+	KonfigSchreibeByte(Adresse + i, 0);
+	}
+
+
 uint8_t KonfigSpeicherFehlercode(bool Loeschen)
 	{
 	uint8_t code = FehlerCode;
@@ -152,7 +180,7 @@ uint8_t KonfigSpeicherFehlercode(bool Loeschen)
 		FehlerCode = KonfigSpeicherOK;
 	return code;
 	}
-	
+
 	
 uint16_t KonfigSpeicherFehlerAdresse()
 	{
@@ -178,7 +206,7 @@ void KonfigSpeicherFehlerAusgeben()
 			case KonfigSpeicherLesefehler:			LokalTextAusgabeP(PSTR("warning read failed")); break;
 			case KonfigSpeicherLesefehlerSchwer:	LokalTextAusgabeP(PSTR("error reading")); 		break;
 			case KonfigSpeicherSchreibfehler:		LokalTextAusgabeP(PSTR("error writing")); 		break;
-			default: LokalTextAusgabeP(PSTR("error code ")); 	LokalZahlAusgabe(FehlerCode);		break;
+			default: LokalTextAusgabeP(PSTR("error code ")); 	LokalZahlAusgabe(FehlerCode, 0);		break;
 #else	
 			case KonfigSpeicherNichtInit:			LokalTextAusgabeP(PSTR("info initialisiert")); 	break;
 			case KonfigSpeicherLesefehler:			LokalTextAusgabeP(PSTR("warnung lesefehler"));	break;
