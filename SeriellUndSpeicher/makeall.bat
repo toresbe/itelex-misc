@@ -1,5 +1,7 @@
 make -C PlatVer13
+make -C PlatVer13-Full
 make -C PlatVer21
+make -C PlatVer21-Full
 make -C PlatVer21-mZS
 make -C OhneSpeicher13
 make -C USTTY-45_21

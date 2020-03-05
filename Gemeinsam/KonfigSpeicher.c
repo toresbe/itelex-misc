@@ -72,7 +72,7 @@ uint8_t KonfigLeseByte(uint16_t Adresse, uint8_t Default)
 		}
 		
 	FehlerSpeichern(KonfigSpeicherLesefehlerSchwer, Adresse);
-	KonfigSchreibeByte(Adresse, Default);
+	//KonfigSchreibeByte(Adresse, Default);  um einen zweiten Versuch zu erlauben
 	return Default;
 	} // KonfigLeseByte()
 

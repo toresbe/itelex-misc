@@ -21,7 +21,9 @@ call MakeBin1.bat itlx_Messgeraet-75BD Messgeraet\75baud\Messgeraet.hex Mega168_
 call MakeBin1.bat itlx_Messgeraet-US45 Messgeraet\USTTY-45\Messgeraet.hex Mega168_Quarz
 call MakeBin1.bat itlx_Messgeraet-plED Messgeraet\AufED1000\Messgeraet.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher SeriellUndSpeicher\PlatVer13\SeriellUndSpeicher.hex Mega168_Quarz
+call MakeBin1.bat itlx_SeriellUndSpeicher-Full SeriellUndSpeicher\PlatVer13-Full\SeriellUndSpeicher.hex Mega328_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher2 SeriellUndSpeicher\PlatVer21\SeriellUndSpeicher.hex Mega168_Quarz
+call MakeBin1.bat itlx_SeriellUndSpeicher2-Full SeriellUndSpeicher\PlatVer21-Full\SeriellUndSpeicher.hex Mega328_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher2-mSZ SeriellUndSpeicher\PlatVer21-mZS\SeriellUndSpeicher.hex Mega328_Quarz
 rem OhneSpeicher wird nicht vertrieben
 call MakeBin1.bat itlx_SeriellUndSpeicher2-KOI7N2 SeriellUndSpeicher\KOI7N2_21\SeriellUndSpeicher.hex Mega168_Quarz
