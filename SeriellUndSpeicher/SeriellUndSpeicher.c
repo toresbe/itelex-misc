@@ -144,48 +144,25 @@ const char PROGMEM Identifier[] = "___itlx_SeriellUndSpeicher___" __DATE__ "___"
 #define KENNWORT_MAXLEN 20 //!< maximale Länge des Kennwortes für die Fernabfrage.
 
 
-// interner Eeprom-Speicher
-// ------------------------
-
-/* TODO LÖSCHEN
-
-EEMEM uint8_t Platzhalter[4]; //!< Anfang des EEPROM ist gern von Störungen betroffen
-EEMEM uint8_t BusEigenAdresse_EE = BusAdrUngueltig; //!< #BusEigenAdresse, Kopie im EEPROM
-EEMEM char Kennung_EE[KENNUNG_MAXLEN] = "\r\ntxp2-ab"; //!< #Kennung, Kopie im EEPROM
-EEMEM char Kennwort_EE[KENNWORT_MAXLEN] = "kennwort"; //!< #Kennwort, Kopie im EEPROM
-EEMEM uint8_t Jahr_EE = 9;  //!< #Jahr, Kopie im EEPROM
-EEMEM uint8_t Monat_EE = 4; //!< #Monat, Kopie im EEPROM
-EEMEM uint8_t Tag_EE = 13;  //!< #Tag, Kopie im EEPROM
-EEMEM uint8_t Stunde_EE[31] = { 0 } ; //!< #Stunde, Kopie im EEPROM. Je Tag eine andere Speicherstelle, damit die Abnutzung nicht so groß ist.
-EEMEM uint8_t Minute_EE = 0; //!< #Minute, Kopie im EEPROM, wird nur bei besonderer Bedienung gespeichert.
-EEMEM uint16_t BeginnErsteMeldung2_EE = 0xEEEE; //!< #BeginnErsteMeldung2, Kopie im EEPROM
-EEMEM uint8_t UmleitungAbweisen_EE = 0; //!< Bei true wird in Grundstellung Status 90 gemeldet.
-EEMEM uint8_t MenueImmerAusgeben_EE = 1; //!< siehe #MenueImmerAusgeben
-EEMEM uint8_t SeriellHwHandshake_EE = 1; //!< siehe #SeriellHwHandshake
-
-*/
-
-
 // Eeprom-Speicher-Adressen
 // ------------------------
 
 enum {
-	EEAdr_BusEigenAdresse = 4,
-    EEAdr_Kennung = 5,
-	EEAdr_Kennwort = 25,
-    EEAdr_Jahr = 45,
-	EEAdr_Monat = 46,
-	EEAdr_Tag = 47,
-	EEAdr_Stunde = 48, // Je Tag eine andere Speicherstelle, damit die Abnutzung nicht so groß ist.
-	EEAdr_Minute = 60,
-	EEAdr_BeginnErsteMeldung2 = 61,
-    EEAdr_UmleitungAbweisen = 63,
-	EEAdr_MenueImmerAusgeben = 64,
-	EEAdr_SeriellHwHandshake = 65,
-    EEAdr_Zeichensatz = 66,
-	EEAdr_Sperrzeiten = 67,
+	EEAdr_BusEigenAdresse = 0,
+    EEAdr_Kennung = 1,
+	EEAdr_Kennwort = 21,
+    EEAdr_Jahr = 41,
+	EEAdr_Monat = 42,
+	EEAdr_Tag = 43,
+	EEAdr_Stunde = 44, // Je Tag eine andere Speicherstelle, damit die Abnutzung nicht so groß ist.
+	EEAdr_Minute = 75,
+	EEAdr_BeginnErsteMeldung2 = 76,
+    EEAdr_UmleitungAbweisen = 78,
+	EEAdr_MenueImmerAusgeben = 79,
+	EEAdr_SeriellHwHandshake = 80,
+	EEAdr_Sperrzeiten = 81, // Beansprucht 20 Bytes
+    EEAdr_Zeichensatz = 101,
 };
-
 
 
 // Typen
