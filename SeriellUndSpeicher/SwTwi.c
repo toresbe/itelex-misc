@@ -2,7 +2,7 @@
 
 //! \todo DOXYGEN noch nicht ganz fertig (Debugging fehlt)
 
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 
 #include <inttypes.h>
 #include <avr/io.h>
@@ -1350,4 +1350,4 @@ void WiedergabeEnde()
 	}
 
 	
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER

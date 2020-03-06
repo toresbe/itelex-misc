@@ -8,8 +8,9 @@
 #include "Zeitsperre.h"
 
 
-#ifndef OHNE_ZEITSPERRE
+//#ifdef AF_ZEITSPERRE
 // damit Konfig-Abhängig alles entfallen kann
+// HACK Test, ob bei nicht Nutzung auch nicht gelinkt wird.
 
 
 typedef struct 
@@ -223,4 +224,4 @@ bool SperrzeitEingabeDialog()
 	}
 
 
-#endif //ndef OHNE_ZEITSPERRE
+//#endif //def AF_ZEITSPERRE

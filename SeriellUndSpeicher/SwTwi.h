@@ -3,7 +3,7 @@
 #define __SWTWI_H__
 
 // das Ganze nur, wenn es nicht abgeschaltet ist
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 
 // direkte Eeprom-Zugriffsfunktionen
 // ---------------------------------
@@ -45,6 +45,6 @@ void WiedergabeLoescheAktuelleMeldung();
 
 void WiedergabeEnde();
 
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 
 #endif //ndef __SWTWI_H__

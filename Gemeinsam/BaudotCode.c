@@ -12,7 +12,7 @@
 
 // 15.01.2019: komplette umstrukturierung für verschiedene 'codepages':
 // defines für codepages: 
-//   TTYCODE_MULTI für umschaltbare Tabellen (ungetestet)
+//   AF_TTYCODE_SWITCHABLE für umschaltbare Tabellen (ungetestet)
 //   TTYCODE_US für US_TTY
 //   TTYCODE_RUSSIAN_KOI7N2 für Kyrillisch mit 7 Bit (ohne lateinische Kleinbuchstaben!)
 //   TTYCODE_RUSSIAN_KOI8R für Kyrillisch mit 8 Bit
@@ -34,11 +34,11 @@
 
 // für RUSSISCH (KOI8R) 
 // ----========
-#if defined(TTYCODE_MULTI) || defined(TTYCODE_RUSSIAN_KOI8R)
+#if defined(AF_TTYCODE_SWITCHABLE) || defined(TTYCODE_RUSSIAN_KOI8R)
 
 #include "BaudotCode_KOI8.h"
 
-#ifndef TTYCODE_MULTI
+#ifndef AF_TTYCODE_SWITCHABLE
 #define TtyCodeTabZi TtyCodeTab_RU8_Zi
 #define TtyCodeTab3E TtyCodeTab_RU8_3E
 #define ErsetzTab ErsetzTab_RU8
@@ -50,11 +50,11 @@
 
 // für USTTY:
 // ----======
-#if defined(TTYCODE_MULTI) || defined(TTYCODE_US) 
+#if defined(AF_TTYCODE_SWITCHABLE) || defined(TTYCODE_US) 
 
 #include "BaudotCode_US.h"
 
-#ifndef TTYCODE_MULTI
+#ifndef AF_TTYCODE_SWITCHABLE
 #define TtyCodeTabZi TtyCodeTab_US_Zi
 #define ErsetzTab NULL
 #endif					
@@ -64,11 +64,11 @@
 
 // für GRIECHISCH (CP737) 
 // ----==========
-#if defined(TTYCODE_MULTI) || defined(TTYCODE_GREEK_CP737)
+#if defined(AF_TTYCODE_SWITCHABLE) || defined(TTYCODE_GREEK_CP737)
 
 #include "BaudotCode_GR737.h"
 
-#ifndef TTYCODE_MULTI
+#ifndef AF_TTYCODE_SWITCHABLE
 #define TtyCodeTabZi TtyCodeTab_GR737_Zi
 #define TtyCodeTab3E TtyCodeTab_GR737_3E 
 #define ErsetzTab NULL
@@ -83,7 +83,7 @@
 
 // für RUSSISCH (KOI7N) 
 // ----========
-#if defined(TTYCODE_MULTI) || defined(TTYCODE_RUSSIAN_KOI7N2)
+#if defined(AF_TTYCODE_SWITCHABLE) || defined(TTYCODE_RUSSIAN_KOI7N2)
 //                          			     0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   
 PROGMEM char TtyCodeTab_RU7_Zi[]		= { '#', '5','\r', '9', ' ', 125, ',', '.','\n', ')', '4', 123, '8', '0', ':', '=', 	
 			
@@ -96,7 +96,7 @@ PROGMEM char TtyCodeTab_RU7_3E[]		= { '#', 116,'\r', 111, ' ', 104, 110, 109,'\n
 //                          			    16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
 										   101, 122, 100,  98, 115, 121, 102, 120,  97, 119, 106,  '#',117, 113, 107,  '#'};
 
-#ifndef TTYCODE_MULTI
+#ifndef AF_TTYCODE_SWITCHABLE
 #define TtyCodeTabZi TtyCodeTab_RU7_Zi
 #define TtyCodeTab3E TtyCodeTab_RU7_3E
 #define ErsetzTab ErsetzTab_RU7
@@ -142,14 +142,14 @@ PROGMEM char TtyCodeTabKy[] 			= { '#', 244,'\r', 239, ' ', 232, 238, 237,'\n', 
 // für Großbuchstaben (ITA2):
 // ----==============--------
 
-#if defined(TTYCODE_MULTI) || defined(TTYCODE_RUSSIAN_KOI7N2)
+#if defined(AF_TTYCODE_SWITCHABLE) || defined(TTYCODE_RUSSIAN_KOI7N2)
 //                          			     0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   
 PROGMEM char TtyCodeTab_Gross_Bu[]		= { '#', 'T','\r', 'O', ' ', 'H', 'N', 'M','\n', 'L', 'R', 'G', 'I', 'P', 'C', 'V', 
 			
 //                          			    16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
 											'E', 'Z', 'D', 'B', 'S', 'Y', 'F', 'X', 'A', 'W', 'J', '#', 'U', 'Q', 'K', '#'};
 
-#ifndef TTYCODE_MULTI
+#ifndef AF_TTYCODE_SWITCHABLE
 #define TtyCodeTabBu TtyCodeTab_Gross_Bu
 #endif					
 
@@ -159,14 +159,14 @@ PROGMEM char TtyCodeTab_Gross_Bu[]		= { '#', 'T','\r', 'O', ' ', 'H', 'N', 'M','
 // für Kleinbuchstaben = ITA2:
 // ----===============--------
 								   
-#if defined(TTYCODE_MULTI) || !defined(TtyCodeTabBu)
+#if defined(AF_TTYCODE_SWITCHABLE) || !defined(TtyCodeTabBu)
 //                                           0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   
 PROGMEM char TtyCodeTab_STD_Bu[] 		= { '#', 't','\r', 'o', ' ', 'h', 'n', 'm','\n', 'l', 'r', 'g', 'i', 'p', 'c', 'v', 
                                    
 //                                          16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
 						            		'e', 'z', 'd', 'b', 's', 'y', 'f', 'x', 'a', 'w', 'j', '#', 'u', 'q', 'k', '#'};
 											
-#ifndef TTYCODE_MULTI
+#ifndef AF_TTYCODE_SWITCHABLE
 #define TtyCodeTabBu TtyCodeTab_STD_Bu
 #endif					
 
@@ -175,14 +175,14 @@ PROGMEM char TtyCodeTab_STD_Bu[] 		= { '#', 't','\r', 'o', ' ', 'h', 'n', 'm','\
 // für Ziffern/Zeichen = ITA2:
 // ----===============--------
 						            		
-#if defined(TTYCODE_MULTI) || !defined(TtyCodeTabZi)
+#if defined(AF_TTYCODE_SWITCHABLE) || !defined(TtyCodeTabZi)
 //                                           0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   
 PROGMEM char TtyCodeTab_STD_Zi[]		= { '#', '5','\r', '9', ' ', '#', ',', '.','\n', ')', '4', '#', '8', '0', ':', '=', 
                                    
 //                                          16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31
 						            		'3', '+', WD , '?','\'', '6', '#', '/', '-', '2', KL,  '#', '7', '1', '(', '#'};
 						            		
-#ifndef TTYCODE_MULTI
+#ifndef AF_TTYCODE_SWITCHABLE
 #define TtyCodeTabZi TtyCodeTab_STD_Zi
 #endif					
 
@@ -194,7 +194,7 @@ PROGMEM char TtyCodeTab_STD_Zi[]		= { '#', '5','\r', '9', ' ', '#', ',', '.','\n
 // Vorkehrungen für umschaltbare Zeichensätze
 // ==========================================
 
-#ifdef TTYCODE_MULTI
+#ifdef AF_TTYCODE_SWITCHABLE
 
 // Variablen, die auf die aktuelle Code-Tabelle zeigen:
 prog_char * TtyCodeTabBu;
@@ -225,7 +225,7 @@ bool DritteEbeneVorhanden;
 #define ErsetzTab NULL
 #endif 
 
-#endif //def TTYCODE_MULTI
+#endif //def AF_TTYCODE_SWITCHABLE
 
 
 
@@ -288,7 +288,7 @@ uint8_t ZeichenZuCode(char c, TBaudotMode Mode)
 	}
 
 
-#ifdef TTYCODE_MULTI
+#ifdef AF_TTYCODE_SWITCHABLE
 
 void CodeTabWechsel(uint8_t Mode)
 	{
@@ -342,7 +342,7 @@ void CodeTabWechsel(uint8_t Mode)
 	} // CodeTabWechsel(uint8_t Mode)
 
 
-#endif //def TTYCODE_MULTI
+#endif //def AF_TTYCODE_SWITCHABLE
 
 
 	/*

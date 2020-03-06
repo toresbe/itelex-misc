@@ -11,10 +11,16 @@
 
 uint8_t FehlerCode;
 uint16_t FehlerAdresse;
+bool DefaultUsed; 
+// wird gesetzt, wenn keine sinnvollen Daten gelesen werden konnten. Flag wird bei Werten mit mehr als einem Byte 
+// ausgenutzt, um ein nur teilweises "rücksetzen auf default" zu vermeiden.
 
 
 enum { BankOffset = 160 }; // Offset der redundanten Speicherbereiche.
 
+
+// interne Funktionen:
+// ===================
 
 static void FehlerSpeichern(uint8_t code, uint16_t adresse)
 	{
@@ -25,11 +31,16 @@ static void FehlerSpeichern(uint8_t code, uint16_t adresse)
 		}
 	}
 	
+
+// Lese-Funktionen:
+// ===================
+
 	
 void KonfigSpeicherInit()
 	{
 	FehlerCode = KonfigSpeicherOK;
 	FehlerAdresse = 0xFF;
+	DefaultUsed = false;
 	}
 	
 
@@ -72,7 +83,8 @@ uint8_t KonfigLeseByte(uint16_t Adresse, uint8_t Default)
 		}
 		
 	FehlerSpeichern(KonfigSpeicherLesefehlerSchwer, Adresse);
-	//KonfigSchreibeByte(Adresse, Default);  um einen zweiten Versuch zu erlauben
+	DefaultUsed = true;
+	//KonfigSchreibeByte(Adresse, Default); NEIN: um einen zweiten Versuch zu erlauben
 	return Default;
 	} // KonfigLeseByte()
 
@@ -97,8 +109,11 @@ uint16_t KonfigLeseWortBegrenzt(uint16_t Adresse, uint16_t Default, uint16_t Min
 	uint16_t wert;
 	
 	// little endian:
+	DefaultUsed = false;
 	wert = (KonfigLeseByte(Adresse + 1, Default >> 8) << 8) | KonfigLeseByte(Adresse, Default & 0xFF);
-	if (wert < Min || wert > Max)
+	if (DefaultUsed)
+		wert = Default; // Default auf das ganze Wort anwenden
+	else if (wert < Min || wert > Max)
 		{
 		FehlerSpeichern(KonfigSpeicherNichtInit, Adresse);
 		wert = Default;
@@ -118,18 +133,28 @@ void KonfigLeseString(uint16_t Adresse, char *s, uint8_t len, PGM_P defstr)
 	{
 	uint8_t i;
 	
+	DefaultUsed = false;
 	for (i = 0 ; i < len ; i++)
 		{
 		s[i] = KonfigLeseByte(Adresse + i, pgm_read_byte(defstr + i));
-		if (s[i] == '\0')
+		if (s[i] == '\0' || DefaultUsed)
 			break;
 		}
+		
+	if (DefaultUsed)
+		{
+		for (i = 0 ; i < len ; i++)
+			s[i] = pgm_read_byte(defstr + i);
+		}
+	
 	if (i >= len)
 		s[len - 1] = '\0';
 	
-	// TODO: read full string in case of failure
 	}
 
+
+// Schreib-Funktionen:
+// ===================
 
 void SchreibeEinzelByte(uint16_t Adresse, uint8_t Wert)
 	{
@@ -173,6 +198,9 @@ void KonfigSchreibeString(uint16_t Adresse, char *s, uint8_t len)
 	}
 
 
+// Diagnose-Funktionen:
+// ====================
+
 uint8_t KonfigSpeicherFehlercode(bool Loeschen)
 	{
 	uint8_t code = FehlerCode;
@@ -193,34 +221,34 @@ void KonfigSpeicherFehlerAusgeben()
 	if (FehlerCode == KonfigSpeicherOK)
 		return;
 	
-#ifdef SPRACHE_EN
+	#ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\r\n eeprom ")); 
-#else	
+	#else	
 	LokalTextAusgabeP(PSTR("\r\r\n eeprom ")); 
-#endif //def SPRACHE_EN
+	#endif //def SPRACHE_EN
 
 	switch (FehlerCode)
 		{
-#ifdef SPRACHE_EN
+		#ifdef SPRACHE_EN
 			case KonfigSpeicherNichtInit:			LokalTextAusgabeP(PSTR("info initialized")); 	break;
 			case KonfigSpeicherLesefehler:			LokalTextAusgabeP(PSTR("warning read failed")); break;
 			case KonfigSpeicherLesefehlerSchwer:	LokalTextAusgabeP(PSTR("error reading")); 		break;
 			case KonfigSpeicherSchreibfehler:		LokalTextAusgabeP(PSTR("error writing")); 		break;
 			default: LokalTextAusgabeP(PSTR("error code ")); 	LokalZahlAusgabe(FehlerCode, 0);		break;
-#else	
+		#else	
 			case KonfigSpeicherNichtInit:			LokalTextAusgabeP(PSTR("info initialisiert")); 	break;
 			case KonfigSpeicherLesefehler:			LokalTextAusgabeP(PSTR("warnung lesefehler"));	break;
 			case KonfigSpeicherLesefehlerSchwer:	LokalTextAusgabeP(PSTR("schwerer lesefehler")); break;
 			case KonfigSpeicherSchreibfehler:		LokalTextAusgabeP(PSTR("schreibfehler")); 		break;
 			default: LokalTextAusgabeP(PSTR("fehlercode ")); 	LokalZahlAusgabe(FehlerCode, 0);	break;
-#endif //def SPRACHE_EN
+		#endif //def SPRACHE_EN
 		} // switch (FehlerCode)
 
-#ifdef SPRACHE_EN
+	#ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR(" address ")); 
-#else	
+	#else	
 	LokalTextAusgabeP(PSTR(" adresse ")); 
-#endif //def SPRACHE_EN
+	#endif //def SPRACHE_EN
 
 	LokalHexAusgabe(FehlerAdresse >> 8);
 	LokalHexAusgabe(FehlerAdresse & 0xFF);

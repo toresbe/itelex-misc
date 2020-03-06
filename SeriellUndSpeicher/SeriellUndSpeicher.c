@@ -61,7 +61,7 @@
 #include "LokalUhr.h"
 #include "Zeitsperre.h"
 
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 #include "SwTwi.h"
 #else
 #define DoSwTwi() while(0) // nichts tun
@@ -645,9 +645,9 @@ static void VerbindungKommend()
 	LokalTextAusgabeP(PSTR("\r\nAnruf\r\n"));
 #endif
 
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 	bool AufzeichnungEin = AufzeichnungBeginn(Jahr, Monat, Tag, Stunde, Minute);
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
@@ -656,18 +656,18 @@ static void VerbindungKommend()
 #else			
 	    LokalTextAusgabeP(PSTR("\r\nFehler\r\n"));
 #endif			
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 		AufzeichnungAbbruch();
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 		GeAusschalten(true);
 		}
 	else
 		{
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 		VerbindungSteht(AufzeichnungEin);
-#else //def OHNE_SPEICHER
+#else //ndef AF_ANRUFSPEICHER
 		VerbindungSteht(false);
-#endif //else def OHNE_SPEICHER
+#endif //else ndef AF_ANRUFSPEICHER
 
 		}
 		
@@ -687,9 +687,9 @@ static void VerbindungGehend()
 
 	LokalAusgabeNichtBlockieren = true;
 	
-#ifndef OHNE_ZEITSPERRE
+	#ifdef AF_ZEITSPERRE
 	SperrzeitAussetzen();
-#endif //ndef OHNE_ZEITSPERRE
+	#endif //def AF_ZEITSPERRE
 
 	set_LEDGELB();
 	switch (GeEinschalten())
@@ -759,9 +759,9 @@ static void VerbindungGehend()
 
 	VerbindungSteht(false);
 
-#ifndef OHNE_ZEITSPERRE
+#ifdef AF_ZEITSPERRE
 	SperrzeitAussetzen();
-#endif //ndef OHNE_ZEITSPERRE
+#endif //def AF_ZEITSPERRE
 
 	} // VerbindungGehend()
 
@@ -836,10 +836,10 @@ static bool KennungsausgabeUndKennwortAbfrage(bool AufzeichnungEin)
 			{
 			LokalZeichenAusgabe(c);
 
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 			if (AufzeichnungEin)
 				AufzeichnungZeichen(c);
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 
 			if (c == '\r' || c == '\n') 
 				{
@@ -870,7 +870,7 @@ static bool KennungsausgabeUndKennwortAbfrage(bool AufzeichnungEin)
 	
 
 
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 
 
 //! Gibt die aufgezeichneten Meldungen wieder.
@@ -1159,7 +1159,7 @@ static char ZeichenLesen()
 	}
 	
 
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 
 	
 //! Behandelt nach Verbindungsaufbau die Datenübertragung in beiden Richtungen.
@@ -1179,32 +1179,32 @@ static void VerbindungSteht(bool AufzeichnungEin)
 				{
 				if (KennungsausgabeUndKennwortAbfrage(AufzeichnungEin))
 					{ // richtiges Kennwort eingegeben
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 					AufzeichnungAbbruch();
 					AufzeichnungEin = false;
 					Wiedergabe(&ZeichenSenden, 
 							   &GeSendeTextP,
 							   &ZeichenEmpfangen,
 							   &ZeichenLesen);
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 					}
 				}
 			else
 				{
 				LokalZeichenAusgabe(c);
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 				if (AufzeichnungEin)
 					AufzeichnungZeichen(c);
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 				}
 			}
 
 		if (KoAusschalten())
 			{
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 			if (AufzeichnungEin)
 				AufzeichnungEnde();
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 
 #ifdef SPRACHE_EN				
 			LokalTextAusgabeP(PSTR("\r\nDisconnected\r\n"));
@@ -1226,19 +1226,19 @@ static void VerbindungSteht(bool AufzeichnungEin)
 				// Eigene Kennung ausgeben
 				{ // TODO außer Kennung ist leer.
 				GeSendeText(Kennung);
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 				if (AufzeichnungEin)
 					AufzeichnungZeichen(c);
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 				}
 				
 			else if (c == CTRL('s'))
 				// Abbruch durch Bediener
 				{
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 				if (AufzeichnungEin)
 					AufzeichnungEnde();
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 
 				GeAusschalten(false);
 				while (!KoAusschalten())
@@ -1300,9 +1300,9 @@ static void KommendSperren(TSperreGrund Grund)
 		if (Tastendruck != NichtGedr)
 			{
 			Tastendruck = NichtGedr;
-#ifndef OHNE_ZEITSPERRE
+#ifdef AF_ZEITSPERRE
 			SperrzeitAussetzen();
-#endif //ndef OHNE_ZEITSPERRE
+#endif //def AF_ZEITSPERRE
 			break;
 			}
 
@@ -1321,10 +1321,10 @@ static void KommendSperren(TSperreGrund Grund)
 			{
 			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
 				{
-#ifndef OHNE_ZEITSPERRE
+#ifdef AF_ZEITSPERRE
 				if (Grund == SperreZeit && !SperrzeitAktiv())
 					break;
-#endif //ndef OHNE_ZEITSPERRE
+#endif //def AF_ZEITSPERRE
 				UhrzeitUeberBus	= true;
 				}
 			// else Daten anderwertig auswerten
@@ -1465,13 +1465,13 @@ static void Konfiguration()
 		return;
 	LokalTextAusgabeP(OkStrP);
 
-#ifndef OHNE_ZEITSPERRE
+#ifdef AF_ZEITSPERRE
 	// Sperrzeiten
 	// -----------
 	if (!SperrzeitEingabeDialog())
 		return;
 
-#endif //ndef OHNE_ZEITSPERRE
+#endif //def AF_ZEITSPERRE
 
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n use hardware handshake on output? current: "));
@@ -1516,9 +1516,9 @@ static void KonfigurationEnde()
 
 	KonfigSchreibeBool(EEAdr_MenueImmerAusgeben, MenueImmerAusgeben);
 
-#ifndef OHNE_ZEITSPERRE
+#ifdef AF_ZEITSPERRE
 	SperrzeitSpeicherEeprom(EEAdr_Sperrzeiten);
-#endif
+#endif // def AF_ZEITSPERRE
 	
 	KonfigSchreibeString(EEAdr_Kennung, Kennung, sizeof(Kennung));
 	
@@ -1581,9 +1581,9 @@ int main()
 	{
 	bool HauptmenueAusgeben = true;
 
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 	extern uint16_t BeginnErsteMeldung2;
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 
 	// WD ein
 #ifndef NOWATCHDOG
@@ -1629,9 +1629,9 @@ int main()
 
 	LokalAusgabeNichtBlockieren = false;
 	
-#ifndef OHNE_ZEITSPERRE
+#ifdef AF_ZEITSPERRE
 	SperrzeitInit();
-#endif //ndef OHNE_ZEITSPERRE
+#endif //def AF_ZEITSPERRE
 
 	KonfigSpeicherInit();
 	
@@ -1659,14 +1659,14 @@ int main()
 
 	KonfigLeseString(EEAdr_Kennwort, Kennwort, sizeof(Kennwort), PSTR("kennwort"));
 
-#ifndef OHNE_ZEITSPERRE
+#ifdef AF_ZEITSPERRE
 	SperrzeitLadeEeprom(EEAdr_Sperrzeiten);
-#endif //ndef OHNE_ZEITSPERRE
+#endif //def AF_ZEITSPERRE
 
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 	BeginnErsteMeldung2 = KonfigLeseWortBegrenzt(EEAdr_BeginnErsteMeldung2, 0, 0, 0xFFFF);
 	//! \todo Prüfen auf Sinigkeit?
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 
 	SerIOInit();
 
@@ -1702,9 +1702,9 @@ int main()
 	clr_LEDGRUEN();
 	set_LEDBLAU();
 
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 	MsgSpeicherInit();
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 
 	// TWI nochmal resetten
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (1<<TWSTO) | (0<<TWEN) | (0<<TWIE);
@@ -1719,16 +1719,16 @@ int main()
 
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
 
-#ifdef TTYCODE_MULTI
+#ifdef AF_TTYCODE_SWITCHABLE
 	CodeTabWechsel(0); // TODO: Wählbarer Standard-Zeichensatz
-#endif //def TTYCODE_MULTI
+#endif //def AF_TTYCODE_SWITCHABLE
 
 	while (true) // Hauptschleife
 		{
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 		extern uint16_t BeginnErsteMeldung;
 		extern uint16_t EndeLetzteMeldung;
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 			
 		// aktueller Zustand: Ausgeschaltet
 		if (BusEigenAdresse == BusAdrUngueltig)
@@ -1742,7 +1742,7 @@ int main()
 			clr_LEDBLAU();
 			}
 			
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 		else if (BeginnErsteMeldung != EndeLetzteMeldung) 		
 			{ // Nachricht ungelesen 
 			clr_LEDROT();
@@ -1753,7 +1753,7 @@ int main()
 				StartTimer(&Timer);
 			clr_LEDBLAU();
 			}
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 
 		else
 			{ // alles in Ordnung
@@ -1782,13 +1782,13 @@ int main()
 #else
 			LokalTextAusgabeP(PSTR(", Ctrl-L: Lokalbetrieb"));
 #endif				
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 #ifdef SPRACHE_EN				
 			LokalTextAusgabeP(PSTR(", Ctrl-Q: read messages"));
 #else
 			LokalTextAusgabeP(PSTR(", Ctrl-Q: AB-Wiedergabe"));
 #endif				
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 #ifdef SPRACHE_EN				
 			LokalTextAusgabeP(PSTR("\r\nCtrl-K: config"));
 #else
@@ -1799,13 +1799,13 @@ int main()
 #else
 			LokalTextAusgabeP(PSTR(", Ctrl-T: Statusliste"));
 #endif				
-#ifdef TTYCODE_MULTI
+#ifdef AF_TTYCODE_SWITCHABLE
 #ifdef SPRACHE_EN				
 			LokalTextAusgabeP(PSTR(", Ctrl-E: set encoding"));
 #else
 			LokalTextAusgabeP(PSTR(", Ctrl-E: Zeichensatz"));
 #endif				
-#endif //def TTYCODE_MULTI
+#endif //def AF_TTYCODE_SWITCHABLE
 
 #ifdef BUSDEBUG_DIALOG
 			LokalTextAusgabeP(PSTR("\r\nCtrl-D: Debug"));
@@ -1821,9 +1821,9 @@ int main()
 		if (KoEinschalten())
 			{
 			VerbindungKommend();
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 			KonfigSchreibeWort(EEAdr_BeginnErsteMeldung2, BeginnErsteMeldung2);
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 			HauptmenueAusgeben = MenueImmerAusgeben;
 			}
 		
@@ -1838,9 +1838,9 @@ int main()
 					if (BusEigenAdresse != BusAdrUngueltig)
 						{
 						VerbindungGehend();
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 						KonfigSchreibeWort(EEAdr_BeginnErsteMeldung2, BeginnErsteMeldung2);
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 						}
 						
 					else
@@ -1858,7 +1858,7 @@ int main()
 					HauptmenueAusgeben = MenueImmerAusgeben;
 					break;
 
-#ifndef OHNE_SPEICHER
+#ifdef AF_ANRUFSPEICHER
 //				case CTRL('e'):
 //					XEepromDebug();
 //					HauptmenueAusgeben = MenueImmerAusgeben;
@@ -1875,7 +1875,7 @@ int main()
 					HauptmenueAusgeben = MenueImmerAusgeben;
 					break;
 
-#endif //ndef OHNE_SPEICHER
+#endif //def AF_ANRUFSPEICHER
 
 				case CTRL('l'): //Lokalbetrieb
 					Aktivieren(false);
@@ -1909,32 +1909,32 @@ int main()
 					Aktivieren(true);
 					break;
 					
-#ifdef TTYCODE_MULTI
-				case CTRL('E'):
+#ifdef AF_TTYCODE_SWITCHABLE
+				case CTRL('e'):
 				{
-#ifdef SPRACHE_EN				
+					#ifdef SPRACHE_EN				
 					LokalTextAusgabeP(PSTR("\r\nselect character set: 0=ita2 1=ustty 2=KOI7N2 3=KOI8-R 4=Greek 5=Nordic: "));
-#else
+					#else
 					LokalTextAusgabeP(PSTR("\r\nZeichensatz waehlen: 0=ita2 1=ustty 2=KOI7N2 3=KOI8-R 4=Griechisch 5=Nordisch: "));
-#endif					
+					#endif					
 					uint8_t CodeIndex;
 					if (LokalZahlEingabe(&CodeIndex, 1) < 0)
 						break;
 					
 					if (CodeIndex > 5)
 						{
-#ifdef SPRACHE_EN				
+						#ifdef SPRACHE_EN				
 						LokalTextAusgabeP(PSTR("\r\ninvalid selection"));
-#else
+						#else
 						LokalTextAusgabeP(PSTR("\r\nungueltige Eingabe"));
-#endif					
+						#endif					
 						break;
 						}
 						
 					CodeTabWechsel(CodeIndex);
 					break;
 				}
-#endif //def TTYCODE_MULTI
+#endif //def AF_TTYCODE_SWITCHABLE
 
 				case CTRL('m'):
 				case CTRL('j'):
@@ -1946,11 +1946,11 @@ int main()
 				default:
 					while (!PufferLeer(&SerInBuf))
 						SerEmpfZ(true); // Puffer leeren
-#ifdef SPRACHE_EN				
+					#ifdef SPRACHE_EN				
 					LokalTextAusgabeP(PSTR("\r\ninvalid command"));
-#else
+					#else
 					LokalTextAusgabeP(PSTR("\r\nUngueltiges Kommando"));
-#endif					
+					#endif					
 					HauptmenueAusgeben = true;
 					break;
 				}
@@ -1972,10 +1972,10 @@ int main()
 			Deaktivieren();
 			}
 
-#ifndef OHNE_SPEICHER
+		#ifdef AF_ANRUFSPEICHER
 		while (!EeAbschliessen())
 			DoSwTwi(); // Eeprom-Zugriffe beenden...
-#endif //ndef OHNE_SPEICHER
+		#endif //def AF_ANRUFSPEICHER
 		
 		// Parameter im eigenen Eeprom aktualisieren
 /* TODO an bessere Stelle verschieben		
@@ -1993,10 +1993,10 @@ int main()
 			{
 			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
 				{
-#ifndef OHNE_ZEITSPERRE
+				#ifdef AF_ZEITSPERRE
 				if (SperrzeitAktiv())
 					KommendSperren(SperreZeit);
-#endif //ndef OHNE_ZEITSPERRE
+				#endif //def AF_ZEITSPERRE
 				UhrzeitUeberBus = true;
 				}
 			else

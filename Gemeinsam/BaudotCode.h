@@ -78,9 +78,9 @@ extern bool ZeichenZuCode2(char c, TBaudotMode* Mode, uint8_t* Code1, uint8_t* C
 
 extern char CodeZuZeichen(uint8_t code, TBaudotMode *Mode);
 
-#ifdef TTYCODE_MULTI
+#ifdef AF_TTYCODE_SWITCHABLE
 extern void CodeTabWechsel(uint8_t Mode);
-#endif //def TTYCODE_MULTI
+#endif //def AF_TTYCODE_SWITCHABLE
 
 
 #endif //ndef __BAUDOTCODE_H__

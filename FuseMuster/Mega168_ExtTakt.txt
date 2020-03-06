@@ -4,6 +4,6 @@ E0-D5-F9
 E0-D5-F9
 1E-95-0F
 E0-D5-FD
-
++++
 first line signature
 second line fuse bits (low-high-extended)
