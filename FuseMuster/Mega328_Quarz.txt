@@ -1,5 +1,7 @@
 1E-95-0F
 F7-D5-FD
+1E-95-14
+F7-D5-FD
 +++
 first line signature
 second line fuse bits (low-high-extended)
