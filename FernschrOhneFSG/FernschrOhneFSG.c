@@ -317,6 +317,9 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	{
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWEN) | (0<<TWIE);
 	
+	BefehlMark = true;
+	FernschrIO(false);
+	
 	uint8_t TasteZ = 0;
 	bool TasteWirk = false;
 	TMsTimer TasteTimer;

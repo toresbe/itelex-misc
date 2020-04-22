@@ -104,7 +104,7 @@ void SET_BIT_Status(uint8_t BitNr)
 	}
 	
 	
-void FehlerStop(int Nummer);
+extern void FehlerStop(int Nummer);
 
 
 //! Interne Funktion zur Verarbeitung eines über TWI empfangenen Kommandos.

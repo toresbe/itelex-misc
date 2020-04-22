@@ -38,7 +38,7 @@ extern void LokalZeichenAusgabe(char c);
 extern void LokalHexAusgabe(uint8_t i);
 extern void SerSendFlush();
 
-void FehlerStop(uint8_t Code); // aus SeriellUndSpeicher.c
+extern void FehlerStop(uint8_t Code); // aus SeriellUndSpeicher.c
 
 
 // ####################################################################################

@@ -260,6 +260,10 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	// 10: unerlaubte Aktivierung / Deaktivierung
 	{
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWEN) | (0<<TWIE);
+
+	BefehlEinschalten = false;
+	BefehlMark = true;
+	TW39IO();
 	
 	uint8_t TasteZ = 0; // Zählt von 0 bis 5 beim Drücken und bis 10 beim Loslassen
 	TMsTimer TasteTimer;

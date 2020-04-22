@@ -518,12 +518,17 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	{
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWEN) | (0<<TWIE);
 	
+	BefehlEinschalten = false;
+	BefehlMark = true;
+	ED1000IO(); // damit der Fernschreiber abgeschaltet wird.
+	
 	uint8_t TasteZ = 0;
 	bool TasteWirk = false;
 	TMsTimer TasteTimer;
 	StartTimer(&TasteTimer);
 	while (1)
 		{
+		// ED1000IO muss hier nicht aufgerufen werden, da die Generierung des Sinus im Timer-Interrupt erfolgt.
 		wdt_reset();
 
 		if (TimerVal(&TasteTimer) > 400)
