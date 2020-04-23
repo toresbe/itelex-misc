@@ -137,6 +137,8 @@ void KonfigLeseString(uint16_t Adresse, char *s, uint8_t len, PGM_P defstr)
 	for (i = 0 ; i < len ; i++)
 		{
 		s[i] = KonfigLeseByte(Adresse + i, pgm_read_byte(defstr + i));
+		if (s[i] >= 127)
+			DefaultUsed = true;
 		if (s[i] == '\0' || DefaultUsed)
 			break;
 		}

@@ -9,7 +9,6 @@
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
-#include <avr/eeprom.h>
 #include <avr/wdt.h>
 #include <inttypes.h>
 
@@ -27,6 +26,7 @@
 #include "SeriellUmsetz.h"
 #include "BaudotCode.h"
 #include "KonfigDialog.h"
+#include "KonfigSpeicher.h"
 #include "LokalAusgabe.h"
 #include "LokalUhr.h"
 #include "Zeitsperre.h"
@@ -69,6 +69,30 @@ PROGMEM const char Identifier[] = "___itlx_OhneFSG-" PROGIDZUSATZ "___" __DATE__
 PROGMEM const char Identifier[] = "___itlx_OhneFSG___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif
 
+// Konstanten
+// ----------
+
+enum { LokalbetriebWahl_Std = 88 };
+enum { KommendSperreWahl_Std = 0 };
+enum { AutoWahlMaxZiffern = 10 };
+
+
+// Eeprom-Speicher
+// ---------------
+
+enum {
+	EEAdr_KonfigVersion = 4,
+	EEAdr_BusEigenAdresse = 5,
+    EEAdr_KommendSperreWahl = 6,
+	EEAdr_VerbindungsEndeKriterium = 7,
+	EEAdr_AusschaltZeichen = 8,
+	EEAdr_WahlaufforderungZeichen = 39,
+	EEAdr_VerbindungHergestelltZeichen = 70,
+	EEAdr_EigeneKennung = 101,
+	EEAdr_SperrzeitDaten = 102,
+    EEAdr_UmleitungAbweisen = 122,
+	EEAdr_LokalbetriebWahl = 123
+}; // BankOffset = 160
 
 // Typen
 // -----
@@ -131,9 +155,8 @@ uint8_t EigeneKennung[MaxCodefolgeLaenge+1];
 	//!< Text des eigenen Kennungsgeber-Simulators
 
 	
-// Eeprom-Speicher
-// ---------------
 
+/* veraltet
 typedef struct 
 	{
 	uint8_t Platzhalter[4]; //!< Platzhalter, da Anfang des EEPROM gern von Störungen betroffen ist
@@ -148,21 +171,25 @@ typedef struct
 	TSperrzeitDaten SperrzeitDaten;
 	uint8_t UmleitungAbweisen;
 	} TEepromDaten;
+*/
 
+// Eeprom-Speicher-Adressen
+// ------------------------
 
+/* veraltet
 EEMEM TEepromDaten EEDaten = { 
-	{ 0 }, 
-	1, 
-	BusAdrUngueltig, 
-	0, 
-	EndeNurBreak, 
-	{ 255 }, 
-	{ 255 }, 
-	{ 255 }, 
-	{ 255 }, 
-	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, 
-	0 } ;
-
+	{ 0 },   0
+	1,       4
+	BusAdrUngueltig,    5
+	0, 					6	
+	EndeNurBreak, 	7	
+	{ 255 },        8
+	{ 255 },    39
+	{ 255 },    70 
+	{ 255 },    101
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },    102
+	0 } ;    112
+*/
 	
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -229,6 +256,8 @@ static void FernschrIO(bool TasteMachtBreak)
 	} // FernschrIO()
 	
 	
+
+uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
 
 //////////////////////////////////////////////////////////////////
 
@@ -593,6 +622,44 @@ static void VerbindungKommend()
 
 /////////////////////////////////////////////////////////////
 
+//! Wird aufgerufen, wenn durch Wahl der entsprechenden Nummer oder
+//! durch Buchstabe "L" bei Tastaturwahl ein Lokalbetrieb laufen soll.
+
+/* TODO später
+static void LokalbetriebSimulieren()
+	{
+	set_LEDROT();
+	Aktivieren(false);
+	
+	BefehlMark = true;
+	
+	if (!BefehlEinschalten) // offensichtlich Wählscheiben-Wahl
+		{
+		TW39Einschalten();
+
+		TMsTimer AnlaufTimer;
+		StartTimer(&AnlaufTimer);
+		while (TimerVal(&AnlaufTimer) < 500) 
+			TW39IO();
+		}
+	
+	LokalTextAusgabeP(PSTR("\r\nloc\r\n"));
+
+	while(MeldungEingeschaltet)
+		{
+		TW39IO();
+		}
+
+	TW39Ausschalten();
+
+	Aktivieren(true);
+	clr_LEDROT();
+	}
+*/
+
+
+/////////////////////////////////////////////////////////////
+
 //! Wickelt die gehende Wahl ab bei nicht vorhandener Wählscheibe.
 //----------------------------------------------------------------
 //! Tastaturwahl. 
@@ -772,6 +839,13 @@ static void VerbindungGehend()
 				{
 				clr_LEDGELB();
 				KommendSperren(SperreWahl);
+				}
+				
+			else if ((LokalbetriebWahl != 0 && LetzteInterneWahl() == LokalbetriebWahl)
+				|| LetzteInterneWahl() == (BusEigenAdresse >> 1))
+				{
+				/* TODO später LokalbetriebSimulieren(); */
+					// macht auch am Ende TW39Ausschalten()
 				}
 				
 			return;
@@ -971,6 +1045,7 @@ static void Konfiguration()
 	{
 	uint8_t Res;
 	bool Abbruch;
+	bool NoExpertSettings;
 	
 	SeriellUmsetzInit();
 	Aktivieren(false);
@@ -987,19 +1062,38 @@ static void Konfiguration()
 	LokalTextAusgabeP(PSTR("\r\n konfiguration FsOFsg version " SVNVERSION " datum " __DATE__));
 #endif //def SPRACHE_EN
 
-	
+	// Vorab die Frage nach "Expertenfunktionen"
+	// -----------------------------------------
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n simple configuration?    ")); 
+#else	
+	LokalTextAusgabeP(PSTR("\r\n einfache konfiguration?    ")); 
+#endif //def SPRACHE_EN
+
+	if (LokalBoolEingabe(&NoExpertSettings) == 0)
+		return;
+
+	LokalTextAusgabeP(OkStrP);
+
 	// Durchwahl...
 	Abbruch = !KonfigurationAllgemein();
 
-	if (BusEigenAdresse != eeprom_read_byte(&EEDaten.BusEigenAdresse))
-		eeprom_update_byte(&EEDaten.BusEigenAdresse, BusEigenAdresse);
-
-	if (UmleitungAbweisen != eeprom_read_byte(&EEDaten.UmleitungAbweisen))
-		eeprom_update_byte(&EEDaten.UmleitungAbweisen, UmleitungAbweisen);
-	
 	if (Abbruch) 
 		return;
 	
+	// jetzt bei einfacher Konfiguration abbrechen
+	// -------------------------------------------
+	if (NoExpertSettings)
+		{
+		KommendSperreWahl = KommendSperreWahl_Std;
+		LokalbetriebWahl = LokalbetriebWahl_Std;
+		SperrzeitInit();
+		TasteFunktion = 0;
+		AutoWahlZiffern[0] = 255; // Ende-Kennzeichen
+		LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
+		return;
+		}
+
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\n block incoming calls by: (cur. "));
@@ -1025,23 +1119,46 @@ static void Konfiguration()
 	if (LokalZahlEingabe(&KommendSperreWahl, 2) < 0)
 		return;
 
-	if (KommendSperreWahl != eeprom_read_byte(&EEDaten.KommendSperreWahl))
-		eeprom_update_byte(&EEDaten.KommendSperreWahl, KommendSperreWahl);
-	
 	LokalTextAusgabeP(OkStrP);
+	
+	// Lokalbetrieb durch Wahl von...
+	// ------------------------------
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n local operation by number: (cur. "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n lokalbetrieb waehlen mit: (akt. "));
+#endif //def SPRACHE_EN
 
+	if (LokalbetriebWahl != 0)
+		LokalZahlAusgabe(LokalbetriebWahl, 2);
+	else
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("off"));
+#else
+		LokalTextAusgabeP(PSTR("aus"));
+#endif //def SPRACHE_EN
+
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(") new (0 = off):     "));
+#else
+	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
+#endif //def SPRACHE_EN
+
+	if (LokalZahlEingabe(&LokalbetriebWahl, 2) < 0)
+		return;
+
+	LokalTextAusgabeP(OkStrP);
+	
+	// Sperrzeiten
+	// -----------
 	if (!SperrzeitEingabeDialog())
 		return;
-	
-	SperrzeitSpeicherEeprom(&EEDaten.SperrzeitDaten);
 	
 #ifdef SPRACHE_EN
 	Res = LokalCodefolgeEingabe(PSTR("\r\n software answerback:      "), EigeneKennung, MaxCodefolgeLaenge);
 #else
 	Res = LokalCodefolgeEingabe(PSTR("\r\n software kennungsgeber:      "), EigeneKennung, MaxCodefolgeLaenge);
 #endif //def SPRACHE_EN
-	if (Res == 2)
-		eeprom_update_block(EigeneKennung, EEDaten.EigeneKennung, sizeof(EEDaten.EigeneKennung));
 	if (Res == 0 || BreakSignal)
 		return;
 	
@@ -1050,8 +1167,6 @@ static void Konfiguration()
 #else
 	Res = LokalCodefolgeEingabe(PSTR("\r\n wahlaufforderung:      "), WahlaufforderungZeichen, MaxCodefolgeLaenge);
 #endif //def SPRACHE_EN
-	if (Res == 2)
-		eeprom_update_block(WahlaufforderungZeichen, EEDaten.WahlaufforderungZeichen, sizeof(EEDaten.WahlaufforderungZeichen));
 	if (Res == 0 || BreakSignal)
 		return;
 	
@@ -1060,8 +1175,9 @@ static void Konfiguration()
 #else
 	Res = LokalCodefolgeEingabe(PSTR("\r\n verbindungsbestaetigung:      "), VerbindungHergestelltZeichen, MaxCodefolgeLaenge);
 #endif //def SPRACHE_EN
-	if (Res == 2)
+	todo (Res == 2) was heißt das
 		eeprom_update_block(VerbindungHergestelltZeichen, EEDaten.VerbindungHergestelltZeichen, sizeof(EEDaten.VerbindungHergestelltZeichen));
+
 	if (Res == 0 || BreakSignal)
 		return;
 	
@@ -1087,13 +1203,62 @@ static void Konfiguration()
 
 static void KonfigurationEnde()
 	{
+	hier alle Konfigs speichern
+
 	BreakSignal = false;
 	FsAusschalten();
+	KonfigSchreibeByte(EEAdr_BusEigenAdresse, BusEigenAdresse);
+	
+	KonfigSchreibeByte(EEAdr_UmleitungAbweisen, UmleitungAbweisen);
+
+	KonfigSchreibeBool(EEAdr_MitWaehlscheibe, MitWaehlscheibe);
+
+	KonfigSchreibeByte(EEAdr_WahlauffordImpulsLaenge, WahlauffordImpulsLaenge);
+
+	KonfigSchreibeByte(EEAdr_KommendSperreWahl, KommendSperreWahl);
+
+	KonfigSchreibeByte(EEAdr_LokalbetriebWahl, LokalbetriebWahl);
+
+	KonfigSchreibeByte(EEAdr_TasteFunktion, TasteFunktion);
+
+	uint8_t i;
+	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
+		KonfigSchreibeByte(EEAdr_AutoWahlZiffern + i, AutoWahlZiffern[i]);
+	
+	SperrzeitSpeicherEeprom(EEAdr_Sperrzeit);
+
+	todo zeichenfolgen speichern
+	
 	Aktivieren(true);
 	clr_LEDROT();
 	}
 	
 	
+/////////////////////////////////////////////////////////////
+
+//! Fehlertext-Ausgabe
+
+static void FehlermeldungDrucken()
+	{
+	SeriellUmsetzInit();
+	Aktivieren(false);
+	set_LEDROT();
+	
+	if (!TW39Einschalten())
+		return;
+	
+	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
+	
+	KonfigSpeicherFehlerAusgeben();
+	
+	TW39Ausschalten();
+
+	Aktivieren(true);
+
+	clr_LEDROT();
+	}
+
+
 /////////////////////////////////////////////////////////////
 
 //! Schaltet das Modul in einen Modus, der keine kommenden Verbindungen zulässt.
@@ -1240,25 +1405,26 @@ int main()
 
 	set_LEDROT();
 
+	KonfigSpeicherInit();
+	
 	// Timer initialisieren
 	MsTimerInit();
 	
 	SperrzeitInit();
 
-	BusEigenAdresse = eeprom_read_byte(&EEDaten.BusEigenAdresse) & 0xFE;
-	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
-		BusEigenAdresse = 35 << 1; // Standardwert 
-		//! \todo Besser BusAdrUngueltig testen
+	TasteFunktion = KonfigLeseByteBegrenzt(EEAdr_TasteFunktion, 0, 0, 1); // KEIN Bool
+
+	SperrzeitLadeEeprom(EEAdr_Sperrzeit);
+
+	KommendSperreWahl = KonfigLeseByteBegrenzt(EEAdr_KommendSperreWahl, KommendSperreWahl_Std, 0, 99);
+
+	BusEigenAdresse = KonfigLeseByteBegrenzt(EEAdr_BusEigenAdresse, 11 << 1/*Standardwert*/, BusAdrMin, BusAdrMax) & 0xFE; // Bit 0 löschen
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
 	
-	UmleitungAbweisen = eeprom_read_byte(&EEDaten.UmleitungAbweisen) == true; // damit bei "leerem" EEPROM eher "nein" das Ergebnis ist.
-	
-	KommendSperreWahl = eeprom_read_byte(&EEDaten.KommendSperreWahl);
-	if (KommendSperreWahl > 99)
-		KommendSperreWahl = 0;
+	UmleitungAbweisen = KonfigLeseBool(EEAdr_UmleitungAbweisen, false);
 
-	SperrzeitLadeEeprom(&EEDaten.SperrzeitDaten);
+	LokalbetriebWahl = KonfigLeseByteBegrenzt(EEAdr_LokalbetriebWahl, LokalbetriebWahl_Std, 0, 99);
 
 	CodefolgeLadenPruefenInitialisieren(AusschaltZeichen, sizeof(AusschaltZeichen), EEDaten.AusschaltZeichen, 
 										AusschaltZeichenDefault, sizeof(AusschaltZeichenDefault));
@@ -1411,7 +1577,10 @@ int main()
 			VerbindungKommend();
 			Tastendruck = NichtGedr; // falls die Taste als Break-Ersatz benutzt wurde.
 			}
-			
+
+		if (KonfigSpeicherFehlercode(false) != KonfigSpeicherOK)
+			FehlermeldungDrucken();
+		
 		// Rundsendedaten auswerten:
 		if (RundsendAnzDaten > 0)
 			{

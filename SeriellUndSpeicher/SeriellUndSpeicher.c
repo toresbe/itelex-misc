@@ -59,7 +59,6 @@
 #include "KonfigSpeicher.h"
 #include "FifoPuffer.h"
 #include "LokalUhr.h"
-#include "Zeitsperre.h"
 
 #ifdef AF_ANRUFSPEICHER
 #include "SwTwi.h"
@@ -620,6 +619,23 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	}	
 
 
+// Zeitsperre
+// =======================
+
+// !!!!!!!!!!!!!!!!!!
+// Damit die Zeitsperre beim Nicht-Aktivierung keinen Platz wegnimmt, muss diese hier
+// eingebunden werden, anstelle sie nur zu linken.
+
+#ifdef AF_ZEITSPERRE
+
+#include "Zeitsperre.h"
+
+#include "Zeitsperre.c"
+
+#endif // def AF_ZEITSPERRE
+
+
+
 // Verbindungen bearbeiten
 // =======================
 
@@ -852,6 +868,11 @@ static bool KennungsausgabeUndKennwortAbfrage(bool AufzeichnungEin)
 					; // Noch kein Zeichen eingegeben --> WR/ZL ignorieren
 				else
 					return false; // Kennwort zu früh beendet.
+				}
+			else if (c == CodeChrWerDa)
+				{	
+				GeSendeText(Kennung);
+				p = Kennwort; // von vorn
 				}
 			else if (c == *p) // Vergleich eingegebenes Zeichen mit aktuellem Kennwort-Soll-Zeichen
 				p++; 
@@ -1437,6 +1458,8 @@ static void Konfiguration()
 #else
 	LokalTextAusgabeP(PSTR("\r\n Kennung: "));
 #endif	
+	Kennung[0] = '\r';
+	Kennung[1] = '\n';
 	LokalTextAusgabe(Kennung + 2); // CR + LF weglassen
 	LokalTextAusgabeP(NeuStrP);
 	if (LokalTextEingabe(Kennung + 2, KENNUNG_MAXLEN - 3) == 0) // erste 2 Zeichen für CRLF reserviert
