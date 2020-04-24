@@ -75,13 +75,13 @@ PROGMEM const char Identifier[] = "___itlx_OhneFSG___" __DATE__ "___" __TIME__ "
 enum { LokalbetriebWahl_Std = 88 };
 enum { KommendSperreWahl_Std = 0 };
 enum { AutoWahlMaxZiffern = 10 };
+enum { BusEigenAdresse_Std = 39 };
 
 
 // Eeprom-Speicher
 // ---------------
 
 enum {
-	EEAdr_KonfigVersion = 4,
 	EEAdr_BusEigenAdresse = 5,
     EEAdr_KommendSperreWahl = 6,
 	EEAdr_VerbindungsEndeKriterium = 7,
@@ -89,10 +89,10 @@ enum {
 	EEAdr_WahlaufforderungZeichen = 39,
 	EEAdr_VerbindungHergestelltZeichen = 70,
 	EEAdr_EigeneKennung = 101,
-	EEAdr_SperrzeitDaten = 102,
-    EEAdr_UmleitungAbweisen = 122,
-	EEAdr_LokalbetriebWahl = 123
-}; // BankOffset = 160
+	EEAdr_SperrzeitDaten = 132,
+    EEAdr_UmleitungAbweisen = 133,
+	EEAdr_LokalbetriebWahl = 134
+}; // MaxIndex < BankOffset = 160
 
 // Typen
 // -----
@@ -100,9 +100,6 @@ enum {
 typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrund;
 
 typedef enum { EndeNurBreak, EndeNachNNNN, EndeNach3Plus } TVerbindungsEndeKriterium;
-
-enum { CodefolgeEndeMarke = 0x5A } ;
-	//!< Markierung des Endes einer Codefolge. Wert wurde abweichend von 255 gewählt, um uninitialisiertes EEPROM zu erkennen.
 
 
 
@@ -130,7 +127,7 @@ enum { MaxCodefolgeLaenge = 30 }; //!< Maximale Länge von #AusschaltZeichen, #Wa
 
 uint8_t AusschaltZeichen[MaxCodefolgeLaenge+1]; 
 	//!< Druck-Sequenz als Zeichen für Ende der Verbindung.
-	//!< Irgendwas > 0x1F (also mehr als 5 Bit) markiert Sequenz-Ende.
+	//!< 0 markiert Sequenz-Ende, damit KonfigSchreibeString verwendet werden kann.
 
 PROGMEM uint8_t AusschaltZeichenDefault[] = { TtyCodeBuUm, TtyCodeBuUm, TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 6, 6, 6, 6, TtyCodeWR, TtyCodeZL, TtyCodeZL } ; // NNNN
 	//!< Standardwert für #AusschaltZeichen.
@@ -155,42 +152,10 @@ uint8_t EigeneKennung[MaxCodefolgeLaenge+1];
 	//!< Text des eigenen Kennungsgeber-Simulators
 
 	
-
-/* veraltet
-typedef struct 
-	{
-	uint8_t Platzhalter[4]; //!< Platzhalter, da Anfang des EEPROM gern von Störungen betroffen ist
-	uint8_t KonfigVersion; //!< Falls strukturelle Änderungen mal erforderlich sind, können diese hiermit berücksichtigt werden.
-	uint8_t BusEigenAdresse; //!< Eigene Busadresse auf dem I²C-Bus
-	uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
-	TVerbindungsEndeKriterium VerbindungsEndeKriterium; //!< Wie wird eine Verbindung beendet? 
-	uint8_t AusschaltZeichen[MaxCodefolgeLaenge+1]; 
-	uint8_t WahlaufforderungZeichen[MaxCodefolgeLaenge+1];
-	uint8_t VerbindungHergestelltZeichen[MaxCodefolgeLaenge+1];
-	uint8_t EigeneKennung[MaxCodefolgeLaenge+1];
-	TSperrzeitDaten SperrzeitDaten;
-	uint8_t UmleitungAbweisen;
-	} TEepromDaten;
-*/
-
-// Eeprom-Speicher-Adressen
-// ------------------------
-
-/* veraltet
-EEMEM TEepromDaten EEDaten = { 
-	{ 0 },   0
-	1,       4
-	BusAdrUngueltig,    5
-	0, 					6	
-	EndeNurBreak, 	7	
-	{ 255 },        8
-	{ 255 },    39
-	{ 255 },    70 
-	{ 255 },    101
-	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },    102
-	0 } ;    112
-*/
 	
+static inline bool ValidCode(c) { return c >= (1<<5) && c < (1<<6); }
+
+
 ///////////////////////////////////////////////////////////////////////////////
 
 //! bedient Hardware-IO entsprechend der aktuellen Zustände.
@@ -462,7 +427,7 @@ static void LokalCodeAusgabeS(uint8_t *codep, bool StopIfCalled)
 
 	for (i = 0 ; i < MaxCodefolgeLaenge ; i++)
 		{
-		if (codep[i] > 0x1F)
+		if (!ValidCode(codep[i]))
 			break;
 		if (StopIfCalled && KoEinschalten())
 			{
@@ -470,7 +435,7 @@ static void LokalCodeAusgabeS(uint8_t *codep, bool StopIfCalled)
 			i = 0;
 			StopIfCalled = false; // to prevent reset of codep after print of first character
 			}
-		LokalCodeAusgabe(codep[i]);
+		LokalCodeAusgabe(codep[i] & 0x1F); // valid codes are with set 5th bit.
 		}
 	}
 
@@ -503,7 +468,7 @@ void LokalZeichenAusgabe(char c)
 //! WR, ZL oder Leerzeichen am Anfang wird ignoriert. 
 //! neuer Text muss durch druckbare Begrenzungszeichen eingeschlossen werden. z.B. xhallox für hallo
 //! . (Punkt) als einziges Zeichen = alten Wert behalten.
-//! \param[out] buf Puffer des eingegebenen Textes.
+//! \param[out] buf Puffer des eingegebenen Textes. Hinweis: Ende-Markierung ist 0x00, Bit 5 wird für alle Werte gesetzt!
 //! \param[in] maxcodes Anzahl erlaubter codes bei der Eingabe, auch Puffergröße.
 //! \retval 0 abbruch
 //! \retval 1 unverändert
@@ -530,7 +495,7 @@ uint8_t LokalCodefolgeEingabe(PGM_P Prompt, uint8_t* buf, uint8_t maxcodes)
 			SeriellUmsetzung(MeldungMark, &BefehlMark);
 			if (SerUmEmpfBitNr == SerUmEmpfFertig)
 				{
-				code = SerUmEmpfDaten;
+				code = SerUmEmpfDaten | (1<<5);
 				SerUmEmpfBitNr = SerUmEmpfWarte;
 				break;
 				}
@@ -539,7 +504,7 @@ uint8_t LokalCodefolgeEingabe(PGM_P Prompt, uint8_t* buf, uint8_t maxcodes)
 				if (Pos > 0)
 					{
 					if (Pos < maxcodes-1)
-						buf[Pos] = CodefolgeEndeMarke;
+						buf[Pos] = 0;
 					return 2;
 					}
 				else
@@ -554,7 +519,7 @@ uint8_t LokalCodefolgeEingabe(PGM_P Prompt, uint8_t* buf, uint8_t maxcodes)
 			if (zeichen == TrennZeichen)
 				{
 				if (Pos < maxcodes-1)
-					buf[Pos] = CodefolgeEndeMarke;
+					buf[Pos] = 0;
 				LokalTextAusgabeP(OkStrP);
 				return 2;
 				}
@@ -625,12 +590,12 @@ static void VerbindungKommend()
 //! Wird aufgerufen, wenn durch Wahl der entsprechenden Nummer oder
 //! durch Buchstabe "L" bei Tastaturwahl ein Lokalbetrieb laufen soll.
 
-/* TODO später
 static void LokalbetriebSimulieren()
 	{
 	set_LEDROT();
 	Aktivieren(false);
-	
+
+/* TODO später
 	BefehlMark = true;
 	
 	if (!BefehlEinschalten) // offensichtlich Wählscheiben-Wahl
@@ -651,11 +616,11 @@ static void LokalbetriebSimulieren()
 		}
 
 	TW39Ausschalten();
+*/
 
 	Aktivieren(true);
 	clr_LEDROT();
 	}
-*/
 
 
 /////////////////////////////////////////////////////////////
@@ -776,10 +741,11 @@ static bool WahlMitTastatur()
 						}
 					else if (PufferLeer(&SendePuffer))
 						{ // nächstes Zeichen ist dran
-						if (i >= MaxCodefolgeLaenge || VerbindungHergestelltZeichen[i] > 0x1F)
+						if (i >= MaxCodefolgeLaenge || !ValidCode(VerbindungHergestelltZeichen[i]))
 							break; // nichts mehr zu senden
 						else
-							PufferSpeich(&SendePuffer, VerbindungHergestelltZeichen[i++]);
+							PufferSpeich(&SendePuffer, VerbindungHergestelltZeichen[i] & 0x1F);
+						i++;
 						}
 					}
 				
@@ -952,8 +918,8 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 				
 		if (KennungAusgabePhase == 2 && TimerVal(&RuheTimer) > 800)
 			{
-			for (uint8_t i = 0 ; i < MaxCodefolgeLaenge && EigeneKennung[i] <= 0x1F; i++)
-				PufferSpeich(&SendePuffer, EigeneKennung[i]);
+			for (uint8_t i = 0 ; i < MaxCodefolgeLaenge && ValidCode(EigeneKennung[i]); i++)
+				PufferSpeich(&SendePuffer, EigeneKennung[i] & 0x1F);
 			KennungAusgabePhase = 0;
 			}
 
@@ -1090,7 +1056,7 @@ static void Konfiguration()
 		SperrzeitInit();
 		TasteFunktion = 0;
 		AutoWahlZiffern[0] = 255; // Ende-Kennzeichen
-		LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
+		// Ende-Kennung druckt FsAusschalten()		
 		return;
 		}
 
@@ -1159,6 +1125,7 @@ static void Konfiguration()
 #else
 	Res = LokalCodefolgeEingabe(PSTR("\r\n software kennungsgeber:      "), EigeneKennung, MaxCodefolgeLaenge);
 #endif //def SPRACHE_EN
+
 	if (Res == 0 || BreakSignal)
 		return;
 	
@@ -1167,6 +1134,7 @@ static void Konfiguration()
 #else
 	Res = LokalCodefolgeEingabe(PSTR("\r\n wahlaufforderung:      "), WahlaufforderungZeichen, MaxCodefolgeLaenge);
 #endif //def SPRACHE_EN
+
 	if (Res == 0 || BreakSignal)
 		return;
 	
@@ -1175,8 +1143,6 @@ static void Konfiguration()
 #else
 	Res = LokalCodefolgeEingabe(PSTR("\r\n verbindungsbestaetigung:      "), VerbindungHergestelltZeichen, MaxCodefolgeLaenge);
 #endif //def SPRACHE_EN
-	todo (Res == 2) was heißt das
-		eeprom_update_block(VerbindungHergestelltZeichen, EEDaten.VerbindungHergestelltZeichen, sizeof(EEDaten.VerbindungHergestelltZeichen));
 
 	if (Res == 0 || BreakSignal)
 		return;
@@ -1186,12 +1152,12 @@ static void Konfiguration()
 #else
 	Res = LokalCodefolgeEingabe(PSTR("\r\n meldung verbindungsabbau:      "), AusschaltZeichen, MaxCodefolgeLaenge);
 #endif //def SPRACHE_EN
-	if (Res == 2)
-		eeprom_update_block(AusschaltZeichen, EEDaten.AusschaltZeichen, sizeof(EEDaten.AusschaltZeichen));
+
 	if (Res == 0 || BreakSignal)
 		return;
 
 	// Ende-Kennung druckt FsAusschalten()
+	
 	} // Konfiguration()
 
 
@@ -1207,27 +1173,30 @@ static void KonfigurationEnde()
 
 	BreakSignal = false;
 	FsAusschalten();
+	
 	KonfigSchreibeByte(EEAdr_BusEigenAdresse, BusEigenAdresse);
 	
 	KonfigSchreibeByte(EEAdr_UmleitungAbweisen, UmleitungAbweisen);
-
-	KonfigSchreibeBool(EEAdr_MitWaehlscheibe, MitWaehlscheibe);
-
-	KonfigSchreibeByte(EEAdr_WahlauffordImpulsLaenge, WahlauffordImpulsLaenge);
 
 	KonfigSchreibeByte(EEAdr_KommendSperreWahl, KommendSperreWahl);
 
 	KonfigSchreibeByte(EEAdr_LokalbetriebWahl, LokalbetriebWahl);
 
-	KonfigSchreibeByte(EEAdr_TasteFunktion, TasteFunktion);
+	// KonfigSchreibeByte(EEAdr_TasteFunktion, TasteFunktion);
 
-	uint8_t i;
-	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
-		KonfigSchreibeByte(EEAdr_AutoWahlZiffern + i, AutoWahlZiffern[i]);
+	// uint8_t i;
+	// for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
+		// KonfigSchreibeByte(EEAdr_AutoWahlZiffern + i, AutoWahlZiffern[i]);
 	
 	SperrzeitSpeicherEeprom(EEAdr_Sperrzeit);
 
-	todo zeichenfolgen speichern
+	KonfigSchreibeString(EEAdr_EigeneKennung, EigeneKennung, MaxCodefolgeLaenge + 1);
+	
+	KonfigSchreibeString(EEAdr_AusschaltZeichen, AusschaltZeichen, MaxCodefolgeLaenge + 1);
+
+	KonfigSchreibeString(EEAdr_VerbindungHergestelltZeichen, VerbindungHergestelltZeichen, MaxCodefolgeLaenge + 1);
+
+	KonfigSchreibeString(EEAdr_WahlaufforderungZeichen, WahlaufforderungZeichen, MaxCodefolgeLaenge + 1);
 	
 	Aktivieren(true);
 	clr_LEDROT();
@@ -1354,22 +1323,33 @@ static void Deaktivieren()
 /////////////////////////////////////////////////////////////
 
 //! Liest aus dem EEPROM einen Datenblock als Codefolge, prüft ob dieser Block
-//! korrekt ist (nur Werte von 0 bis 31 und CodefolgeEndeMarke) und initialisiert
+//! korrekt ist (nur Werte von 32 bis 63 und 0) und initialisiert
 //! ggf. ungültige Codefolgen
 //------------------------------------------------------------
 
-void CodefolgeLadenPruefenInitialisieren(uint8_t* cf, uint8_t size, uint8_t* cf_eep, uint8_t* cf_default, uint8_t def_size)
+void CodefolgeLadenPruefenInitialisieren(uint8_t* cf, uint8_t size, uint8_t cf_eep_adr, uint8_t* cf_default, uint8_t def_size)
 	{
-	eeprom_read_block(cf, cf_eep, size);
-	
-	for (uint8_t i = 0 ; i < size ; i++)
+	uint8_t i;
+
+	for (i = 0 ; i < size ; i++)
 		{
-		if (cf[i] == CodefolgeEndeMarke) 
-			break; // alles ist schön
-		else if (cf[i] > 31)
+		cf[i] = KonfigLeseByte(cf_eep_adr + i, 0xFF); // 0xFF als Kennzeichen, dass tatsächlich was schiefgegangen ist.
+		if (cf[i] == 0)
+			return; // 0 heißt wie beim String "Ende".
+		else if (cf[i] == 0x5A) // historische Ende-Marke.
 			{
-			memcpy_P(cf, cf_default, def_size);
-			cf[def_size] = CodefolgeEndeMarke;
+			cf[i] = 0;
+			return; // alles ist schön
+			}
+		else if (ValidCode(cf[i])
+			;					// 32 bis 63: neue Version des Konfig-Speicher-Inhalts. 
+		else if (cf[i] <= 0x1F) // 1 bis 31: alte Version des Konfig-Speicher-Inhalts.
+			cf[i] |= (1<<5); // neu mit gesetztem Bit 5
+		else // alles andere: Müll -> Initialisieren
+			{
+			for (i = 0 ; i < def_size ; i++)
+				cf[i] = progmem_read_byte(cf_default + i) | (1<<5);
+			cf[def_size] = 0;
 			return;
 			}
 		}
@@ -1418,7 +1398,7 @@ int main()
 
 	KommendSperreWahl = KonfigLeseByteBegrenzt(EEAdr_KommendSperreWahl, KommendSperreWahl_Std, 0, 99);
 
-	BusEigenAdresse = KonfigLeseByteBegrenzt(EEAdr_BusEigenAdresse, 11 << 1/*Standardwert*/, BusAdrMin, BusAdrMax) & 0xFE; // Bit 0 löschen
+	BusEigenAdresse = KonfigLeseByteBegrenzt(EEAdr_BusEigenAdresse, BusEigenAdresse_Std << 1, BusAdrMin, BusAdrMax) & 0xFE; // Bit 0 löschen
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
 	
@@ -1426,13 +1406,13 @@ int main()
 
 	LokalbetriebWahl = KonfigLeseByteBegrenzt(EEAdr_LokalbetriebWahl, LokalbetriebWahl_Std, 0, 99);
 
-	CodefolgeLadenPruefenInitialisieren(AusschaltZeichen, sizeof(AusschaltZeichen), EEDaten.AusschaltZeichen, 
+	CodefolgeLadenPruefenInitialisieren(AusschaltZeichen, sizeof(AusschaltZeichen), EEAdr_AusschaltZeichen, 
 										AusschaltZeichenDefault, sizeof(AusschaltZeichenDefault));
-	CodefolgeLadenPruefenInitialisieren(WahlaufforderungZeichen, sizeof(WahlaufforderungZeichen), EEDaten.WahlaufforderungZeichen, 
+	CodefolgeLadenPruefenInitialisieren(WahlaufforderungZeichen, sizeof(WahlaufforderungZeichen), EEAdr_WahlaufforderungZeichen, 
 										WahlaufforderungZeichenDefault, sizeof(WahlaufforderungZeichenDefault));
-	CodefolgeLadenPruefenInitialisieren(VerbindungHergestelltZeichen, sizeof(VerbindungHergestelltZeichen), EEDaten.VerbindungHergestelltZeichen, 
+	CodefolgeLadenPruefenInitialisieren(VerbindungHergestelltZeichen, sizeof(VerbindungHergestelltZeichen), EEAdr_VerbindungHergestelltZeichen, 
 										VerbindungHergestelltZeichenDefault, sizeof(VerbindungHergestelltZeichenDefault));
-	CodefolgeLadenPruefenInitialisieren(EigeneKennung, sizeof(EigeneKennung), EEDaten.EigeneKennung, NULL, 0);
+	CodefolgeLadenPruefenInitialisieren(EigeneKennung, sizeof(EigeneKennung), EEAdr_EigeneKennung, NULL, 0);
 	
 	BefehlMark = true;
 	MeldungMark = true;
