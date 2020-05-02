@@ -104,10 +104,10 @@ void SperrzeitAussetzen()
 	
 void SperrzeitLadeEeprom(uint16_t Adresse)
 	{
-	Sperrzeit[0].Anf = KonfigLeseWortBegrenzt(Adresse, 0, 0, 24*60);
-	Sperrzeit[0].End = KonfigLeseWortBegrenzt(Adresse + 2, 0, 0, 24*60);
-	Sperrzeit[1].Anf = KonfigLeseWortBegrenzt(Adresse + 4, 0, 0, 24*60);
-	Sperrzeit[1].End = KonfigLeseWortBegrenzt(Adresse + 6, 0, 0, 24*60);
+	Sperrzeit[0].Anf = KonfigLeseWortBegrenzt(Adresse, 0, 0, 24*60 - 1);
+	Sperrzeit[0].End = KonfigLeseWortBegrenzt(Adresse + 2, 0, 0, 24*60 - 1);
+	Sperrzeit[1].Anf = KonfigLeseWortBegrenzt(Adresse + 4, 0, 0, 24*60 - 1);
+	Sperrzeit[1].End = KonfigLeseWortBegrenzt(Adresse + 6, 0, 0, 24*60 - 1);
 	SperrzeitWochenendAbhaengig = KonfigLeseBool(Adresse + 8, false);
 	}
 

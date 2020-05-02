@@ -6,12 +6,12 @@
 // Tastaturwahl, nach drücken der ersten Taste wird eine Wahlaufforderung in form von "ga" gesendet. 
 // Verbindungsende wahlweise durch "break"-Signal, durch NNNN oder durch +++ [future]
 
+#include <stddef.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
 #include <avr/wdt.h>
 #include <inttypes.h>
-
 
 #include "TwiEvents.h"
 #include "Bits.h"
@@ -91,7 +91,8 @@ enum {
 	EEAdr_EigeneKennung = 101,
 	EEAdr_SperrzeitDaten = 132,
     EEAdr_UmleitungAbweisen = 133,
-	EEAdr_LokalbetriebWahl = 134
+	EEAdr_LokalbetriebWahl = 134,
+	EEAdr_TasteFunktion = 135
 }; // MaxIndex < BankOffset = 160
 
 // Typen
@@ -153,7 +154,7 @@ uint8_t EigeneKennung[MaxCodefolgeLaenge+1];
 
 	
 	
-static inline bool ValidCode(c) { return c >= (1<<5) && c < (1<<6); }
+static inline bool ValidCode(uint8_t c) { return c >= (1<<5) && c < (1<<6); }
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -464,8 +465,6 @@ void LokalZeichenAusgabe(char c)
 
 //! Dialog-Abfrage für einen Text der als 5-Bit-Code abgespeichert wird.
 //----------------------------------------------------------------------
-//! Abschluss nur mit WR oder ZL.
-//! WR, ZL oder Leerzeichen am Anfang wird ignoriert. 
 //! neuer Text muss durch druckbare Begrenzungszeichen eingeschlossen werden. z.B. xhallox für hallo
 //! . (Punkt) als einziges Zeichen = alten Wert behalten.
 //! \param[out] buf Puffer des eingegebenen Textes. Hinweis: Ende-Markierung ist 0x00, Bit 5 wird für alle Werte gesetzt!
@@ -479,11 +478,13 @@ void LokalZeichenAusgabe(char c)
 uint8_t LokalCodefolgeEingabe(PGM_P Prompt, uint8_t* buf, uint8_t maxcodes)
 	{
 	uint8_t Pos = 0; 
-	char TrennZeichen = '\0'; // Zeichen für noch nicht belegt.
+	char TrennZeichen; // Zeichen für noch nicht belegt.
 
 	if (Prompt != NULL)
 		LokalTextAusgabeP(Prompt);
 	
+	TrennZeichen = '\0';
+
 	while (true)
 		{ // Schleifendurchlauf einmal je Taste
 		uint8_t code;
@@ -495,7 +496,7 @@ uint8_t LokalCodefolgeEingabe(PGM_P Prompt, uint8_t* buf, uint8_t maxcodes)
 			SeriellUmsetzung(MeldungMark, &BefehlMark);
 			if (SerUmEmpfBitNr == SerUmEmpfFertig)
 				{
-				code = SerUmEmpfDaten | (1<<5);
+				code = SerUmEmpfDaten;
 				SerUmEmpfBitNr = SerUmEmpfWarte;
 				break;
 				}
@@ -526,7 +527,7 @@ uint8_t LokalCodefolgeEingabe(PGM_P Prompt, uint8_t* buf, uint8_t maxcodes)
 			else
 				{
 				if (Pos < maxcodes-1)
-					buf[Pos++] = code;
+					buf[Pos++] = code | (1<<5);
 				}
 			} // if TrennZeichen != '\0'
 		else // TrennZeichen == '\0'
@@ -634,7 +635,6 @@ static bool WahlMitTastatur()
 	{
 	char c;
 	bool EsWurdeGewaehlt;
-	bool Lokalbetrieb;
 	int Falschziffern;
 	
 	if (!FsEinschalten())
@@ -649,7 +649,6 @@ static bool WahlMitTastatur()
 	// Wahlziffern entgegennehmen, Break bricht ab
 	// -------------------------------------------
 	EsWurdeGewaehlt = false;
-	Lokalbetrieb = false;
 	Falschziffern = 0;
 	BreakSignal = false;
 	
@@ -664,28 +663,26 @@ static bool WahlMitTastatur()
 		
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		
-		if (!Lokalbetrieb)
+		if (SerUmEmpfBitNr == SerUmEmpfFertig)
 			{
-			if (SerUmEmpfBitNr == SerUmEmpfFertig)
+			c = CodeZuZeichen(SerUmEmpfDaten, &BaudotMode);
+			SerUmEmpfBitNr = SerUmEmpfWarte;
+			if (c >= '0' && c <= '9')
 				{
-				c = CodeZuZeichen(SerUmEmpfDaten, &BaudotMode);
-				SerUmEmpfBitNr = SerUmEmpfWarte;
-				if (c >= '0' && c <= '9')
-					{
-					GeWaehlen(c - '0');
-					EsWurdeGewaehlt = true;
-					}
-				else if (c == 'l' && !EsWurdeGewaehlt)
-					{
-					Lokalbetrieb = true;
-					LokalZeichenAusgabe('o');
-					LokalZeichenAusgabe('c');
-					}
-				else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
-					{
-					Falschziffern++;
-					}
+				GeWaehlen(c - '0');
+				EsWurdeGewaehlt = true;
 				}
+			else if (c == 'l' && !EsWurdeGewaehlt)
+				{
+				LokalbetriebSimulieren();
+				return false;
+				}
+			else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
+				{
+				Falschziffern++;
+				}
+			StartTimer(&RuheTimer);
+			}
 
 			while (Falschziffern > 0 && TimerVal(&RuheTimer) >= 200)
 				{
@@ -698,8 +695,6 @@ static bool WahlMitTastatur()
 				// GeAusschalten() und FsAusschalten() macht die aufrufende Routine
 				return false;
 				}
-
-			} // if !Lokalbetrieb
 
 		if (BreakSignal || KoAusschalten())
 			{
@@ -1028,6 +1023,7 @@ static void Konfiguration()
 	LokalTextAusgabeP(PSTR("\r\n konfiguration FsOFsg version " SVNVERSION " datum " __DATE__));
 #endif //def SPRACHE_EN
 
+/*
 	// Vorab die Frage nach "Expertenfunktionen"
 	// -----------------------------------------
 #ifdef SPRACHE_EN
@@ -1054,8 +1050,8 @@ static void Konfiguration()
 		KommendSperreWahl = KommendSperreWahl_Std;
 		LokalbetriebWahl = LokalbetriebWahl_Std;
 		SperrzeitInit();
-		TasteFunktion = 0;
-		AutoWahlZiffern[0] = 255; // Ende-Kennzeichen
+		// TasteFunktion = 0;
+		// AutoWahlZiffern[0] = 255; // Ende-Kennzeichen
 		// Ende-Kennung druckt FsAusschalten()		
 		return;
 		}
@@ -1119,7 +1115,7 @@ static void Konfiguration()
 	// -----------
 	if (!SperrzeitEingabeDialog())
 		return;
-	
+*/	
 #ifdef SPRACHE_EN
 	Res = LokalCodefolgeEingabe(PSTR("\r\n software answerback:      "), EigeneKennung, MaxCodefolgeLaenge);
 #else
@@ -1169,8 +1165,6 @@ static void Konfiguration()
 
 static void KonfigurationEnde()
 	{
-	hier alle Konfigs speichern
-
 	BreakSignal = false;
 	FsAusschalten();
 	
@@ -1188,15 +1182,15 @@ static void KonfigurationEnde()
 	// for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
 		// KonfigSchreibeByte(EEAdr_AutoWahlZiffern + i, AutoWahlZiffern[i]);
 	
-	SperrzeitSpeicherEeprom(EEAdr_Sperrzeit);
+	SperrzeitSpeicherEeprom(EEAdr_SperrzeitDaten);
 
-	KonfigSchreibeString(EEAdr_EigeneKennung, EigeneKennung, MaxCodefolgeLaenge + 1);
+	KonfigSchreibeString(EEAdr_EigeneKennung, (char *) EigeneKennung, MaxCodefolgeLaenge + 1);
 	
-	KonfigSchreibeString(EEAdr_AusschaltZeichen, AusschaltZeichen, MaxCodefolgeLaenge + 1);
+	KonfigSchreibeString(EEAdr_AusschaltZeichen, (char *) AusschaltZeichen, MaxCodefolgeLaenge + 1);
 
-	KonfigSchreibeString(EEAdr_VerbindungHergestelltZeichen, VerbindungHergestelltZeichen, MaxCodefolgeLaenge + 1);
+	KonfigSchreibeString(EEAdr_VerbindungHergestelltZeichen, (char *) VerbindungHergestelltZeichen, MaxCodefolgeLaenge + 1);
 
-	KonfigSchreibeString(EEAdr_WahlaufforderungZeichen, WahlaufforderungZeichen, MaxCodefolgeLaenge + 1);
+	KonfigSchreibeString(EEAdr_WahlaufforderungZeichen, (char *) WahlaufforderungZeichen, MaxCodefolgeLaenge + 1);
 	
 	Aktivieren(true);
 	clr_LEDROT();
@@ -1213,14 +1207,14 @@ static void FehlermeldungDrucken()
 	Aktivieren(false);
 	set_LEDROT();
 	
-	if (!TW39Einschalten())
+	if (!FsEinschalten())
 		return;
 	
 	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
 	
 	KonfigSpeicherFehlerAusgeben();
 	
-	TW39Ausschalten();
+	FsAusschalten();
 
 	Aktivieren(true);
 
@@ -1341,14 +1335,14 @@ void CodefolgeLadenPruefenInitialisieren(uint8_t* cf, uint8_t size, uint8_t cf_e
 			cf[i] = 0;
 			return; // alles ist schön
 			}
-		else if (ValidCode(cf[i])
+		else if (ValidCode(cf[i]))
 			;					// 32 bis 63: neue Version des Konfig-Speicher-Inhalts. 
 		else if (cf[i] <= 0x1F) // 1 bis 31: alte Version des Konfig-Speicher-Inhalts.
 			cf[i] |= (1<<5); // neu mit gesetztem Bit 5
 		else // alles andere: Müll -> Initialisieren
 			{
 			for (i = 0 ; i < def_size ; i++)
-				cf[i] = progmem_read_byte(cf_default + i) | (1<<5);
+				cf[i] = pgm_read_byte(cf_default + i) | (1<<5);
 			cf[def_size] = 0;
 			return;
 			}
@@ -1392,9 +1386,9 @@ int main()
 	
 	SperrzeitInit();
 
-	TasteFunktion = KonfigLeseByteBegrenzt(EEAdr_TasteFunktion, 0, 0, 1); // KEIN Bool
+	// TasteFunktion = KonfigLeseByteBegrenzt(EEAdr_TasteFunktion, 0, 0, 1); // KEIN Bool
 
-	SperrzeitLadeEeprom(EEAdr_Sperrzeit);
+	SperrzeitLadeEeprom(EEAdr_SperrzeitDaten);
 
 	KommendSperreWahl = KonfigLeseByteBegrenzt(EEAdr_KommendSperreWahl, KommendSperreWahl_Std, 0, 99);
 
@@ -1473,10 +1467,9 @@ int main()
 	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
 
+/*
 	if (SelbsttestAusfuehen)
 		{
-		BefehlEinschalten = false;
-		MeldungEingeschaltet = false;
 		BefehlMark = false;
 		MeldungMark = false;
 
@@ -1507,10 +1500,10 @@ int main()
 
 			}
 		} // if SelbsttestAusfuehren
+*/
 
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
 
-	BefehlEinschalten = false;
 	BefehlMark = true;
 
 	while (true)
