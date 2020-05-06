@@ -1023,7 +1023,6 @@ static void Konfiguration()
 	LokalTextAusgabeP(PSTR("\r\n konfiguration FsOFsg version " SVNVERSION " datum " __DATE__));
 #endif //def SPRACHE_EN
 
-/*
 	// Vorab die Frage nach "Expertenfunktionen"
 	// -----------------------------------------
 #ifdef SPRACHE_EN
@@ -1115,7 +1114,7 @@ static void Konfiguration()
 	// -----------
 	if (!SperrzeitEingabeDialog())
 		return;
-*/	
+
 #ifdef SPRACHE_EN
 	Res = LokalCodefolgeEingabe(PSTR("\r\n software answerback:      "), EigeneKennung, MaxCodefolgeLaenge);
 #else
