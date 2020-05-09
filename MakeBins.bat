@@ -35,8 +35,13 @@ rem UniIF wird nicht vertrieben
 rem Wahlbrücke wird nicht vertrieben
 rem Fuer alte Versionen des i-Telex mit Nachschlage-Tabelle:
 copy AlleBins\itlx_LeitungAnalog2.bin AlleBins\AnalogModem.bin
+copy AlleBins\itlx_LeitungAnalog2.txt AlleBins\AnalogModem.txt
 copy AlleBins\itlx_ED1000.bin AlleBins\ED1000.bin
+copy AlleBins\itlx_ED1000.txt AlleBins\ED1000.txt
 copy AlleBins\itlx_TW39.bin AlleBins\FernschrTW39.bin
+copy AlleBins\itlx_TW39.txt AlleBins\FernschrTW39.txt
 copy AlleBins\itlx_Messgeraet.bin AlleBins\Messgeraet.bin
+copy AlleBins\itlx_Messgeraet.txt AlleBins\Messgeraet.txt
 copy AlleBins\itlx_SeriellUndSpeicher.bin AlleBins\SeriellUndSpeicher.bin
+copy AlleBins\itlx_SeriellUndSpeicher.txt AlleBins\SeriellUndSpeicher.txt
 pause
