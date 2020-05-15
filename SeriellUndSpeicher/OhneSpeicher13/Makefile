@@ -15,7 +15,7 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -fgnu89-inline -DPLATINE_VERSION=13 -DPROGIDZUSATZ=\"OHNESP\" -DAF_TTYCODE_SWITCHABLE     -DF_CPU=6144000UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -fgnu89-inline -DPLATINE_VERSION=13 -DPROGIDZUSATZ=\"OHNESP\"  -DF_CPU=6144000UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 
 ## Assembly specific flags
@@ -40,7 +40,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 INCLUDES = -I"D:\Daten\AvrProgs\TxP2\SeriellUndSpeicher\..\Gemeinsam" -I"D:\Daten\AvrProgs\TxP2\SeriellUndSpeicher\..\..\C-Libs" 
 
 ## Objects that must be built in order to link
-OBJECTS = SeriellUndSpeicher.o Taste.o TxP2-Endgeraet.o BaudotCode.o BusKomm.o FifoPuffer.o KonfigDialog.o LokalAusgabe.o SeriellUmsetz.o EepromTools.o SwTwi.o MsTimer.o BusKomm2.o LokalUhr.o Zeitsperre.o KonfigSpeicher.o 
+OBJECTS = SeriellUndSpeicher.o Taste.o TxP2-Endgeraet.o BaudotCode.o BusKomm.o FifoPuffer.o KonfigDialog.o LokalAusgabe.o SeriellUmsetz.o EepromTools.o SwTwi.o MsTimer.o BusKomm2.o LokalUhr.o KonfigSpeicher.o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -87,9 +87,6 @@ BusKomm2.o: ../../Gemeinsam/BusKomm2.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 LokalUhr.o: ../../Gemeinsam/LokalUhr.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
-
-Zeitsperre.o: ../../Gemeinsam/Zeitsperre.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 KonfigSpeicher.o: ../../Gemeinsam/KonfigSpeicher.c

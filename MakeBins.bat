@@ -11,6 +11,7 @@ call MakeBin1.bat itlx_TW39-PL10 FernschrTW39\AltePlatine\FernschrTW39.hex Mega8
 call MakeBin1.bat itlx_TW39 FernschrTW39\default\FernschrTW39.hex Mega8_Quarz
 call MakeBin1.bat itlx_TW39-US45 FernschrTW39\USTTY-45\FernschrTW39.hex Mega8_Quarz
 call MakeBin1.bat itlx_FsV21-aufLA21 FernschrV21_aufLA2\default\FernschrV21.hex Mega168_ExtTakt
+call MakeBin1.bat itlx_FsV21-aufLA21-EN FernschrV21_aufLA2\english\FernschrV21.hex Mega168_ExtTakt
 call MakeBin1.bat itlx_FsV21-aufLA21-US45 FernschrV21_aufLA2\USTTY-45\FernschrV21.hex Mega168_ExtTakt
 call MakeBin1.bat itlx_TW39plus-PL10 FernschrTW39Plus\AltePlatine\FernschrTW39plus.hex Mega168_Quarz
 call MakeBin1.bat itlx_TW39plus FernschrTW39Plus\default\FernschrTW39plus.hex Mega168_Quarz
@@ -21,8 +22,10 @@ call MakeBin1.bat itlx_Messgeraet-75BD Messgeraet\75baud\Messgeraet.hex Mega168_
 call MakeBin1.bat itlx_Messgeraet-US45 Messgeraet\USTTY-45\Messgeraet.hex Mega168_Quarz
 call MakeBin1.bat itlx_Messgeraet-plED Messgeraet\AufED1000\Messgeraet.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher SeriellUndSpeicher\PlatVer13\SeriellUndSpeicher.hex Mega168_Quarz
+call MakeBin1.bat itlx_SeriellUndSpeicher-CodeSw SeriellUndSpeicher\PlatVer13-CodeSw\SeriellUndSpeicher.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher-Full SeriellUndSpeicher\PlatVer13-Full\SeriellUndSpeicher.hex Mega328_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher2 SeriellUndSpeicher\PlatVer21\SeriellUndSpeicher.hex Mega168_Quarz
+call MakeBin1.bat itlx_SeriellUndSpeicher2-CodeSw SeriellUndSpeicher\PlatVer21-CodeSw\SeriellUndSpeicher.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher2-Full SeriellUndSpeicher\PlatVer21-Full\SeriellUndSpeicher.hex Mega328_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher2-mSZ SeriellUndSpeicher\PlatVer21-mZS\SeriellUndSpeicher.hex Mega328_Quarz
 rem OhneSpeicher wird nicht vertrieben

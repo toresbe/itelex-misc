@@ -1371,16 +1371,31 @@ static void Deaktivieren()
 	set_LEDBLAU();
 	Aktivieren(false);
 	
+#ifdef AF_DEAKT_SERIELL_EXTERN
+	UCSR0B = 0; // deactivated the UART
+	init_SYS_SER_OUT();
+	init_SYS_SER_IN();
+#else
 	LokalAusgabeNichtBlockieren = true;
+#endif //def AF_DEAKT_SERIELL_EXTERN
 
 	while (Tastendruck == NichtGedr)
 		{
 		TastePruefen();
+#ifdef AF_DEAKT_SERIELL_EXTERN
+		bset_SYS_SER_OUT(get_EXT_SER_IN());
+		bset_EXT_SER_OUT(set_SYS_SER_IN());
+#else
 		DoSwTwi();
 		SeriellIO();
+#endif //def AF_DEAKT_SERIELL_EXTERN
 		}
 
 	Tastendruck = NichtGedr;
+
+#ifdef AF_DEAKT_SERIELL_EXTERN
+	SerIOInit();
+#endif //def AF_DEAKT_SERIELL_EXTERN
 
 	Aktivieren(true);
 	

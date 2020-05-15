@@ -124,16 +124,16 @@ static void V21IO()
 	// Pegel & Polung ausgeben
 	// -----------------------
 	if (BefehlEinschalten && BefehlMark)
-		clr_TXD();
+		set_TXD(); // clr_TXD();
 	else
 		{
-		set_TXD();
+		clr_TXD(); // set_TXD();
 		SpaceSperre = true;
 		}
 		
 	// Schleifenstrom auswerten: Einschaltung oder nicht
 	// -------------------------------------------------
-	if (!get_RXD())
+	if (get_RXD()) // (!get_RXD())
 		{
 		MeldungMark = true;
 		SpaceSperre = false;
@@ -144,7 +144,7 @@ static void V21IO()
 		else
 			MeldungMark = false;
 		
-	if (get_RXD())
+	if (!get_RXD()) // (get_RXD())
 		{ // Schleifenstrom ist aus (negierter Eingang)
 		if (MeldungEingeschaltet)
 			{
@@ -246,7 +246,7 @@ static void V21Ausschalten()
 	}
 		
 
-/////////////////////////////////////////////////////////////////////////////////////////7
+/////////////////////////////////////////////////////////////////////////////////////////
 
 void V21Init()
 {
@@ -256,7 +256,7 @@ void V21Init()
 }
 
 
-/////////////////////////////////////////////////////////////////////////////////////////7
+/////////////////////////////////////////////////////////////////////////////////////////
 
 //! Modul / Schnittstelle irreversibel stoppen.
 //---------------------------------------------
@@ -1176,8 +1176,6 @@ int main()
 	
 	MsTimerInit();
 
-	V21Init();
-	
 	SperrzeitInit();
 
 	BusEigenAdresse = KonfigLeseByteBegrenzt(EEAdr_BusEigenAdresse, 21 << 1/*Standardwert*/, BusAdrMin, BusAdrMax) & 0xFE; // Bit 0 löschen
@@ -1205,8 +1203,6 @@ int main()
 
 	KommInit();
 
-	V21IO();
-	
 	TMsTimer Timer;
 	StartTimer(&Timer);
 
@@ -1215,6 +1211,10 @@ int main()
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 250)
 		;
+
+	V21Init();
+
+	V21IO();
 	
 	// Bei Tastendruck Selbsttest
 	bool SelbsttestAusfuehen = get_TASTE();
@@ -1244,6 +1244,9 @@ int main()
 	while (TimerVal(&Timer) < 750)
 		;
 
+	// Modem nochmals initialisieren
+	StartV21(true);
+
 	clr_LEDGRUEN();
 	set_LEDBLAU();
 
@@ -1258,15 +1261,14 @@ int main()
 	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
 	
-	// HACK Test of correct register Settings of the 73K221:
-	if (ModemGetReg(0) != 0x33)
-		FehlerStop(12);
-	if (ModemGetReg(1) != 0x20)
-		FehlerStop(13);
+	// Test of correct register Settings of the 73K221:
 	if (ModemGetReg(3) != 0)
 		FehlerStop(14);
+	if (ModemGetReg(1) != 0x20)
+		FehlerStop(13);
+	if (ModemGetReg(0) != 0x33) // 0x33 only true for "Originate", Answer would be 0x32
+		FehlerStop(12);
 	
-
 	if (SelbsttestAusfuehen)
 		{
 		BefehlEinschalten = false;
