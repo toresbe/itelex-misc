@@ -1257,6 +1257,15 @@ int main()
 
 	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
+	
+	// HACK Test of correct register Settings of the 73K221:
+	if (ModemGetReg(0) != 0x33)
+		FehlerStop(12);
+	if (ModemGetReg(1) != 0x20)
+		FehlerStop(13);
+	if (ModemGetReg(3) != 0)
+		FehlerStop(14);
+	
 
 	if (SelbsttestAusfuehen)
 		{
