@@ -21,8 +21,8 @@
 //   11: D5  	ab V1.31 Maschine 2 Eingang FS Eingang: Low = Strom ein
 //   12: D6   	bis V1.2 Taster nach Masse
 //				ab V1.3 Eingang FS Eingang: Low = Strom ein
-//   13: D7   	bis V1.2 LED rot: High = ein
-//				ab V1.3 Ausgabe FS Steuerung: High = Maschine ein
+//   13: D7   	
+//				
 //   14: B0  	bis V1.2 LED gelb: High = ein
 //				ab V1.3 Ausgabe FS Daten: High = Strom ein = Mark
 //   15: B1  	bis V1.2 LED grün: High = ein
@@ -66,14 +66,14 @@ DEFPORTOUT(EXCLK, 		D, 4)  	//	19		 6
 //						B, 6)	//			 9	XTAL1
 DEFPORTOUT(WR, 			B, 7)	//	13		10	XTAL2
 DEFPORTOUT(RD, 			D, 5)	//	14		11
-//DEFPORTOUT(, 		D, 6)	//			12
-//DEFPORTINPULL(,	D, 7)	//			13
-//DEFPORTOUT(,		B, 0)	//			14
+//DEFPORTOUT(, 		D, 6)	//				12
+DEFPORTINPULLAL(MODEJMP_POLARITY, D, 7)	//	13
+//DEFPORTOUT(,		B, 0)	//				14
 DEFPORTOUT(AD1, 		B, 1)	//	 5		15
 DEFPORTOUT(AD2, 		B, 2)	//	 6		16
 DEFPORTTRI(AD7, 		B, 3)	//	11		17	MOSI
 DEFPORTOUT(AD0, 		B, 4)	//	 4		18	MISO
-//DEFPORTINPULL(,	B, 5)	//			19	SCK
+DEFPORTINPULLAL(MODEJMP_ANSWER, B, 5)	//	19	SCK
 								//			20	AVCC
 								//			21	AREF
 								//			22	AGND

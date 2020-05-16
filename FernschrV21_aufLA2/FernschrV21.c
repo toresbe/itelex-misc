@@ -105,6 +105,10 @@ bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
 bool MeldungMark; //!< Fs Schleifenstrom ist Ein
 bool SpaceSperre; 
 
+bool ModemPolarityReversed; //!< Mark und Space getauscht, für Österreichisches AGT
+bool ModemAnswerMode; //!< Falls der Fernschreiber ausnahmsweise für das "Originate"-Frequenzband konfiguriert ist.
+
+
 TMsTimer AusschaltungTimer; //!< Zählt die Millisekunden von Schleifenunterbrechung bis Ausschaltung
 TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port bis tatsächlichem Pegelwechsel
 
@@ -119,21 +123,22 @@ TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port
  * steuert die Status-LEDs
  */ 
 
+
 static void V21IO()
 	{
 	// Pegel & Polung ausgeben
 	// -----------------------
 	if (BefehlEinschalten && BefehlMark)
-		set_TXD(); // clr_TXD();
+		bset_TXD(!ModemPolarityReversed); // clr_TXD();
 	else
 		{
-		clr_TXD(); // set_TXD();
+		bset_TXD(ModemPolarityReversed); // set_TXD();
 		SpaceSperre = true;
 		}
 		
 	// Schleifenstrom auswerten: Einschaltung oder nicht
 	// -------------------------------------------------
-	if (get_RXD()) // (!get_RXD())
+	if (get_RXD() == !ModemPolarityReversed) // (!get_RXD())
 		{
 		MeldungMark = true;
 		SpaceSperre = false;
@@ -144,7 +149,7 @@ static void V21IO()
 		else
 			MeldungMark = false;
 		
-	if (!get_RXD()) // (get_RXD())
+	if (get_RXD() == ModemPolarityReversed) // (get_RXD())
 		{ // Schleifenstrom ist aus (negierter Eingang)
 		if (MeldungEingeschaltet)
 			{
@@ -252,7 +257,7 @@ void V21Init()
 {
 	ModemInit();
 	ModemReset();
-	StartV21(true); // Testen!
+	StartV21(!ModemAnswerMode);
 }
 
 
@@ -1169,6 +1174,8 @@ int main()
 	init_LEDGRUEN();
 	init_LEDBLAU();
 	init_TASTE();
+	init_MODEJMP_POLARITY();
+	init_MODEJMP_ANSWER();
 
 	set_LEDROT();
 
@@ -1212,6 +1219,10 @@ int main()
 	while (TimerVal(&Timer) < 250)
 		;
 
+	// Modem-Betriebsarten feststellen aus den Jumpern:
+	ModemAnswerMode = get_MODEJMP_ANSWER();
+	ModemPolarityReversed = get_MODEJMP_POLARITY();
+
 	V21Init();
 
 	V21IO();
@@ -1245,7 +1256,7 @@ int main()
 		;
 
 	// Modem nochmals initialisieren
-	StartV21(true);
+	StartV21(!ModemAnswerMode);
 
 	clr_LEDGRUEN();
 	set_LEDBLAU();
@@ -1266,7 +1277,7 @@ int main()
 		FehlerStop(14);
 	if (ModemGetReg(1) != 0x20)
 		FehlerStop(13);
-	if (ModemGetReg(0) != 0x33) // 0x33 only true for "Originate", Answer would be 0x32
+	if (ModemGetReg(0) != (ModemAnswerMode ? 0x32 : 0x33))
 		FehlerStop(12);
 	
 	if (SelbsttestAusfuehen)
