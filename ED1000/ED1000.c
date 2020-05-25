@@ -1466,13 +1466,14 @@ int main()
 	EmpfBuf[EmpfBufSchreibI++] = 39;
 	EmpfBuf[EmpfBufSchreibI++] = 110;
 	EmpfBuf[EmpfBufSchreibI++] = 110;
-	ED1000IO();
 // Ende Test der Berechnungsalgorithmen */
 	
 	TMsTimer Timer;
 	StartTimer(&Timer);
 
 	sei();
+
+	ED1000IO(); // initialisiert die Ausgabe von "Space", damit der Fs erstmal abschaltet.
 	
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 250)
