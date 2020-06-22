@@ -58,7 +58,7 @@
 #include "Ports.h"
 //#include "LokalAusgabe.h"
 #include "BusKomm.h"
-//#include "FifoPuffer.h"
+#include "FernDialog.h"
 
 #include "../SvnVersion.h"
 
@@ -1109,7 +1109,7 @@ static void Konfiguration()
 		{ // kein Abbruch, daher ordnungsgem‰ﬂ abstellen
 		BusSenden(BusKdoSchluss);
 		WarteSchlussQuittung(2500);
-		Grundstellen(false);
+		// Grundstellen(false);
 		}
 	else
 		{ // es wurde ein Kommando empfangen, welches nicht Mark oder Space befahl... Abbruch?
