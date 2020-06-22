@@ -43,8 +43,4 @@
 #endif //else ndef FUER_PLAT_ED1000
 
 
-#define LED_EIN(Farbe) set_LED_ ## Farbe ()
-
-#define LED_AUS(Farbe) clr_LED_ ## Farbe ()
-
 #endif //ndef __PORTS_H__

@@ -163,10 +163,6 @@ TKennung Kennung[BUS_MEHRFACH_ADR]; //!< Eigene Kennungen, da kein echter Fernsc
 char Kennwort[KENNWORT_MAXLEN]; //!< Kennwort für Fernabfrage des Anrufspeichers.
 
 
-// Einstell-Modus
-
-bool WarteKonfig = false; //!< \todo noch unbenutzt. Keine Konfiguration implementiert.
-
 
 //! Modul / Schnittstelle irreversibel stoppen.
 //! Nur Reset befreit, ein Tastendruck löst einen Reset aus.
@@ -218,17 +214,17 @@ void FehlerStop(int Nummer /*!< Fehlercode wird mit den LED angezeigt, Rot = Bit
 			}
 		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
 		    {
-		    if (BIT_IS_SET(Nummer, 0)) LED_EIN(ROT);
-		    if (BIT_IS_SET(Nummer, 1)) LED_EIN(GELB);
-		    if (BIT_IS_SET(Nummer, 2)) LED_EIN(GRUEN);
-		    if (BIT_IS_SET(Nummer, 3)) LED_EIN(BLAU);
+		    if (BIT_IS_SET(Nummer, 0)) set_LED_ROT();
+		    if (BIT_IS_SET(Nummer, 1)) set_LED_GELB();
+		    if (BIT_IS_SET(Nummer, 2)) set_LED_GRUEN();
+		    if (BIT_IS_SET(Nummer, 3)) set_LED_BLAU();
 			}
 		else
 			{
-			LED_AUS(ROT);
-			LED_AUS(GELB);
-			LED_AUS(GRUEN);
-			LED_AUS(BLAU);
+			clr_LED_ROT();
+			clr_LED_GELB();
+			clr_LED_GRUEN();
+			clr_LED_BLAU();
 			}
 		}
 	}	
@@ -239,19 +235,19 @@ static void LEDAktualisieren()
 	{
 	if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
 		if (BIT_IS_SET(Status, StatBit_FsMeldEin))
-			LED_AUS(GELB);
+			clr_LED_GELB();
 		else
-			LED_EIN(GELB);
+			set_LED_GELB();
 	else // !BIT_IS_SET(Status, StatBit_AngerufenBelegt))
 		if (BIT_IS_SET(Status, StatBit_FsMeldEin))
-			LED_AUS(GRUEN);
+			clr_LED_GRUEN();
 		else
-			LED_EIN(GRUEN);
+			set_LED_GRUEN();
 			
 	if (BIT_IS_SET(Status, StatBit_FsBefEin)) // komme ich anders nicht dran...
-		LED_AUS(BLAU);
+		clr_LED_BLAU();
 	else
-		LED_EIN(BLAU);
+		set_LED_BLAU();
 	}
 	
 	
@@ -335,7 +331,7 @@ static bool KennungsausgabeUndKennwortAbfrage(uint8_t Nr)
 			{
 			if ((c == '\r' || c == '\n') && *p == '\0')
 				{
-				// HACK TEST: LED_EIN(ROT);
+				// HACK TEST: set_LED_ROT();
 				return true;
 				}
 			else if (c == *p)
@@ -599,10 +595,10 @@ static void VerbindungRueckruf()
 		} // while true
 		
 	Aktivieren(false);
-	LED_AUS(ROT);
-	LED_EIN(BLAU);
-	LED_AUS(GRUEN);
-	LED_EIN(GELB);
+	clr_LED_ROT();
+	set_LED_BLAU();
+	clr_LED_GRUEN();
+	set_LED_GELB();
 
 	StartTimer(&WarteTimer);
 	while (TimerVal(&WarteTimer) < 10000)
@@ -1017,7 +1013,7 @@ static void VerbindungTestsender()
 //! Bearbeitet alle kommenden Verbindungen.
 static void VerbindungKommend()
 	{
-	LED_EIN(GRUEN);
+	set_LED_GRUEN();
 	
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
@@ -1025,9 +1021,7 @@ static void VerbindungKommend()
 		}
 	else
 		{
-		if (WarteKonfig)
-			; // TODO
-		else if (VerbindungIgnoriereErsteZweiSekunden(KoAnwahlnummer())) // gibt bei vorzeitigem Verbindungsabbau false zurück.
+		if (VerbindungIgnoriereErsteZweiSekunden(KoAnwahlnummer())) // gibt bei vorzeitigem Verbindungsabbau false zurück.
 			{
 			switch (KoAnwahlnummer())
 				{
@@ -1060,7 +1054,7 @@ static void VerbindungKommend()
 //! wird nach kurzem Tastendruck aufgerufen
 static void Deaktivieren()
 	{
-	LED_EIN(BLAU);
+	set_LED_BLAU();
 	Aktivieren(false);
 
 	while (Tastendruck == NichtGedr)
@@ -1069,24 +1063,61 @@ static void Deaktivieren()
 
 	Aktivieren(true);
 	
-	LED_AUS(BLAU);
+	clr_LED_BLAU();
 
 	} // Deaktivieren
+
+
+//! Funktion, die während der FernDialog-Ausführung interne Aufgaben erledigt.
+//----------------------------------------------------------------------------
+void FernDialogCallback()
+	{
+	LEDAktualisieren();
+	}
 
 
 //! wird nach langem Tastendruck aufgerufen
 static void Konfiguration()
 	{
-	if (!WarteKonfig)
+	uint8_t TestA;
+	
+	if (!FernDialogVerbinden(0)) // 0 = Startadresse
 		{
-		WarteKonfig = true; //! \todo dies hat noch gar keine Auswirkung...
-		LED_EIN(ROT);
+		// Todo Aufräumen
+		return;
+		}
+
+	set_LED_GRUEN();			
+
+	if (TextAusgabeFern(PSTR("\r\n konfiguration messgeraet version " SVNVERSION " datum " __DATE__))
+		&& ZahlAbfrageFern(PSTR("testabfrage zahl"), &TestA, 1)
+		// && BitAbfrageFern(PSTR("feste hauptstelle"), &KonfigBits, 1 << KonfigBit_FesterHauptanschluss)
+		// && (!BIT_IS_SET(KonfigBits, KonfigBit_FesterHauptanschluss) // folgende Abfrage nur bei FesterHauptanschluss
+		    // || ZahlAbfrageFern(PSTR("nummer der hauptstelle"), &Hauptanschluss, 2))
+		// && BitAbfrageFern(PSTR("alternativ-suche bei besetzt"), &KonfigBits, 1 << KonfigBit_SucheAlternativBeiBesetzt)
+		// && BitAbfrageFern(PSTR("kommende durchwahl zulassen"), &KonfigBits, 1 << KonfigBit_DurchwahlErlaubt)
+		// && (!BIT_IS_SET(KonfigBits, KonfigBit_DurchwahlErlaubt) // folgende Abfrage nur bei nicht gesperrter Durchwahl
+		    // || DurchwahlenAbfrage())
+		// && BitAbfrageFern(PSTR("wahlfreigabe mit waehlton"), &WaehltonErkennung, 1)
+		// && (WaehltonErkennung // folgende Abfrage nur bei nicht durch Wählton erfolgende Freigabe
+			// || ZahlAbfrageFern(PSTR("verzoegerung wahlfreigabe (x/10 sek)"), &WahlbeginnVerzoegerungFest, 1))
+		// && ZahlAbfrageFern(PSTR("verzoegerung letzte ziffer - beginn kennton ...\r\n ... (x/10 sek)"), &VerbindungsaufbauVerzoegerung, 1)
+		// && JustierWahlziffernAbfragen()
+		// && ZahlAbfrageFern(PSTR("justierung verzoegerung abheben - erste ziffer ...\r\n ... (x/10 sek)"), &JustierWahlVerzoegerung, 1)
+		// && ZahlAbfrageFern(PSTR("justierung verzoegerung auflegen - abheben nach taste ...\r\n ... (x/10 sek)"), &JustierNeustartPause, 1)
+		&& TextAusgabeFern(PSTR("\r\n fertig +++\r\n")))
+		{ // kein Abbruch, daher ordnungsgemäß abstellen
+		BusSenden(BusKdoSchluss);
+		WarteSchlussQuittung(2500);
+		Grundstellen(false);
 		}
 	else
-		{
-		WarteKonfig = false;
-		LED_AUS(ROT);
+		{ // es wurde ein Kommando empfangen, welches nicht Mark oder Space befahl... Abbruch?
+		// TODO Aufräumen??? 
 		}
+
+	clr_LED_GRUEN();
+		
 	}
 
 
@@ -1174,8 +1205,8 @@ int main()
 	while (TimerVal(&Timer) < 250)
 		;
 		
-	LED_AUS(ROT);
-	LED_EIN(GELB);
+	clr_LED_ROT();
+	set_LED_GELB();
 
 	TwiInit();
 
@@ -1183,15 +1214,15 @@ int main()
 	while (TimerVal(&Timer) < 500)
 		;
 
-	LED_AUS(GELB);
-	LED_EIN(GRUEN);
+	clr_LED_GELB();
+	set_LED_GRUEN();
 
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 750)
 		;
 
-	LED_AUS(GRUEN);
-	LED_EIN(BLAU);
+	clr_LED_GRUEN();
+	set_LED_BLAU();
 
 	// TWI nochmal resetten
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (1<<TWSTO) | (0<<TWEN) | (0<<TWIE);
@@ -1206,14 +1237,12 @@ int main()
 
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
 
-	WarteKonfig = false;
-	
 	while (true)
 		{
 		// aktueller Zustand: Ausgeschaltet
-		LED_AUS(GELB);
-		LED_AUS(GRUEN);
-		LED_AUS(BLAU);
+		clr_LED_GELB();
+		clr_LED_GRUEN();
+		clr_LED_BLAU();
 
 		TastePruefen();
 		
