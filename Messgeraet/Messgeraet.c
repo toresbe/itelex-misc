@@ -1079,7 +1079,7 @@ void FernDialogCallback()
 //! wird nach langem Tastendruck aufgerufen
 static void Konfiguration()
 	{
-	uint8_t TestA;
+	static uint8_t TestA = 0;
 	
 	if (!FernDialogVerbinden(0)) // 0 = Startadresse
 		{

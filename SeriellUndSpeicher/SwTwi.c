@@ -420,10 +420,10 @@ void SwTwiAktion(volatile T_SwTwiTransferdaten *p)
 		case 55: // Stop 6: SDA 1 prüfen
 			if (SDA_in)
 				{
-				void StopSwTwi();
+				// void StopSwTwi();
 
 				p->Phase = 255;
-				StopSwTwi();
+				// StopSwTwi();
 				}
 			break;
 			
@@ -434,9 +434,9 @@ void SwTwiAktion(volatile T_SwTwiTransferdaten *p)
 #endif //else !def EXTEEPROM_SIMULATION
 
 
-extern void StartSwTwi();
+// extern void StartSwTwi();
 
-extern void StopSwTwi();
+// extern void StopSwTwi();
 
 extern void DoSwTwi();
 
@@ -613,7 +613,7 @@ static void EeTransferPruefen()
 
 	EepromTwi.Phase = 0; // startet nur den nächsten Transfer, wenn AnzDaten > 0
 
-	StartSwTwi();
+	// StartSwTwi();
 
 	}
 	

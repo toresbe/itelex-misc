@@ -216,43 +216,11 @@ ISR(TIMER1_COMPA_vect) //!< Timer1-Interrupt. (#TIMER1_OCFREQ). Grundtakt für di
 	}
 
 
-//! Schaltet bei interrupt-gesteuerter Software-TWI-Bearbeitung den Interrupt ein.
-void StartSwTwi()
-	{
-/*
-	SET_BIT(TIMSK1, OCIE1B);
-	uint16_t NeuOCR = TCNT1 + TIMER1_OCRB_INC;
-	if (NeuOCR >= TIMER1_OCRA)
-		OCR1B = TIMER1_OCRB_INC; // etwas suboptimal, aber ok
-	else
-		OCR1B = NeuOCR;
-DoSwTwi muss jetzt explizit aufgerufen werden */
-	}
-	
-
-/*
-ISR(TIMER1_COMPB_vect)
-	{
-	void DoSwTwi();
-
-	DoSwTwi();
-	StartSwTwi(); // Restart...
-	}
-DoSwTwi muss jetzt explizit aufgerufen werden */
-
-
-//! Schaltet bei interrupt-gesteuerter Software-TWI-Bearbeitung den Interrupt aus.
-void StopSwTwi()
-	{
-/*
-	CLR_BIT(TIMSK1, OCIE1B);
-DoSwTwi muss jetzt explizit aufgerufen werden */
-	}
-
-
 // Uhr
 // ===
 
+
+#ifdef AF_LOKALE_UHR
 
 //! Aktualisiert die mitlaufende Uhr. Basis ist der Timer1.
 static void UhrAktualisieren()
@@ -290,7 +258,13 @@ static void UhrAktualisieren()
 				}
 			}
 		}
-	}	
+	} // UhrAktualisieren()
+	
+#else //ndef AF_LOKALE_UHR
+
+#define UhrAktualisieren() while(0)
+	
+#endif
 		
 
 	
@@ -408,6 +382,7 @@ static void SeriellIO()
 					else
 						p++;
 					}
+
 				LokalZeichenAusgabeKlar(c);
 
 				if (c == '%')
@@ -1447,7 +1422,9 @@ static void Konfiguration()
 	Abbruch = !KonfigurationAllgemein();
 	if (Abbruch) 
 		return;
-	
+
+#ifdef AF_LOKALE_UHR
+
 	if (!UhrzeitUeberBus)
 		{
 #ifdef SPRACHE_EN	
@@ -1467,6 +1444,9 @@ static void Konfiguration()
 		Timer1OvfC = 0;
 		TCNT1 = 0;
 		}
+
+#endif //def AF_LOKALE_UHR
+
 
 #ifdef SPRACHE_EN	
 	LokalTextAusgabeP(PSTR("\r\n answerback: "));
@@ -1562,13 +1542,20 @@ static void KonfigurationEnde()
 	
 	KonfigSchreibeString(EEAdr_Kennwort, Kennwort, sizeof(Kennwort));
 
+#ifdef AF_LOKALE_UHR
+
 	if (!UhrzeitUeberBus)
 		KonfigSchreibeByte(EEAdr_Minute, Minute);
+
+#endif //def AF_LOKALE_UHR
 	
 	Aktivieren(true);
 	clr_LEDROT();
 	}
 	
+
+
+#ifdef AF_MODULLISTE
 
 //! Testfunktion zur Auflistung aller angeschlossenen Module	
 static void BusteilnehmerListen()
@@ -1595,7 +1582,8 @@ static void BusteilnehmerListen()
 			}
 	}
 
-	//
+#endif //def AF_MODULLISTE
+
 
 /*/ nur für Debugging...
 
@@ -1679,11 +1667,13 @@ int main()
 	
 	UmleitungAbweisen = KonfigLeseBool(EEAdr_UmleitungAbweisen, false);
 	
+#ifdef AF_LOKALE_UHR
 	Jahr = KonfigLeseByteBegrenzt(EEAdr_Jahr, 20, 0, 99);
 	Monat = KonfigLeseByteBegrenzt(EEAdr_Monat, 1, 1, 12);
 	Tag = KonfigLeseByteBegrenzt(EEAdr_Tag, 1, 1,  31);
 	Stunde = KonfigLeseByteBegrenzt(EEAdr_Stunde + Tag - 1, 0, 0, 23);
 	Minute = KonfigLeseByteBegrenzt(EEAdr_Minute, 0, 0, 59);
+#endif //def AF_LOKALE_UHR
 	
 	UhrzeitUeberBus = false;
 
@@ -1831,12 +1821,16 @@ int main()
 			LokalTextAusgabeP(PSTR("\r\nCtrl-K: config"));
 #else
 			LokalTextAusgabeP(PSTR("\r\nCtrl-K: Konfiguration"));
-#endif				
+#endif	
+
+#ifdef AF_MODULLISTE
 #ifdef SPRACHE_EN				
 			LokalTextAusgabeP(PSTR(", Ctrl-T: list modules"));
 #else
 			LokalTextAusgabeP(PSTR(", Ctrl-T: Statusliste"));
 #endif				
+#endif //def AF_MODULLISTE
+
 #ifdef AF_TTYCODE_SWITCHABLE
 #ifdef SPRACHE_EN				
 			LokalTextAusgabeP(PSTR(", Ctrl-E: set encoding"));
@@ -1932,20 +1926,22 @@ int main()
 					HauptmenueAusgeben = MenueImmerAusgeben;
 					break;
 					
-//HACK:
+#ifdef AF_RESET_CTRL_R
 				case CTRL('r'):
 					wdt_enable(WDTO_1S);
 					cli();
 					while (true)
 						set_LEDBLAU();
 					// wird beendet durch Watchdog-Reset
-//:HACK*/
+#endif //def AF_RESET_CTRL_R
 
+#ifdef AF_MODULLISTE
 				case CTRL('t'):
 					Aktivieren(false);
 					BusteilnehmerListen();
 					Aktivieren(true);
 					break;
+#endif //def AF_MODULLISTE
 					
 #ifdef AF_TTYCODE_SWITCHABLE
 				case CTRL('e'):
@@ -2005,8 +2001,10 @@ int main()
 		else if (Tastendruck == Kurz)
 			{
 			Tastendruck = NichtGedr;
+#ifdef AF_LOKALE_UHR
 			if (!UhrzeitUeberBus)
 				KonfigSchreibeByte(EEAdr_Minute, Minute);
+#endif //def AF_LOKALE_UHR
 			Deaktivieren();
 			}
 

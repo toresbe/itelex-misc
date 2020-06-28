@@ -47,6 +47,8 @@ bool LokalUhrPruefeRundsendung(volatile uint8_t *buf, uint8_t anz)
 	}
 	
 
+#ifndef LOKALUHR_OHNE_BAUDOTAUSGABE
+
 //! Gibt einen dezimale Zahl zweistellig in den Baudot-Code-Puffer
 //----------------------------------------------------------------
 //! \param p Zeiger auf den Puffer mit den Baudot-Daten
@@ -88,4 +90,6 @@ uint8_t LokalUhrBaudotAusgabe(uint8_t *buf)
 	return 17;
 	}
 	
+	
+#endif //ndef LOKALUHR_OHNE_BAUDOTAUSGABE
 	

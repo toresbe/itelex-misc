@@ -27,7 +27,7 @@ call MakeBin1.bat itlx_SeriellUndSpeicher-Full SeriellUndSpeicher\PlatVer13-Full
 call MakeBin1.bat itlx_SeriellUndSpeicher2 SeriellUndSpeicher\PlatVer21\SeriellUndSpeicher.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher2-CodeSw SeriellUndSpeicher\PlatVer21-CodeSw\SeriellUndSpeicher.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher2-Full SeriellUndSpeicher\PlatVer21-Full\SeriellUndSpeicher.hex Mega328_Quarz
-call MakeBin1.bat itlx_SeriellUndSpeicher2-mSZ SeriellUndSpeicher\PlatVer21-mZS\SeriellUndSpeicher.hex Mega328_Quarz
+rem itlx_SeriellUndSpeicher2-mZS (Zeitsperre) durch -Full ersetzt
 rem OhneSpeicher wird nicht vertrieben
 call MakeBin1.bat itlx_SeriellUndSpeicher2-KOI7N2 SeriellUndSpeicher\KOI7N2_21\SeriellUndSpeicher.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher2-KOI8R SeriellUndSpeicher\KOI8R_21\SeriellUndSpeicher.hex Mega168_Quarz

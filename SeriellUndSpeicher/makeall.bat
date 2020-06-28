@@ -4,7 +4,6 @@ make -C PlatVer13-Full
 make -C PlatVer21
 make -C PlatVer21-CodeSw
 make -C PlatVer21-Full
-make -C PlatVer21-mZS
 make -C OhneSpeicher13
 make -C USTTY-45_21
 make -C 110-7_21

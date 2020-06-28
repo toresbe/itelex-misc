@@ -16,6 +16,8 @@ extern void LokalUhrInit();
 
 extern bool LokalUhrPruefeRundsendung(volatile uint8_t *buf, uint8_t anz);
 
+#ifndef LOKALUHR_OHNE_BAUDOTAUSGABE
 extern uint8_t LokalUhrBaudotAusgabe(uint8_t *buf);
+#endif //ndef LOKALUHR_OHNE_BAUDOTAUSGABE
 
 #endif // __LOKALUHR_H__
