@@ -413,13 +413,19 @@ static bool VerbindungIgnoriereErsteZweiSekunden(uint8_t SubAddr)
 	return true;
 	} // VerbindungIgnoriereErsteZweiSekunden()
 
-	
+
+#ifndef BIT_LENGTH
+#define BIT_LENGTH 20
+// Standard 50 Baud
+#endif //ndef BIT_LENGTH
+
+
 //! Behandelt die Funktion des Moduls als Messgerät für die Baudot-Zeichen.	
 static void VerbindungMessgeraet()
 	{
 	enum { StartSperre, WarteStart, Laeuft, Ausgabe } MessPhase = StartSperre;
 	bool MessungAktMark = true;
-	enum { MessNeustartGrenze = 6 * 20 + 30 / 2 } ;
+	enum { MessNeustartGrenze = 6 * BIT_LENGTH + BIT_LENGTH / 2 } ;
 	TMsTimer MessTimer;
 	uint16_t PufferPos = 0;
 	
