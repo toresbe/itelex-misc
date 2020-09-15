@@ -1,11 +1,11 @@
 ###############################################################################
-# Makefile for the project Messgeraet
+# Makefile for the project ED1000
 ###############################################################################
 
 ## General Flags
-PROJECT = Messgeraet
+PROJECT = ED1000
 MCU = atmega168
-TARGET = Messgeraet.elf
+TARGET = ED1000.elf
 CC = avr-gcc
 
 CPP = avr-g++
@@ -15,7 +15,7 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -fgnu89-inline   -DBIT_LENGTH=13     -DPROGIDZUSATZ=\"75BD\"     -DF_CPU=6144000UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -DSTANDARD_NUMMER=76 
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -fgnu89-inline -DPLATINE_VERSION=12 -DBIT_LENGTH=10 -DF_CPU=14745600UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums  -DPROGIDZUSATZ=\"100Bd\" 
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 
 ## Assembly specific flags
@@ -25,7 +25,7 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 
 ## Linker flags
 LDFLAGS = $(COMMON)
-LDFLAGS +=  -Wl,-Map=Messgeraet.map
+LDFLAGS +=  -Wl,-Map=ED1000.map
 
 
 ## Intel Hex file production flags
@@ -37,32 +37,32 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Include Directories
-INCLUDES = -I"D:\Daten\AvrProgs\TxP2\Messgeraet\..\..\C-Libs" -I"D:\Daten\AvrProgs\TxP2\Messgeraet\..\Gemeinsam" 
+INCLUDES = -I"D:\Daten\AvrProgs\TxP2\ED1000\..\Gemeinsam" -I"D:\Daten\AvrProgs\TxP2\ED1000\..\..\C-Libs" 
 
 ## Objects that must be built in order to link
-OBJECTS = Messgeraet.o Taste.o BaudotCode.o BusKomm.o EepromTools.o FifoPuffer.o SeriellUmsetz.o TxP2-Endgeraet.o MsTimer.o BusKomm2.o FernDialog.o 
+OBJECTS = ED1000.o MsTimer.o Taste.o BusKomm.o BaudotCode.o KonfigDialog.o SeriellUmsetz.o TxP2-Endgeraet.o LokalAusgabe.o FifoPuffer.o BusKomm2.o LokalUhr.o Zeitsperre.o KonfigSpeicher.o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
 
 ## Build
-all: $(TARGET) Messgeraet.hex Messgeraet.eep Messgeraet.lss## Compile
-Messgeraet.o: ../Messgeraet.c
+all: $(TARGET) ED1000.hex ED1000.eep ED1000.lss## Compile
+ED1000.o: ../ED1000.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+MsTimer.o: ../../../C-Libs/MsTimer.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 Taste.o: ../Taste.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-BaudotCode.o: ../../Gemeinsam/BaudotCode.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
-
 BusKomm.o: ../../Gemeinsam/BusKomm.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-EepromTools.o: ../../../C-Libs/EepromTools.c
+BaudotCode.o: ../../Gemeinsam/BaudotCode.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-FifoPuffer.o: ../../Gemeinsam/FifoPuffer.c
+KonfigDialog.o: ../../Gemeinsam/KonfigDialog.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 SeriellUmsetz.o: ../../Gemeinsam/SeriellUmsetz.c
@@ -71,13 +71,22 @@ SeriellUmsetz.o: ../../Gemeinsam/SeriellUmsetz.c
 TxP2-Endgeraet.o: ../../Gemeinsam/TxP2-Endgeraet.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-MsTimer.o: ../../../C-Libs/MsTimer.c
+LokalAusgabe.o: ../../Gemeinsam/LokalAusgabe.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+FifoPuffer.o: ../../Gemeinsam/FifoPuffer.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 BusKomm2.o: ../../Gemeinsam/BusKomm2.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-FernDialog.o: ../../Gemeinsam/FernDialog.c
+LokalUhr.o: ../../Gemeinsam/LokalUhr.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+Zeitsperre.o: ../../Gemeinsam/Zeitsperre.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+KonfigSpeicher.o: ../../Gemeinsam/KonfigSpeicher.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
@@ -96,7 +105,7 @@ $(TARGET): $(OBJECTS)
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) Messgeraet.elf dep/* Messgeraet.hex Messgeraet.eep Messgeraet.lss Messgeraet.map
+	-rm -rf $(OBJECTS) ED1000.elf dep/* ED1000.hex ED1000.eep ED1000.lss ED1000.map
 
 
 ## Other dependencies

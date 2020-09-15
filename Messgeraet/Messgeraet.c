@@ -120,7 +120,11 @@ const PROGMEM char Identifier[] = "___itlx_Messgeraet___" __DATE__ "___" __TIME_
 #define KENNUNG_MAXLEN 20 //!< maximale Länge der Kennungsgeber-Texte.
 #define KENNWORT_MAXLEN 20 //!< maximale Länge des Kennwortes für die Fernabfrage.
 
+
+#ifndef STANDARD_NUMMER
 #define STANDARD_NUMMER 80 //!< muss Vielfaches von 4 sein
+#endif //ndef STANDARD_NUMMER
+
 
 typedef char TKennung[KENNUNG_MAXLEN];
 
@@ -1175,7 +1179,7 @@ int main()
 	if (BusEigenAdresse < BusAdrMin 
 		|| BusEigenAdresse > BusAdrMax 
 		|| (BusEigenAdresse & 0x07) != 0 //    ^^^^ muss durch 4 Teilbar sein, letztes Bit sowieso 0
-		|| eeprom_read_byte(&BusEigenAdresse_EE) != ~(BusEigenAdresse >> 1))
+		|| eeprom_read_byte(&BusEigenAdressePruef_EE) != ~(BusEigenAdresse >> 1))
 											
 		BusEigenAdresse = STANDARD_NUMMER << 1; // Standardwert
 
