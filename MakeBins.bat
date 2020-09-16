@@ -3,6 +3,7 @@ echo Inhalt:^<br^> >AlleBins\index.html
 call MakeBin1.bat itlx_LeitungAnalog2 AnalogModem2\default\AnalogModem2.hex Mega168_ExtTakt
 call MakeBin1.bat itlx_ED1000 ED1000\default\ED1000.hex Mega168_Quarz
 call MakeBin1.bat itlx_ED1000-100Bd ED1000\100Baud\ED1000.hex Mega168_Quarz
+call MakeBin1.bat itlx_ED1000-75Bd ED1000\75Baud\ED1000.hex Mega168_Quarz
 call MakeBin1.bat itlx_ED1000-PROTO ED1000\FuerPrototyp\ED1000.hex Mega168_Quarz
 call MakeBin1.bat itlx_V21 ED1000\V.21\ED1000.hex Mega168_Quarz
 call MakeBin1.bat itlx_OhneFSG FernschrOhneFSG\default\FernschrOhneFSG.hex Mega168_Quarz
@@ -18,6 +19,7 @@ call MakeBin1.bat itlx_TW39plus FernschrTW39Plus\default\FernschrTW39plus.hex Me
 call MakeBin1.bat itlx_TW39plus-PL10 FernschrTW39Plus\AltePlatine\FernschrTW39plus.hex Mega168_Quarz
 call MakeBin1.bat itlx_TW39plus-DOPAUS FernschrTW39Plus\DoppelAusgabe\FernschrTW39plus.hex Mega168_Quarz
 call MakeBin1.bat itlx_TW39plus-US45 FernschrTW39Plus\USTTY-45\FernschrTW39plus.hex Mega168_Quarz
+call MakeBin1.bat itlx_TW39plus-100Bd FernschrTW39Plus\100Baud\FernschrTW39plus.hex Mega168_Quarz
 call MakeBin1.bat itlx_TW39plus-75Bd FernschrTW39Plus\75Baud\FernschrTW39plus.hex Mega168_Quarz
 call MakeBin1.bat itlx_Messgeraet Messgeraet\default\Messgeraet.hex Mega168_Quarz
 call MakeBin1.bat itlx_Messgeraet-75BD Messgeraet\75baud\Messgeraet.hex Mega168_Quarz
