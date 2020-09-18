@@ -74,7 +74,7 @@ DEFPORTOUT(SIGAUS5,		B, 5)	//			19	SCK
 DEFPORTIN(SIGEIN,	 	C, 0)	//			23	ADC0
 DEFPORTIN(TASTE,	 	C, 1)	//			24  
 // ausnahmsweise schaltet Taste nach Plus!
-DEFPORTOUT(ANRUFSIGNAL 	C, 2)	//			25  Zeichen kommender Anruf für Zusatzschaltung des Benutzers.
+DEFPORTOUT(ANRUFSIGNAL,	C, 2)	//			25  Zeichen kommender Anruf für Zusatzschaltung des Benutzers.
 //DEFPORTINPULL(TASTE2,	C, 3)	//			26
 //						C, 4)	//			27	SDA
 //						C, 5)	//			28	SCL
