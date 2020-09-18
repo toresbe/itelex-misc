@@ -469,7 +469,7 @@ static bool ED1000Einschalten()
 		ED1000IO();
 		if (!MeldungEingeschaltet)
 			StartTimer(&StabilTimer);
-		if (TimerVal(&AbbruchTimer) > AnrufAbbruchTimer * 1000)
+		if (TimerVal(&AbbruchTimer) > AnrufAbbruchZeit * 1000)
 			{
 			BefehlEinschalten = false;
 			BefehlMark = true;

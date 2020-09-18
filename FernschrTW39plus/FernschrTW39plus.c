@@ -241,7 +241,7 @@ static bool TW39Einschalten()
 		TW39IO();
 		if (!MeldungEingeschaltet)
 			StartTimer(&StabilTimer);
-		if (TimerVal(&AbbruchTimer) > AnrufAbbruchTimer * 1000)
+		if (TimerVal(&AbbruchTimer) > AnrufAbbruchZeit * 1000)
 			{
 			BefehlEinschalten = false;
 			BefehlMark = true;
