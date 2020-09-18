@@ -66,6 +66,8 @@ DEFPORTOUT		(FS_AUSG,	B, 0) // Schleifenschluß-Ausgabe
 DEFPORTOUT		(FS_AKTIV,	D, 7) // Einschaltung (Ausgabe, Polarität der Schleife)
 DEFPORTINPULL	(FS_EING, 	D, 6) // Strom-Einlesung
 
+DEFPORTOUT		(ANRUFSIGNAL,B,5) // SCK - Zeichen kommender Anruf für Zusatzschaltung des Benutzers.
+
 #ifdef PARALLELAUSGABE
 
 DEFPORTOUT		(FS2_AUSG,	B, 2) // Schleifenschluß-Ausgabe

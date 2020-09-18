@@ -76,7 +76,8 @@ PROGMEM const char Identifier[] = "___itlx_TW39plus___" __DATE__ "___" __TIME__ 
 
 enum { LokalbetriebWahl_Std = 88 };
 enum { KommendSperreWahl_Std = 0 };
-enum { AutoWahlMaxZiffern = 10 };
+enum { AutoWahlMaxZiffern = 10 }; // bei Änderung ist das EEPROM-Layout kompromittiert.
+enum { AnrufAbbruchZeit_Std = 7 }; // sekunden
 
 
 // Eeprom-Speicher-Adressen
@@ -92,6 +93,8 @@ enum {
     EEAdr_UmleitungAbweisen = 25,
     EEAdr_LokalbetriebWahl = 26,
     EEAdr_AutoWahlZiffern = 27,
+	EEAdr_AnrufAbbruchZeit = 37,
+	EEAdr_Ende = 38 // darf erhöht werden	
 };
 
 
@@ -106,6 +109,8 @@ typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrun
 bool MitWaehlscheibe; //!< Gerät het eine Wählscheibe
 
 uint8_t WahlauffordImpulsLaenge; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
+
+uint8_t AnrufAbbruchZeit; //!< Maximale Zeit zwichen Aktivierung Anrufsignal und Ende des Hochlaufs des Fernschreibers
 
 
 bool BefehlEinschalten; //!< Fs soll laufen
@@ -236,7 +241,7 @@ static bool TW39Einschalten()
 		TW39IO();
 		if (!MeldungEingeschaltet)
 			StartTimer(&StabilTimer);
-		if (TimerVal(&AbbruchTimer) > 7000)
+		if (TimerVal(&AbbruchTimer) > AnrufAbbruchTimer * 1000)
 			{
 			BefehlEinschalten = false;
 			BefehlMark = true;
@@ -312,8 +317,8 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 				else
 					TasteWirk = true;
 				}
-			else // Taste nicht gedrückt
-				{ 
+			else
+				{ // Taste nicht gedrückt
 				if (TasteZ > 0)
 					{
 					TasteZ--;
@@ -325,7 +330,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 							;
 						}
 					}
-				} 
+				} // Taste nicht gedrückt
 			}
 		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
 		    {
@@ -433,6 +438,7 @@ static void VerbindungKommend()
 
 	set_LEDGRUEN();
 	set_LEDROT();
+	set_ANRUFSIGNAL();
 	
 	if (!TW39Einschalten())
 		{ // Timeout...
@@ -440,6 +446,7 @@ static void VerbindungKommend()
 		GeAusschalten(true);
 		KommendSperren(SperreStoerung);
 		clr_LEDROT();		
+		clr_ANRUFSIGNAL();
 		return;
 		}
 
@@ -452,6 +459,8 @@ static void VerbindungKommend()
 		}
 	else
 		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
+
+	clr_ANRUFSIGNAL();
 		
 	}
 	
@@ -976,6 +985,7 @@ static void Konfiguration()
 		{
 		KommendSperreWahl = KommendSperreWahl_Std;
 		LokalbetriebWahl = LokalbetriebWahl_Std;
+		AnrufAbbruchZeit = AnrufAbbruchZeit_Std;
 		SperrzeitInit();
 		TasteFunktion = 0;
 		AutoWahlZiffern[0] = 255; // Ende-Kennzeichen
@@ -1114,6 +1124,31 @@ static void Konfiguration()
 		AutoWahlZiffern[0] = 255;
 		}
 		
+	// Timeout beim Anruf
+	// ------------------
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n timeout for incoming calls in seconds (3-25, cur. "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n maximale hochlauf-zeit in sekunden (3-25, akt. "));
+#endif //def SPRACHE_EN
+
+	LokalZahlAusgabe(AnrufAbbruchZeit, 0);
+
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(") new:     "));
+#else
+	LokalTextAusgabeP(PSTR(") neu:     "));
+#endif //def SPRACHE_EN
+
+	if (LokalZahlEingabe(&AnrufAbbruchZeit, 0) < 0)
+		return;
+	if (AnrufAbbruchZeit < 3)
+		AnrufAbbruchZeit = 3;
+	else if (AnrufAbbruchZeit > 25)
+		AnrufAbbruchZeit = 25;
+
+	LokalTextAusgabeP(OkStrP);
+		
 	// Modus für Tastendruck
 	// ---------------------
 #ifdef SPRACHE_EN
@@ -1165,6 +1200,8 @@ static void KonfigurationEnde()
 	KonfigSchreibeByte(EEAdr_LokalbetriebWahl, LokalbetriebWahl);
 
 	KonfigSchreibeByte(EEAdr_TasteFunktion, TasteFunktion);
+
+	KonfigSchreibeByte(EEAdr_AnrufAbbruchZeit, AnrufAbbruchZeit);
 
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
@@ -1318,6 +1355,7 @@ int main()
 	init_FS2_EING(); 
 #endif //def PARALLELAUSGABE
 	init_TASTE();
+	init_ANRUFSIGNAL();
 	//init_TASTE2();
 
 	set_LEDROT();
@@ -1347,10 +1385,13 @@ int main()
 
 	LokalbetriebWahl = KonfigLeseByteBegrenzt(EEAdr_LokalbetriebWahl, LokalbetriebWahl_Std, 0, 99);
 
+
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
 		AutoWahlZiffern[i] = KonfigLeseByte(EEAdr_AutoWahlZiffern + i, 255); // nicht begrenzt, da alles über 9 das Endezeichen ist.
 	
+	AnrufAbbruchZeit = KonfigLeseByteBegrenzt(EEAdr_AnrufAbbruchZeit, AnrufAbbruchZeit_Std, 3, 25);
+		
 	BefehlEinschalten = false;
 	BefehlMark = true;
 	MeldungEingeschaltet = false;
