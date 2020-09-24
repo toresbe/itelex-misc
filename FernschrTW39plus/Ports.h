@@ -66,7 +66,8 @@ DEFPORTOUT		(FS_AUSG,	B, 0) // Schleifenschluß-Ausgabe
 DEFPORTOUT		(FS_AKTIV,	D, 7) // Einschaltung (Ausgabe, Polarität der Schleife)
 DEFPORTINPULL	(FS_EING, 	D, 6) // Strom-Einlesung
 
-DEFPORTOUT		(ANRUFSIGNAL,B,5) // SCK - Zeichen kommender Anruf für Zusatzschaltung des Benutzers.
+DEFPORTOUT		(SV_EIN,	B, 5) // Ausgang für Zusatzschaltung zur Stromversorgung des Fernschreibers
+DEFPORTINPULLAL	(TASTEEXT,	B, 4) // Eingang für externe Taste zur Aktivierung
 
 #ifdef PARALLELAUSGABE
 
@@ -90,6 +91,9 @@ DEFPORTOUT		(LEDBLAU, 	B, 2)
 DEFPORTOUT		(FS_AUSG,	D, 0) // Schleifenschluß-Ausgabe
 DEFPORTOUT		(FS_AKTIV,	D, 1) // Einschaltung (Ausgabe, Polarität der Schleife)
 DEFPORTINPULL	(FS_EING, 	C, 3) // Strom-Einlesung
+
+DEFPORTOUT		(SV_EIN,	B, 5) // Ausgang für Zusatzschaltung zur Stromversorgung des Fernschreibers
+DEFPORTINPULLAL	(TASTEEXT,	B, 4) // Eingang für externe Taste zur Aktivierung
 
 #else
 

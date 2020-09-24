@@ -224,6 +224,8 @@ bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
 bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
 bool MeldungMark; //!< Fs Schleifenstrom ist Ein
 
+TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalter
+
 bool EmpfangMark; //!< ist false, wenn Endgerät ausgeschaltet oder Endgerät Space sendet
 bool SpaceSperre; //!< Wird gesetzt, wenn die empfangene Space-Frequenz trotzdem als Mark gewertet werden soll.
 
@@ -445,9 +447,9 @@ uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalb
 uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
 	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
 
-typedef enum { Deaktivierung, DemoBetriebStarten } TTasteFunktion;
+typedef enum { Deaktivierung, DemoBetriebStarten, ExtStromEinschalten } TTasteFunktion;
 
-TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb
+TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb, 2 = Ausgang zum externen Schalter aktivieren
 
 //////////////////////////////////////////////////////////////////
 
@@ -462,6 +464,10 @@ static bool ED1000Einschalten()
 	
 	StartTimer(&StabilTimer);
 	StartTimer(&AbbruchTimer);
+	
+	set_SV_EIN(); // externen Schalter der Energieversorgung des Fernschreibers einschalten
+	StartTimer(&NachlaufTimer);
+	
 	do
 		{
 		BefehlEinschalten = true;
@@ -474,6 +480,7 @@ static bool ED1000Einschalten()
 			BefehlEinschalten = false;
 			BefehlMark = true;
 			ED1000IO();
+			StartTimer(&NachlaufTimer);
 			return false;
 			}
 		} while (TimerVal(&StabilTimer) < 300);
@@ -502,6 +509,9 @@ static void ED1000Ausschalten()
 			StartTimer(&Timer);
 		}
 	while (TimerVal(&Timer) < 500);
+	
+	StartTimer(&NachlaufTimer); 
+	
 	}
 		
 
@@ -526,6 +536,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	BefehlEinschalten = false;
 	BefehlMark = true;
 	ED1000IO(); // damit der Fernschreiber abgeschaltet wird.
+	clr_SV_EIN();
 	
 	uint8_t TasteZ = 0;
 	bool TasteWirk = false;
@@ -667,15 +678,13 @@ static void VerbindungKommend()
 
 	set_LEDGRUEN();
 	set_LEDROT();
-	set_ANRUFSIGNAL();
 	
 	if (!ED1000Einschalten())
 		{ // Timeout...
 		clr_LEDGRUEN();
 		GeAusschalten(true);
 		KommendSperren(SperreStoerung);
-		clr_LEDROT();
-		clr_ANRUFSIGNAL();
+		clr_LEDROT();		
 		return;
 		}
 
@@ -684,13 +693,11 @@ static void VerbindungKommend()
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
 		GeAusschalten(true);
-		ED1000Ausschalten(true);
+		TW39Ausschalten();
 		}
 	else
 		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
 
-	clr_ANRUFSIGNAL();
-		
 	}
 	
 /////////////////////////////////////////////////////////////
@@ -741,8 +748,12 @@ static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	Aktivieren(false);
 	if (Abschaltimpuls)
 		ED1000Ausschalten();
+	else
+		StartTimer(&NachlaufTimer);
+	
 	while (MeldungEingeschaltet)
 		ED1000IO();
+	
 	clr_LEDROT();
 	Aktivieren(true);
 	}
@@ -1042,6 +1053,7 @@ static void DemoBetrieb()
 //! Behandelt die Selbstkonfiguration des Moduls.
 //-----------------------------------------------
 //! Arbeitet mit dem angeschlossenen Endgerät zusammen.
+//! Alle 'Aufräumarbeiten' macht KonfigurationEnde()
 
 static void Konfiguration()
 	{
@@ -1455,7 +1467,9 @@ int main()
 	init_SIGAUS5();
 	init_SIGEIN();
 	init_TASTE();
-	init_ANRUFSIGNAL();
+	init_SV_EIN();
+	init_TASTEEXT();
+	
 	//init_TASTE2();
 
 	set_LEDROT();
@@ -1594,6 +1608,8 @@ int main()
 	BefehlEinschalten = false;
 	BefehlMark = true;
 
+	StartTimer(&NachlaufTimer);
+	
 	while (true)
 		{
 		// aktueller Zustand: Ausgeschaltet
@@ -1647,6 +1663,12 @@ int main()
 				case DemoBetriebStarten:
 					DemoBetrieb();
 					break;
+					
+				case ExtStromEinschalten:
+					set_SV_EIN();
+					StartTimer(&NachlaufTimer);
+					break;
+					
 				default:
 					Deaktivieren();
 					break;
@@ -1680,6 +1702,15 @@ int main()
 				
 			RundsendAnzDaten = 0;
 			}
+			
+		if (get_TASTEEXT())
+			{
+			set_SV_EIN();
+			StartTimer(&NachlaufTimer);
+			}
+			
+		if (TimerVal(&NachlaufTimer) > 60000)
+			clr_SV_EIN();
 		
 		} // while (true)
 	} // main()

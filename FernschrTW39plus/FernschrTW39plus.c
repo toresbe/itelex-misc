@@ -120,6 +120,7 @@ bool MeldungMark; //!< Fs Schleifenstrom ist Ein
 
 TMsTimer AusschaltungTimer; //!< Zählt die Millisekunden von Schleifenunterbrechung bis Ausschaltung
 TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port bis tatsächlichem Pegelwechsel
+TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalter
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -217,9 +218,9 @@ uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalb
 uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
 	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
 
-typedef enum { Deaktivierung, DemoBetriebStarten } TTasteFunktion;
+typedef enum { Deaktivierung, DemoBetriebStarten, ExtStromEinschalten } TTasteFunktion;
 
-TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb
+TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb, 2 = Ausgang zum externen Schalter aktivieren
 
 //////////////////////////////////////////////////////////////////
 
@@ -234,6 +235,10 @@ static bool TW39Einschalten()
 	
 	StartTimer(&StabilTimer);
 	StartTimer(&AbbruchTimer);
+	
+	set_SV_EIN(); // externen Schalter der Energieversorgung des Fernschreibers einschalten
+	StartTimer(&NachlaufTimer);
+	
 	do
 		{
 		BefehlEinschalten = true;
@@ -246,6 +251,7 @@ static bool TW39Einschalten()
 			BefehlEinschalten = false;
 			BefehlMark = true;
 			TW39IO();
+			StartTimer(&NachlaufTimer);
 			return false;
 			}
 		} while (TimerVal(&StabilTimer) < 300);
@@ -274,6 +280,9 @@ static void TW39Ausschalten()
 			StartTimer(&Timer);
 		}
 	while (TimerVal(&Timer) < 500);
+	
+	StartTimer(&NachlaufTimer); 
+	
 	}
 		
 
@@ -298,6 +307,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	BefehlEinschalten = false;
 	BefehlMark = true;
 	TW39IO();
+	clr_SV_EIN();
 	
 	uint8_t TasteZ = 0;
 	bool TasteWirk = false;
@@ -310,7 +320,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
-			if (get_TASTE()) 
+			if (get_TASTE())
 				{ // Taste gedrückt
 				if (TasteZ < 5)
 					TasteZ++;
@@ -438,7 +448,6 @@ static void VerbindungKommend()
 
 	set_LEDGRUEN();
 	set_LEDROT();
-	set_ANRUFSIGNAL();
 	
 	if (!TW39Einschalten())
 		{ // Timeout...
@@ -446,7 +455,6 @@ static void VerbindungKommend()
 		GeAusschalten(true);
 		KommendSperren(SperreStoerung);
 		clr_LEDROT();		
-		clr_ANRUFSIGNAL();
 		return;
 		}
 
@@ -460,8 +468,6 @@ static void VerbindungKommend()
 	else
 		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
 
-	clr_ANRUFSIGNAL();
-		
 	}
 	
 
@@ -512,10 +518,15 @@ static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	set_LEDROT();
 	GeAusschalten(true);
 	Aktivieren(false);
+	
 	if (Abschaltimpuls)
 		TW39Ausschalten();
+	else
+		StartTimer(&NachlaufTimer);
+	
 	while (MeldungEingeschaltet)
 		TW39IO();
+	
 	clr_LEDROT();
 	Aktivieren(true);
 	}
@@ -1355,7 +1366,9 @@ int main()
 	init_FS2_EING(); 
 #endif //def PARALLELAUSGABE
 	init_TASTE();
-	init_ANRUFSIGNAL();
+	init_SV_EIN();
+	init_TASTEEXT();
+	
 	//init_TASTE2();
 
 	set_LEDROT();
@@ -1492,6 +1505,8 @@ int main()
 	BefehlEinschalten = false;
 	BefehlMark = true;
 
+	StartTimer(&NachlaufTimer);
+	
 	while (true)
 		{
 		// aktueller Zustand: Ausgeschaltet
@@ -1545,6 +1560,12 @@ int main()
 				case DemoBetriebStarten:
 					DemoBetrieb();
 					break;
+					
+				case ExtStromEinschalten:
+					set_SV_EIN();
+					StartTimer(&NachlaufTimer);
+					break;
+					
 				default:
 					Deaktivieren();
 					break;
@@ -1578,6 +1599,15 @@ int main()
 				
 			RundsendAnzDaten = 0;
 			}
+			
+		if (get_TASTEEXT())
+			{
+			set_SV_EIN();
+			StartTimer(&NachlaufTimer);
+			}
+			
+		if (TimerVal(&NachlaufTimer) > 60000)
+			clr_SV_EIN();
 		
 		} // while (true)
 	} // main()
