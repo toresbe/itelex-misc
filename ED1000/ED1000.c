@@ -693,7 +693,7 @@ static void VerbindungKommend()
 	if (GeEinschalten() != GeEinschAnrufquitt)
 		{
 		GeAusschalten(true);
-		TW39Ausschalten();
+		ED1000Ausschalten();
 		}
 	else
 		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
