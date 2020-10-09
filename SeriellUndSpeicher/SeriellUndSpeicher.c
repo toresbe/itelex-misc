@@ -199,6 +199,8 @@ char Kennwort[KENNWORT_MAXLEN]; //!< Kennwort für Fernabfrage des Anrufspeichers
 bool LokalAusgabeNichtBlockieren; //!< Auf true setzen, wenn die Lokale Ausgabe nur "Nebensache" ist
 								  //!< und den Programmablauf nicht bremsen darf.
 
+TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalter
+
 // Grundfunktionen
 // ---------------
 
@@ -628,6 +630,9 @@ static void VerbindungKommend()
 	{
 	set_LEDGRUEN();
 	
+	set_SV_EIN(); // Benennung SV_EIN nur als "Verweis" auf Standard-Schnittstelle (TW39 / ED1000)
+	StartTimer(&NachlaufTimer);
+	
 	LokalAusgabeNichtBlockieren = true;
 	
 #ifdef SPRACHE_EN
@@ -661,6 +666,8 @@ static void VerbindungKommend()
 #endif //else ndef AF_ANRUFSPEICHER
 
 		}
+
+	StartTimer(&NachlaufTimer); // Ausschaltung erfolgt dann in der Hauptschleife
 		
 	} // VerbindungKommend()
 	
@@ -1634,6 +1641,8 @@ int main()
 	init_LEDGELB();
 	init_LEDGRUEN();
 	init_LEDBLAU();
+	init_SV_EIN(); // Benennung SV_EIN nur als "Verweis" auf Standard-Schnittstelle (TW39 / ED1000)
+	init_TASTEEXT();
 
 	set_LEDROT();
 
@@ -1863,6 +1872,10 @@ int main()
 			{
 			char c;
 			c = SerEmpfZ(true);
+
+			set_SV_EIN(); // Benennung SV_EIN nur als "Verweis" auf Standard-Schnittstelle (TW39 / ED1000)
+			StartTimer(&NachlaufTimer);
+			
 			LokalAusgabeNichtBlockieren = false;
 			switch (c)
 				{
@@ -1988,7 +2001,10 @@ int main()
 					HauptmenueAusgeben = true;
 					break;
 				}
-			}
+
+			StartTimer(&NachlaufTimer); // Ausschaltung erfolgt dann in der Hauptschleife
+			
+			} // if (!PufferLeer(&SerInBuf))
 					
 		if (Tastendruck == Lang)
 			{
@@ -2040,8 +2056,16 @@ int main()
 				
 			RundsendAnzDaten = 0;
 			}
-		
+	
+		if (get_TASTEEXT())
+			{
+			set_SV_EIN(); // Benennung SV_EIN nur als "Verweis" auf Standard-Schnittstelle (TW39 / ED1000)
+			StartTimer(&NachlaufTimer);
+			}
 			
+		if (TimerVal(&NachlaufTimer) > 60000)
+			clr_SV_EIN(); // Benennung SV_EIN nur als "Verweis" auf Standard-Schnittstelle (TW39 / ED1000)
+		
 		} // while (1)
 	} // main()
 
