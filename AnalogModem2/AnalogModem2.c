@@ -538,7 +538,7 @@ bool FreiesEndgeraetFuerAnruf()
 				&& !BIT_IS_SET(Stat, StatBit_SpezialGeraetKennung))
 				break; // gefunden!
 			AktuellEmpfaenger += 2;
-			if (AktuellEmpfaenger > BusAdrEndgeraetMax)
+			if (AktuellEmpfaenger > BusAdrMax)
 				AktuellEmpfaenger = BusAdrMin;
 			if (AktuellEmpfaenger == Start) // alle einmal probiert
 				return false;

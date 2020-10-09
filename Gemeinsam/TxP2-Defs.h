@@ -9,9 +9,6 @@
 #define BusAdrMin (1*2) // = 0x02
 //!< kleinste zulässige TWI-Busadresse.
 
-#define BusAdrEndgeraetMax (100*2) // = 0xC8
-//!< größte zulässige TWI-Busadresse für "echte" Endgeräte.
-
 #define BusAdrMax (110*2)  // = 0xDC
 //!< größte zulässige TWI-Busadresse.
 
