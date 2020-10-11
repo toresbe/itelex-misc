@@ -5,7 +5,13 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+
+#ifndef FIFOPUFFER_MAX
 enum { MaxPuffer = 50 } ; 
+#else 
+enum { MaxPuffer = FIFOPUFFER_MAX } ; 
+#endif
+
 
 typedef volatile struct {
 	uint8_t Puffer[MaxPuffer]; //!< enthält Baudot-Codes oder im Wahlzustand die Wahlziffern.

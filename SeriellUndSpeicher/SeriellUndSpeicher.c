@@ -177,6 +177,10 @@ bool MenueImmerAusgeben; //!< Gibt das Menue nach jeder "Aktion" aus, bei false 
 
 bool SeriellHwHandshake; //!< bei true werden Daten auf der seriellen Schnittstelle nur bei CTS = aktiv gesendet.
 
+TMsTimer CheckCtsTimer; 
+	//!< Um ein Blockieren des Programmablaufs zu verhindern, wird bei Pufferüberlauf seriellen Ausgabe 
+	//!< der Puuferanfang gelöscht, sofern CTS zu lange (mehr als 3 Sekunden) auf "Low" liegt.
+
 
 // Uhr
 // ---
@@ -195,9 +199,6 @@ char Kennwort[KENNWORT_MAXLEN]; //!< Kennwort für Fernabfrage des Anrufspeichers
 
 // Sonstiges
 // ---------
-
-bool LokalAusgabeNichtBlockieren; //!< Auf true setzen, wenn die Lokale Ausgabe nur "Nebensache" ist
-								  //!< und den Programmablauf nicht bremsen darf.
 
 TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalter
 
@@ -335,16 +336,14 @@ ISR(USART_UDRE_vect)
 //! \retval true bei Empfangsbereitschaft der Gegenstelle.
 static bool GetCTS()
 	{ 
-	static TMsTimer CheckCtsTimer;
-	
 	if (!get_SER_CTS() || !SeriellHwHandshake)
-		// wenn kein HW-Handshake = RTS/CTS, dann CTS auf "Dauer-OK" setzen.
+		// wenn kein HW-Handshake (also RTS/CTS), dann CTS als "Dauer-OK" annehmen.
 		{
 		StartTimer(&CheckCtsTimer);
 		return true;
 		}
 	else
-		return TimerVal(&CheckCtsTimer) > 1500;
+		return false;
 	}
 	
 	
@@ -480,13 +479,16 @@ char LokalZeichenLesen()
 
 void LokalZeichenAusgabe(char c)
 	{
-	while (!LokalAusgabeNichtBlockieren && PufferVoll(&SerOutBuf) && Tastendruck == NichtGedr)
+	while (PufferVoll(&SerOutBuf))
 		// im Verbindungszustand nicht warten, zeichen geht ggf. verloren
 		{
 		SeriellIO();
 		UhrAktualisieren();
 		DoSwTwi();
 		TastePruefen();
+		GetCTS();
+		if (TimerVal(&CheckCtsTimer) > 3000 || Tastendruck != NichtGedr || KoEinschalten())
+			PufferAusg(&SerOutBuf); // wird verworfen um Platz zu schaffen.
 		}
 
 	PufferSpeich(&SerOutBuf, c); 
@@ -633,8 +635,6 @@ static void VerbindungKommend()
 	set_SV_EIN(); // Benennung SV_EIN nur als "Verweis" auf Standard-Schnittstelle (TW39 / ED1000)
 	StartTimer(&NachlaufTimer);
 	
-	LokalAusgabeNichtBlockieren = true;
-	
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\nIncall\r\n"));
 #else
@@ -683,8 +683,6 @@ static void VerbindungGehend()
 		return;
 		}
 
-	LokalAusgabeNichtBlockieren = true;
-	
 	#ifdef AF_ZEITSPERRE
 	SperrzeitAussetzen();
 	#endif //def AF_ZEITSPERRE
@@ -1358,7 +1356,6 @@ static void Deaktivieren()
 	init_SYS_SER_OUT();
 	init_SYS_SER_IN();
 #else
-	LokalAusgabeNichtBlockieren = true;
 #endif //def AF_DEAKT_SERIELL_EXTERN
 
 	while (Tastendruck == NichtGedr)
@@ -1400,8 +1397,6 @@ static void Konfiguration()
 
 	Aktivieren(false);
 	
-	LokalAusgabeNichtBlockieren = false;
-
 	bool TempHwHandshake = SeriellHwHandshake;
 	SeriellHwHandshake = false; // damit das Menü immer aufgerufen werden kann.
 	
@@ -1567,8 +1562,6 @@ static void KonfigurationEnde()
 //! Testfunktion zur Auflistung aller angeschlossenen Module	
 static void BusteilnehmerListen()
 	{
-	LokalAusgabeNichtBlockieren = false;
-	
 #ifdef SPRACHE_EN	
 	LokalTextAusgabeP(PSTR("\r\nstatus of connected modules:\r\n"));
 #else	
@@ -1662,7 +1655,7 @@ int main()
 	SET_BIT(TIMSK1, OCIE1A);
 	//SET_BIT(TIMSK1, OCIE1B); DoSwTwi wird jetzt direkt aufgerufen
 
-	LokalAusgabeNichtBlockieren = false;
+	StartTimer(&CheckCtsTimer);
 	
 #ifdef AF_ZEITSPERRE
 	SperrzeitInit();
@@ -1711,7 +1704,7 @@ int main()
 
 	sei();
 
-	LokalTextAusgabeP(PSTR("\r\nSTART\r\n" __DATE__ "/" __TIME__));
+	LokalTextAusgabeP(PSTR("\r\nSTART\r\nVersion" __DATE__ "/" __TIME__));
 
 	TMsTimer Timer;
 	StartTimer(&Timer);
@@ -1804,11 +1797,11 @@ int main()
 
 		if (HauptmenueAusgeben)
 			{
-			LokalAusgabeNichtBlockieren = false;
-
 			LokalTextAusgabeP(PSTR("\r\n"));
 
-			DatumAusgabe();
+			if (Tag > 0)
+				DatumAusgabe();
+
 #ifdef SPRACHE_EN				
 			LokalTextAusgabeP(PSTR("\r\nCtrl-A: dial/connect"));
 #else
@@ -1876,7 +1869,6 @@ int main()
 			set_SV_EIN(); // Benennung SV_EIN nur als "Verweis" auf Standard-Schnittstelle (TW39 / ED1000)
 			StartTimer(&NachlaufTimer);
 			
-			LokalAusgabeNichtBlockieren = false;
 			switch (c)
 				{
 				case CTRL('a'):
