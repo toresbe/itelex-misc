@@ -1,6 +1,7 @@
 make -C PlatVer13
 make -C PlatVer13-CodeSw
 make -C PlatVer13-Full
+make -C PlatVer13-SerDurch
 make -C PlatVer21
 make -C PlatVer21-CodeSw
 make -C PlatVer21-Full
