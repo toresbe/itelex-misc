@@ -1351,30 +1351,30 @@ static void Deaktivieren()
 	set_LEDBLAU();
 	Aktivieren(false);
 	
-#ifdef AF_DEAKT_SERIELL_EXTERN
+#ifdef AF_BEI_DEAKT_SERIELL_DURCHLEIT
 	UCSR0B = 0; // deactivated the UART
 	init_SYS_SER_OUT();
 	init_SYS_SER_IN();
 #else
-#endif //def AF_DEAKT_SERIELL_EXTERN
+#endif //def AF_BEI_DEAKT_SERIELL_DURCHLEIT
 
 	while (Tastendruck == NichtGedr)
 		{
 		TastePruefen();
-#ifdef AF_DEAKT_SERIELL_EXTERN
+#ifdef AF_BEI_DEAKT_SERIELL_DURCHLEIT
 		bset_SYS_SER_OUT(get_EXT_SER_IN());
-		bset_EXT_SER_OUT(set_SYS_SER_IN());
+		bset_EXT_SER_OUT(get_SYS_SER_IN());
 #else
 		DoSwTwi();
 		SeriellIO();
-#endif //def AF_DEAKT_SERIELL_EXTERN
+#endif //def AF_BEI_DEAKT_SERIELL_DURCHLEIT
 		}
 
 	Tastendruck = NichtGedr;
 
-#ifdef AF_DEAKT_SERIELL_EXTERN
+#ifdef AF_BEI_DEAKT_SERIELL_DURCHLEIT
 	SerIOInit();
-#endif //def AF_DEAKT_SERIELL_EXTERN
+#endif //def AF_BEI_DEAKT_SERIELL_DURCHLEIT
 
 	Aktivieren(true);
 	
@@ -1383,6 +1383,12 @@ static void Deaktivieren()
 	KommendSperren(SperreTaste);
 
 	} // Deaktivieren
+
+
+
+bool KonfigHwHandshake; 
+	//!< waehrend der Konfiguration wird der Hardware-Handshake ausgeschaltet.
+	//!< der tatsächliche Konfigurationswert wird derweil hier gespeichert.
 
 
 //! wird nach langem Tastendruck aufgerufen
@@ -1397,7 +1403,7 @@ static void Konfiguration()
 
 	Aktivieren(false);
 	
-	bool TempHwHandshake = SeriellHwHandshake;
+	KonfigHwHandshake = SeriellHwHandshake;
 	SeriellHwHandshake = false; // damit das Menü immer aufgerufen werden kann.
 	
 #ifdef TWI_DEBUG
@@ -1499,17 +1505,11 @@ static void Konfiguration()
 	LokalTextAusgabeP(PSTR("\r\n hardware handshake auf ser. sst. verwenden? aktuell: "));
 #endif
 
-	LokalBoolAusgabe(TempHwHandshake);
+	LokalBoolAusgabe(KonfigHwHandshake);
 	LokalTextAusgabeP(NeuStrP);
 
-	if (LokalBoolEingabe(&TempHwHandshake) == 0)
-		{
-		SeriellHwHandshake = TempHwHandshake;
+	if (LokalBoolEingabe(&KonfigHwHandshake) == 0)
 		return;
-		}
-
-	KonfigSchreibeBool(EEAdr_SeriellHwHandshake, TempHwHandshake);
-		// muss hier sein, da lokale Variable
 
 	LokalTextAusgabeP(OkStrP);
 	
@@ -1518,8 +1518,6 @@ static void Konfiguration()
 #else
 	LokalTextAusgabeP(PSTR("\r\n fertig+++   \r\n"));
 #endif	
-
-	SeriellHwHandshake = TempHwHandshake;
 
 	} // Konfiguration()
 
@@ -1530,11 +1528,15 @@ static void Konfiguration()
 
 static void KonfigurationEnde()
 	{
+	SeriellHwHandshake = KonfigHwHandshake;
+
 	KonfigSchreibeByte(EEAdr_BusEigenAdresse, BusEigenAdresse);
 
 	KonfigSchreibeBool(EEAdr_UmleitungAbweisen, UmleitungAbweisen);
 
 	KonfigSchreibeBool(EEAdr_MenueImmerAusgeben, MenueImmerAusgeben);
+
+	KonfigSchreibeBool(EEAdr_SeriellHwHandshake, SeriellHwHandshake);
 
 #ifdef AF_ZEITSPERRE
 	SperrzeitSpeicherEeprom(EEAdr_Sperrzeiten);
@@ -1545,10 +1547,8 @@ static void KonfigurationEnde()
 	KonfigSchreibeString(EEAdr_Kennwort, Kennwort, sizeof(Kennwort));
 
 #ifdef AF_LOKALE_UHR
-
 	if (!UhrzeitUeberBus)
 		KonfigSchreibeByte(EEAdr_Minute, Minute);
-
 #endif //def AF_LOKALE_UHR
 	
 	Aktivieren(true);
@@ -1704,7 +1704,7 @@ int main()
 
 	sei();
 
-	LokalTextAusgabeP(PSTR("\r\nSTART\r\nVersion" __DATE__ "/" __TIME__));
+	LokalTextAusgabeP(PSTR("\r\nSTART\r\nVersion " __DATE__ "/" __TIME__));
 
 	TMsTimer Timer;
 	StartTimer(&Timer);
