@@ -78,6 +78,8 @@ enum { LokalbetriebWahl_Std = 88 };
 enum { KommendSperreWahl_Std = 0 };
 enum { AutoWahlMaxZiffern = 10 }; // bei Änderung ist das EEPROM-Layout kompromittiert.
 enum { AnrufAbbruchZeit_Std = 7 }; // sekunden
+enum { StartQuittVerzoegerung_Std = 5 }; // x/10 sekunden
+enum { StartQuittVerzoegerung_Min = 2 }; // x/10 sekunden
 
 
 // Eeprom-Speicher-Adressen
@@ -94,7 +96,8 @@ enum {
     EEAdr_LokalbetriebWahl = 26,
     EEAdr_AutoWahlZiffern = 27,
 	EEAdr_AnrufAbbruchZeit = 37,
-	EEAdr_Ende = 38 // darf erhöht werden	
+	EEAdr_StartQuittVerz = 38,
+	EEAdr_Ende = 39 // Platz für neue Werte, darf erhöht werden	
 };
 
 
@@ -112,6 +115,9 @@ uint8_t WahlauffordImpulsLaenge; //!< Länge des Wahlaufforderungsimpuls in 1/100
 
 uint8_t AnrufAbbruchZeit; //!< Maximale Zeit zwichen Aktivierung Anrufsignal und Ende des Hochlaufs des Fernschreibers
 
+uint8_t StartQuittVerzoegerung; 
+	//!< zusätzliche Zeit nach Empfang der Betriebsbereitschaft des 
+	//!< Fernschreibers bis zur Meldung "Betriebsbereit" an den Verbindungspartner.
 
 bool BefehlEinschalten; //!< Fs soll laufen
 bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
@@ -228,7 +234,7 @@ TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-B
 //-------------------------------
 //! \returns Einschaltung wurde erfolgreich durch Endgerät quittiert.
 
-static bool TW39Einschalten()
+static bool TW39Einschalten(bool WarteQuittVerz)
 	{
 	TMsTimer StabilTimer;
 	TMsTimer AbbruchTimer;
@@ -239,6 +245,9 @@ static bool TW39Einschalten()
 	set_SV_EIN(); // externen Schalter der Energieversorgung des Fernschreibers einschalten
 	StartTimer(&NachlaufTimer);
 	
+	if (BefehlEinschalten) // ist schon an, dann nicht verzögern
+		WarteQuittVerz = false;
+		
 	do
 		{
 		BefehlEinschalten = true;
@@ -255,6 +264,14 @@ static bool TW39Einschalten()
 			return false;
 			}
 		} while (TimerVal(&StabilTimer) < 300);
+		
+	if (WarteQuittVerz)
+		{
+		StartTimer(&StabilTimer);
+		while (TimerVal(&StabilTimer) < StartQuittVerzoegerung * 100) // StartQuittVerzoegerung ist in 1/10 sekunden
+			TW39IO();
+		}
+		
 	return true;
 	}
 		
@@ -268,7 +285,7 @@ static void TW39Ausschalten()
 	TMsTimer Timer;
 	
 	if (MeldungEingeschaltet && !BefehlEinschalten)
-		TW39Einschalten(); // Rückgabewert ignorieren
+		TW39Einschalten(false); // Rückgabewert ignorieren
 
 	StartTimer(&Timer);
 	do
@@ -449,7 +466,7 @@ static void VerbindungKommend()
 	set_LEDGRUEN();
 	set_LEDROT();
 	
-	if (!TW39Einschalten())
+	if (!TW39Einschalten(true))
 		{ // Timeout...
 		clr_LEDGRUEN();
 		GeAusschalten(true);
@@ -486,12 +503,7 @@ static void LokalbetriebSimulieren()
 	
 	if (!BefehlEinschalten) // offensichtlich Wählscheiben-Wahl
 		{
-		TW39Einschalten();
-
-		TMsTimer AnlaufTimer;
-		StartTimer(&AnlaufTimer);
-		while (TimerVal(&AnlaufTimer) < 500) 
-			TW39IO();
+		TW39Einschalten(true);
 		}
 	
 	LokalTextAusgabeP(PSTR("\r\nloc\r\n"));
@@ -619,7 +631,7 @@ static bool WahlMitTastatur()
 	bool EsWurdeGewaehlt;
 	int Falschziffern;
 	
-	if (!TW39Einschalten())
+	if (!TW39Einschalten(false))
 		return false;
 
 	SeriellUmsetzInit();
@@ -725,7 +737,7 @@ static void VerbindungGehend()
 				{
 				if (WahlMitWaehlscheibe())
 					{
-					TW39Einschalten();
+					TW39Einschalten(false); // TODO: hier auch eine Verzögerung einbauen, bedingt aber eine Änderung des TWI-Protokolls.
 					break; // ist jetzt Verbunden
 					}
 				}
@@ -880,7 +892,7 @@ static void DemoBetrieb()
 	SeriellUmsetzInit();
 	Aktivieren(false);
 	
-	if (!TW39Einschalten())
+	if (!TW39Einschalten(true))
 		return;
 	
 	set_LEDBLAU();
@@ -923,7 +935,7 @@ static void Konfiguration()
 	Aktivieren(false);
 	set_LEDROT();
 	
-	if (!TW39Einschalten())
+	if (!TW39Einschalten(true))
 		return;
 	
 	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
@@ -997,6 +1009,7 @@ static void Konfiguration()
 		KommendSperreWahl = KommendSperreWahl_Std;
 		LokalbetriebWahl = LokalbetriebWahl_Std;
 		AnrufAbbruchZeit = AnrufAbbruchZeit_Std;
+		StartQuittVerzoegerung = StartQuittVerzoegerung_Std;
 		SperrzeitInit();
 		TasteFunktion = 0;
 		AutoWahlZiffern[0] = 255; // Ende-Kennzeichen
@@ -1160,6 +1173,31 @@ static void Konfiguration()
 
 	LokalTextAusgabeP(OkStrP);
 		
+	// Verzögerung der Rückmeldung des Starts des Fernschreibers
+	// ---------------------------------------------------------
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n delay confirmation of startup in /10 seconds (3-200, cur. "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n verzoegerung rueckmeldung fs-anlauf in /10 sekunden (3-200, akt. "));
+#endif //def SPRACHE_EN
+
+	LokalZahlAusgabe(StartQuittVerzoegerung, 0);
+
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(") new:     "));
+#else
+	LokalTextAusgabeP(PSTR(") neu:     "));
+#endif //def SPRACHE_EN
+
+	if (LokalZahlEingabe(&StartQuittVerzoegerung, 0) < 0)
+		return;
+	if (StartQuittVerzoegerung < StartQuittVerzoegerung_Min)
+		StartQuittVerzoegerung = StartQuittVerzoegerung_Min;
+	else if (StartQuittVerzoegerung > 200)
+		StartQuittVerzoegerung = 200;
+
+	LokalTextAusgabeP(OkStrP);
+		
 	// Modus für Tastendruck
 	// ---------------------
 #ifdef SPRACHE_EN
@@ -1214,6 +1252,8 @@ static void KonfigurationEnde()
 
 	KonfigSchreibeByte(EEAdr_AnrufAbbruchZeit, AnrufAbbruchZeit);
 
+	KonfigSchreibeByte(EEAdr_StartQuittVerz, StartQuittVerzoegerung);
+	
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
 		KonfigSchreibeByte(EEAdr_AutoWahlZiffern + i, AutoWahlZiffern[i]);
@@ -1236,7 +1276,7 @@ static void FehlermeldungDrucken()
 	Aktivieren(false);
 	set_LEDROT();
 	
-	if (!TW39Einschalten())
+	if (!TW39Einschalten(true))
 		return;
 	
 	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
@@ -1397,7 +1437,8 @@ int main()
 	WahlauffordImpulsLaenge = KonfigLeseByteBegrenzt(EEAdr_WahlauffordImpulsLaenge, 20, 1, 100);
 
 	LokalbetriebWahl = KonfigLeseByteBegrenzt(EEAdr_LokalbetriebWahl, LokalbetriebWahl_Std, 0, 99);
-
+	
+	StartQuittVerzoegerung = KonfigLeseByteBegrenzt(EEAdr_StartQuittVerz, StartQuittVerzoegerung_Std, StartQuittVerzoegerung_Min, 200);
 
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
