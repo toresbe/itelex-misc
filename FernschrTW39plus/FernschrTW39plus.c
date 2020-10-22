@@ -1176,9 +1176,9 @@ static void Konfiguration()
 	// Verzögerung der Rückmeldung des Starts des Fernschreibers
 	// ---------------------------------------------------------
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n delay confirmation of startup in /10 seconds (3-200, cur. "));
+	LokalTextAusgabeP(PSTR("\r\n delay confirmation of startup in /10 seconds\r\n (3-200, cur. "));
 #else
-	LokalTextAusgabeP(PSTR("\r\n verzoegerung rueckmeldung fs-anlauf in /10 sekunden (3-200, akt. "));
+	LokalTextAusgabeP(PSTR("\r\n verzoegerung rueckmeldung fs-anlauf in /10 sekunden\r\n (3-200, akt. "));
 #endif //def SPRACHE_EN
 
 	LokalZahlAusgabe(StartQuittVerzoegerung, 0);

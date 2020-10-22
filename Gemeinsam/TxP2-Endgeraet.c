@@ -838,7 +838,7 @@ static void BusKomm()
 				break;
 
 			case BusKdoEin:
-				if (FsBetriebsart == Reserviert)
+				if (FsBetriebsart == Reserviert || FsBetriebsart == Wahl)
 					{ 
 					AblaufMark(0xFF); 
 					#ifdef TESTFUNKTIONEN
