@@ -27,7 +27,7 @@
 typedef enum { Ausgeschaltet,   //!< Grundstellung = Ausgeschaltet
 			   Reserviert,      //!< von Gegenstelle aktiviert aber noch nicht eingeschaltet.
 			   Wahl, 			//!< es darf gewählt werden. Interne und Externe Wahl wird hier nicht unterschieden.
-			   EinschaltungKo,  //!< von Gegenstelle eingeschaltet.
+			   EinschaltungKo,  //!< Gegenstelle eingeschaltet.
                Eingeschaltet,   //!< ist eingeschaltet, Verbindung steht. (keine Unterscheidung ob kommend oder gehend).
 			   AusschaltungKo,  //!< Gegenstelle hat Verbindungsabbau eingeleitet.
 			   AusschaltungGe,  //!< An Gegenstelle wurde Wunsch zum Verbindungsabbau gesendet, noch keine Bestätigung erhalten.
@@ -426,6 +426,9 @@ TGeEinschResultat GeEinschalten()
 		return GeEinschAnrufquitt;
 		}
 
+	if (FsBetriebsart == Eingeschaltet)
+		return GeEinschAnrufquitt;
+		
 	if (BusEigenAdresse == BusAdrUngueltig)
 		return GeEinschFehler;
 

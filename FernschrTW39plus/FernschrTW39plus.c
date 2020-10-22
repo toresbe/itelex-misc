@@ -737,7 +737,7 @@ static void VerbindungGehend()
 				{
 				if (WahlMitWaehlscheibe())
 					{
-					TW39Einschalten(false); // TODO: hier auch eine Verzögerung einbauen, bedingt aber eine Änderung des TWI-Protokolls.
+					TW39Einschalten(true);
 					break; // ist jetzt Verbunden
 					}
 				}
@@ -787,8 +787,14 @@ static void VerbindungGehend()
 			return;
 		}
 
-	VerbindungSteht(!MitWaehlscheibe); // wenn keine Wählscheibe, dann automatische Kennungsgeber-Abfrage
-
+	if (GeEinschalten() == GeEinschAnrufquitt)  // endgültige Einschaltung bestätigen
+		VerbindungSteht(!MitWaehlscheibe); // wenn keine Wählscheibe, dann automatische Kennungsgeber-Abfrage
+	else
+		{ // Fehler
+		GeAusschalten(true);
+		TW39Ausschalten();
+		}
+		
 	SperrzeitAussetzen();
 	
 	} // VerbindungGehend()
