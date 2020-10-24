@@ -36,7 +36,6 @@
 	//!< Für Platine TW39doppel: Sendung und Empfang wird auf der zweiten 
 	//!< Schnittstelle mitprotokolliert. Dann darf der Kontroller der 
 	//!< zweiten Schnittstelle nicht bestückt sein.
-	// 
 
 //#define FALSCHKDO_FEHLERSTOP
 	//!< Unpassende Kommandos auf dem I²C-Bus werden mit Fehlerstop quittiert.
@@ -425,7 +424,7 @@ static void VerbindungKommend()
 
 	clr_LEDROT();
 	
-	if (GeEinschalten() != GeEinschAnrufquitt)
+	if (!GeEinschaltQuittung())
 		{
 		GeAusschalten(true);
 		TW39Ausschalten();
@@ -615,60 +614,51 @@ static void VerbindungGehend()
 		
 	set_LEDGELB();
 	
-	switch (GeEinschalten())
-		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
-		case GeEinschFehler:
-			clr_LEDGELB();
-			
-			return; 
-
-		case GeEinschWahl:
-			if (MitWaehlscheibe)
-				{
-				if (WahlMitWaehlscheibe())
-					{
-					TW39Einschalten();
-					break; // ist jetzt Verbunden
-					}
-				}
-			else // ohne Waehlscheibe
-				{
-				if (WahlMitTastatur())
-					// Einschalten ist nicht erforderlich, da schon eingeschaltet ist...
-					break; // ist jetzt verbunden
-				}
-			GeAusschalten(true);
-			TW39Ausschalten();
-			
-			if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
-				{
-				clr_LEDGELB();
-				KommendSperren();
-				}
-				
-			return;
-
-/*
-		case GeEinschSofortEin:
-			TW39Einschalten();
-			break; // ist jetzt Verbunden
-
-		case GeEinschFremdKonfig:
-			TW39Einschalten();
-// passt nicht mehr...			LeitungsSstKonfigurationsDialog();
-			TW39Ausschalten();
-			GeAusschalten();
-			return; // keine normale Verbindung
-*/
-
-		default:
-			FehlerStop(15); // TODO
-			return;
+	if (!GeAnrufBeginn())
+		{
+		clr_LEDGELB();
+		return; 
 		}
 
-	VerbindungSteht(!MitWaehlscheibe); // wenn keine Wählscheibe, dann automatische Kennungsgeber-Abfrage
+	bool Verbunden = false;
+	
+	if (MitWaehlscheibe)
+		{
+		Verbunden = WahlMitWaehlscheibe();
+		if (Verbunden)
+			TW39Einschalten(true);
+		}
+	else // ohne Waehlscheibe
+		{
+		Verbunden = WahlMitTastatur();
+		}
 
-	}
+	if (!Verbunden)
+		{
+		GeAusschalten(true);
+		
+		if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
+			{
+			clr_LEDGELB();
+			TW39Ausschalten();
+			KommendSperren();
+			}
+			
+		else
+			TW39Ausschalten();
+		}
+	else // Verbunden = true
+		{ 
+		if (GeEinschaltQuittung())  // endgültige Einschaltung bestätigen
+			VerbindungSteht(!MitWaehlscheibe); // wenn keine Wählscheibe, dann automatische Kennungsgeber-Abfrage
+		else
+			{ // Fehler
+			GeAusschalten(true);
+			TW39Ausschalten();
+			}
+		}
+		
+	} // VerbindungGehend()
 
 
 /////////////////////////////////////////////////////////////
@@ -692,7 +682,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 	SendeUmsetzModus = UmsetzFern;
 	EmpfUmsetzModus = UmsetzFern; 
-	
+
 	while (true)
 		{
 		TW39IO();
@@ -1045,35 +1035,8 @@ __attribute__ ((noreturn)) int main()
 	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
 
-/*/ Selbsttest
-
-	BefehlEinschalten = false;
-	MeldungEingeschaltet = false;
-	BefehlMark = false;
-	MeldungMark = false;
-
-	while (1)
-		{
-		BefehlMark = BIT_IS_SET(TAST_IPORT, TAST_BIT);
-			// Gedrückt = LOW
-
-		TW39IO();
-
-		if (BefehlEinschalten) 		LED_EIN(ROT); 	else LED_AUS(ROT);
-		if (MeldungEingeschaltet) 	LED_EIN(GELB); 	else LED_AUS(GELB);
-		if (BefehlMark) 			LED_EIN(GRUEN); else LED_AUS(GRUEN);
-		if (MeldungMark)			LED_EIN(BLAU); 	else LED_AUS(BLAU);
-
-		BefehlEinschalten = MeldungEingeschaltet;
-
-		}
-
-// Selbsttest Ende */
 
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
-
-	BefehlEinschalten = false;
-	BefehlMark = true;
 
 	while (true)
 		{
@@ -1094,16 +1057,16 @@ __attribute__ ((noreturn)) int main()
 
 		if (Tastendruck == Lang)
 			{
-			Tastendruck = NichtGedr;
 			Konfiguration();
 			KonfigurationEnde();
 			}
 
 		if (Tastendruck == Kurz)
 			{
-			Tastendruck = NichtGedr;
 			Deaktivieren();
 			}
+
+		Tastendruck = NichtGedr;
 
 		if (MeldungEingeschaltet)
 			{

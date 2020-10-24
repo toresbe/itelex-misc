@@ -477,7 +477,7 @@ static void VerbindungKommend()
 
 	clr_LEDROT();
 	
-	if (GeEinschalten() != GeEinschAnrufquitt)
+	if (!GeEinschaltQuittung())
 		{
 		GeAusschalten(true);
 		TW39Ausschalten();
@@ -725,74 +725,55 @@ static void VerbindungGehend()
 	
 	set_LEDGELB();
 	
-	switch (GeEinschalten())
-		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
-		case GeEinschFehler:
-			clr_LEDGELB();
-			
-			return; 
-
-		case GeEinschWahl:
-			if (MitWaehlscheibe)
-				{
-				if (WahlMitWaehlscheibe())
-					{
-					TW39Einschalten(true);
-					break; // ist jetzt Verbunden
-					}
-				}
-			else // ohne Waehlscheibe
-				{
-				if (WahlMitTastatur())
-					// Einschalten ist nicht erforderlich, da schon eingeschaltet ist...
-					break; // ist jetzt verbunden
-				}
-				
-			GeAusschalten(true);
-			
-			if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
-				{
-				clr_LEDGELB();
-				TW39Ausschalten();
-				KommendSperren(SperreWahl);
-				}
-				
-			else if ((LokalbetriebWahl != 0 && LetzteInterneWahl() == LokalbetriebWahl)
-				|| LetzteInterneWahl() == (BusEigenAdresse >> 1))
-				{
-				LokalbetriebSimulieren();
-					// macht auch am Ende TW39Ausschalten()
-				}
-				
-			else
-				TW39Ausschalten();
-				
-			return;
-
-/*
-		case GeEinschSofortEin:
-			TW39Einschalten();
-			break; // ist jetzt Verbunden
-
-		case GeEinschFremdKonfig:
-			TW39Einschalten();
-// passt nicht mehr...			LeitungsSstKonfigurationsDialog();
-			TW39Ausschalten();
-			GeAusschalten();
-			return; // keine normale Verbindung
-*/
-
-		default:
-			FehlerStop(15); // TODO
-			return;
+	if (!GeAnrufBeginn())
+		{
+		clr_LEDGELB();
+		return; 
 		}
 
-	if (GeEinschalten() == GeEinschAnrufquitt)  // endgültige Einschaltung bestätigen
-		VerbindungSteht(!MitWaehlscheibe); // wenn keine Wählscheibe, dann automatische Kennungsgeber-Abfrage
-	else
-		{ // Fehler
+	bool Verbunden = false;
+	
+	if (MitWaehlscheibe)
+		{
+		Verbunden = WahlMitWaehlscheibe();
+		if (Verbunden)
+			TW39Einschalten(true);
+		}
+	else // ohne Waehlscheibe
+		{
+		Verbunden = WahlMitTastatur();
+		}
+
+	if (!Verbunden)
+		{
 		GeAusschalten(true);
-		TW39Ausschalten();
+		
+		if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
+			{
+			clr_LEDGELB();
+			TW39Ausschalten();
+			KommendSperren(SperreWahl);
+			}
+			
+		else if ((LokalbetriebWahl != 0 && LetzteInterneWahl() == LokalbetriebWahl)
+			|| LetzteInterneWahl() == (BusEigenAdresse >> 1))
+			{
+			LokalbetriebSimulieren();
+				// macht auch am Ende TW39Ausschalten()
+			}
+			
+		else
+			TW39Ausschalten();
+		}
+	else // Verbunden = true
+		{ 
+		if (GeEinschaltQuittung())  // endgültige Einschaltung bestätigen
+			VerbindungSteht(!MitWaehlscheibe); // wenn keine Wählscheibe, dann automatische Kennungsgeber-Abfrage
+		else
+			{ // Fehler
+			GeAusschalten(true);
+			TW39Ausschalten();
+			}
 		}
 		
 	SperrzeitAussetzen();

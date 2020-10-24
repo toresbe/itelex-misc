@@ -59,14 +59,14 @@ extern void FehlerStop(int Nummer);
 extern void KommInit();
 
 extern bool KoEinschalten(); 
+extern bool GeEinschaltQuittung();
 
 extern uint8_t KoAnwahlnummer();
 	// im Regelfall 0. Kann bei Mehrfach-Endgerät 0 bis BusEigenAdrMehrfach-1 sein
 
-typedef enum { GeEinschFehler, GeEinschWahl, GeEinschAnrufquitt } TGeEinschResultat;
-	   
-extern TGeEinschResultat GeEinschalten(); 
+// extern TGeEinschResultat GeEinschalten(); -> ersetzt durch GeAnrufBeginn() und GeEinschaltQuittung()
 
+extern bool GeAnrufBeginn();
 extern void GeWaehlen(uint8_t Ziffer);
 extern bool KoEmpfMark(); // true bei Mark
 extern void GeSendeMark(bool Mark);

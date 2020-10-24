@@ -402,35 +402,16 @@ static void TestVerzoegerungAbwarten()
 	
 #endif //def TESTFUNKTIONEN
 
+
 	
-//! Bestätigung der Einschaltung des eigenen Gerätes
-//--------------------------------------------------
-//! Funktion ist in zwei Situationen aufzurufen: 
-//! 1. Als Bestätigung der eigenen Einschaltung bei einem kommenden Anruf 
-//! (Aktuelle Betriebsart ist #EinschaltungKo). 
-//! 2. Als Wunsch des Verbindungsaufbaus vom eigenen Gerät.
-//! \retval GeEinschAnrufquitt Verbindung ist fertig aufgebaut (Situation 1)
-//! \retval GeEinschWahl Es darf nun gewählt werden (Situation 2)
-//! \retval GeEinschFehler Es ist ein Fehler aufgetreten.
+//! Einleitung eines gehenden Anrufs durch Einschaltung des Endgeräts
+//-------------------------------------------------------------------
+//! Als Wunsch des Verbindungsaufbaus vom eigenen Gerät.
 
-TGeEinschResultat GeEinschalten()
+bool GeAnrufBeginn()
 	{
-	if (FsBetriebsart == EinschaltungKo)
-		{
-		BusKommSperre = true;
-		BusSenden(BusQuittEin);
-		BusWarteFertig();
-		BusSenden(BusLebenszeichen); // wartet, dass BusQuittEin auch angekommen ist...
-		BetriebsartWechsel(Eingeschaltet);
-		BusKommSperre = false;
-		return GeEinschAnrufquitt;
-		}
-
-	if (FsBetriebsart == Eingeschaltet)
-		return GeEinschAnrufquitt;
-		
 	if (BusEigenAdresse == BusAdrUngueltig)
-		return GeEinschFehler;
+		return false;
 
 	if (FsBetriebsart != Ausgeschaltet)
 		FehlerStop(8);
@@ -448,7 +429,29 @@ TGeEinschResultat GeEinschalten()
 	
 	BetriebsartWechsel(Wahl);
 	BusKommSperre = false;
-	return GeEinschWahl;
+	return true;
+	}
+
+	
+//! Bestätigung der Einschaltung des eigenen Gerätes
+//--------------------------------------------------
+//! Als Bestätigung der eigenen Einschaltung bei einem kommenden Anruf 
+//! (Aktuelle Betriebsart ist #EinschaltungKo). 
+
+bool GeEinschaltQuittung()
+	{
+	if (FsBetriebsart == EinschaltungKo)
+		{
+		BusKommSperre = true;
+		BusSenden(BusQuittEin);
+		BusWarteFertig();
+		BusSenden(BusLebenszeichen); // wartet, dass BusQuittEin auch angekommen ist...
+		BetriebsartWechsel(Eingeschaltet);
+		BusKommSperre = false;
+		return true;
+		}
+
+	return FsBetriebsart == Eingeschaltet;
 	}
 
 
