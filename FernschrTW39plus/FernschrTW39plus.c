@@ -106,8 +106,8 @@ enum {
 
 typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrund;
 
-// Variablen
-// ---------
+// Allgemeine Variablen
+// ====================
 
 bool MitWaehlscheibe; //!< Gerät het eine Wählscheibe
 
@@ -129,7 +129,27 @@ TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port
 TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalter
 
 
-///////////////////////////////////////////////////////////////////////////////
+
+uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
+
+uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
+
+uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
+	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
+
+typedef enum { Deaktivierung, DemoBetriebStarten, ExtStromEinschalten } TTasteFunktion;
+
+TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb, 2 = Ausgang zum externen Schalter aktivieren
+
+// Schnittstellen-Spezifische Variablen
+// ====================================
+
+// keine
+
+// Schnittstellen-Spezifische Funktionen
+// =====================================
+
+
 
 //! bedient Hardware-IO entsprechend der aktuellen Zustände.
 
@@ -139,7 +159,7 @@ TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalte
  * steuert die Status-LEDs
  */ 
 
-static void TW39IO()
+static void FernschrIO()
 	{
 	// Pegel & Polung ausgeben
 	// -----------------------
@@ -214,27 +234,20 @@ static void TW39IO()
 	else // !BIT_IS_SET(Status, StatBit_AngerufenBelegt))
 		bset_LEDGRUEN(!MeldungMark);
 
-	} // TW39IO
+	} // FernschrIO
 	
 	
-uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
-
-uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
-
-uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
-	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
-
-typedef enum { Deaktivierung, DemoBetriebStarten, ExtStromEinschalten } TTasteFunktion;
-
-TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb, 2 = Ausgang zum externen Schalter aktivieren
-
 //////////////////////////////////////////////////////////////////
+
+// Allgemeine Funktionen
+// =====================
+	
 
 //! Einschaltung des Fs auslösen.
 //-------------------------------
 //! \returns Einschaltung wurde erfolgreich durch Endgerät quittiert.
 
-static bool TW39Einschalten(bool WarteQuittVerz)
+static bool FernschrEinschalten(bool WarteQuittVerz)
 	{
 	TMsTimer StabilTimer;
 	TMsTimer AbbruchTimer;
@@ -252,14 +265,14 @@ static bool TW39Einschalten(bool WarteQuittVerz)
 		{
 		BefehlEinschalten = true;
 		BefehlMark = true;
-		TW39IO();
+		FernschrIO();
 		if (!MeldungEingeschaltet)
 			StartTimer(&StabilTimer);
 		if (TimerVal(&AbbruchTimer) > AnrufAbbruchZeit * 1000)
 			{
 			BefehlEinschalten = false;
 			BefehlMark = true;
-			TW39IO();
+			FernschrIO();
 			StartTimer(&NachlaufTimer);
 			return false;
 			}
@@ -269,7 +282,7 @@ static bool TW39Einschalten(bool WarteQuittVerz)
 		{
 		StartTimer(&StabilTimer);
 		while (TimerVal(&StabilTimer) < StartQuittVerzoegerung * 100) // StartQuittVerzoegerung ist in 1/10 sekunden
-			TW39IO();
+			FernschrIO();
 		}
 		
 	return true;
@@ -280,19 +293,19 @@ static bool TW39Einschalten(bool WarteQuittVerz)
 
 //! Ausschaltung des Fs auslösen.
 
-static void TW39Ausschalten()
+static void FernschrAusschalten()
 	{
 	TMsTimer Timer;
 	
 	if (MeldungEingeschaltet && !BefehlEinschalten)
-		TW39Einschalten(false); // Rückgabewert ignorieren
+		FernschrEinschalten(false); // Rückgabewert ignorieren
 
 	StartTimer(&Timer);
 	do
 		{
 		BefehlEinschalten = false;
 		BefehlMark = true;
-		TW39IO();
+		FernschrIO();
 		if (MeldungEingeschaltet)
 			StartTimer(&Timer);
 		}
@@ -323,7 +336,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 
 	BefehlEinschalten = false;
 	BefehlMark = true;
-	TW39IO();
+	FernschrIO(); // damit der Fernschreiber abgeschaltet wird.
 	clr_SV_EIN();
 	
 	uint8_t TasteZ = 0;
@@ -391,7 +404,7 @@ char LokalZeichenLesen()
 	EmpfUmsetzModus = UmsetzLokal; // sicherheitshalber
 	while (true)
 		{
-		TW39IO();
+		FernschrIO();
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
 			{
@@ -421,7 +434,7 @@ static void LokalCodeAusgabe(uint8_t code)
 	while (SerUmSendBitNr != SerUmSendWarte)
 		{
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
-		TW39IO();
+		FernschrIO();
 		}
 	}
 
@@ -461,12 +474,12 @@ static void KommendSperren(TSperreGrund Grund);
 
 static void VerbindungKommend()
 	{
-	TW39IO();
+	FernschrIO();
 
 	set_LEDGRUEN();
 	set_LEDROT();
 	
-	if (!TW39Einschalten(true))
+	if (!FernschrEinschalten(true))
 		{ // Timeout...
 		clr_LEDGRUEN();
 		GeAusschalten(true);
@@ -480,7 +493,7 @@ static void VerbindungKommend()
 	if (!GeEinschaltQuittung())
 		{
 		GeAusschalten(true);
-		TW39Ausschalten();
+		FernschrAusschalten();
 		}
 	else
 		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
@@ -503,17 +516,17 @@ static void LokalbetriebSimulieren()
 	
 	if (!BefehlEinschalten) // offensichtlich Wählscheiben-Wahl
 		{
-		TW39Einschalten(true);
+		FernschrEinschalten(true);
 		}
 	
 	LokalTextAusgabeP(PSTR("\r\nloc\r\n"));
 
 	while(MeldungEingeschaltet)
 		{
-		TW39IO();
+		FernschrIO();
 		}
 
-	TW39Ausschalten();
+	FernschrAusschalten();
 
 	Aktivieren(true);
 	clr_LEDROT();
@@ -532,12 +545,12 @@ static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	Aktivieren(false);
 	
 	if (Abschaltimpuls)
-		TW39Ausschalten();
+		FernschrAusschalten();
 	else
 		StartTimer(&NachlaufTimer);
 	
 	while (MeldungEingeschaltet)
-		TW39IO();
+		FernschrIO();
 	
 	clr_LEDROT();
 	Aktivieren(true);
@@ -560,13 +573,13 @@ static bool WahlMitWaehlscheibe()
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
 	while (TimerVal(&WahlendeTimer) < 700)
-		TW39IO();
+		FernschrIO();
 
 	BefehlMark = false;
 	
 	StartTimer(&WahlendeTimer);
 	while (TimerVal(&WahlendeTimer) < 10 * WahlauffordImpulsLaenge) 
-		TW39IO();
+		FernschrIO();
 		
 	BefehlMark = true;
 
@@ -582,12 +595,12 @@ static bool WahlMitWaehlscheibe()
 	StartTimer(&WahlendeTimer); // der Timer prüft auch, ob überhaupt gewählt wird...
 	while (true)
 		{
-		TW39IO();
+		FernschrIO();
 		if (!MeldungMark)
 			{ // Pause durch Wählscheibe
 			Wahlziffer++;
 			do
-				TW39IO();
+				FernschrIO();
 			while (!MeldungMark && MeldungEingeschaltet);
 			StartTimer(&WahlendeTimer);
 			}
@@ -631,7 +644,7 @@ static bool WahlMitTastatur()
 	bool EsWurdeGewaehlt;
 	int Falschziffern;
 	
-	if (!TW39Einschalten(false))
+	if (!FernschrEinschalten(false))
 		return false;
 
 	SeriellUmsetzInit();
@@ -654,7 +667,7 @@ static bool WahlMitTastatur()
 
 	while (true)
 		{
-		TW39IO();
+		FernschrIO();
 		
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 
@@ -699,7 +712,7 @@ static bool WahlMitTastatur()
 
 		if (!MeldungEingeschaltet || KoAusschalten())
 			{
-			// TW39Ausschalten() macht die aufrufende Routine
+			// FernschrAusschalten() macht die aufrufende Routine
 			return false;
 			}
 			
@@ -717,7 +730,7 @@ static void VerbindungGehend()
 	{
 	if (BusEigenAdresse == BusAdrUngueltig)
 		{
-		TW39Ausschalten();
+		FernschrAusschalten();
 		return;
 		}
 
@@ -737,7 +750,7 @@ static void VerbindungGehend()
 		{
 		Verbunden = WahlMitWaehlscheibe();
 		if (Verbunden)
-			TW39Einschalten(true);
+			FernschrEinschalten(true);
 		}
 	else // ohne Waehlscheibe
 		{
@@ -751,7 +764,7 @@ static void VerbindungGehend()
 		if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
 			{
 			clr_LEDGELB();
-			TW39Ausschalten();
+			FernschrAusschalten();
 			KommendSperren(SperreWahl);
 			}
 			
@@ -759,11 +772,11 @@ static void VerbindungGehend()
 			|| LetzteInterneWahl() == (BusEigenAdresse >> 1))
 			{
 			LokalbetriebSimulieren();
-				// macht auch am Ende TW39Ausschalten()
+				// macht auch am Ende FernschrAusschalten()
 			}
 			
 		else
-			TW39Ausschalten();
+			FernschrAusschalten();
 		}
 	else // Verbunden = true
 		{ 
@@ -772,7 +785,7 @@ static void VerbindungGehend()
 		else
 			{ // Fehler
 			GeAusschalten(true);
-			TW39Ausschalten();
+			FernschrAusschalten();
 			}
 		}
 		
@@ -805,21 +818,21 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 	while (true)
 		{
-		TW39IO();
+		FernschrIO();
 		TastePruefen();
 
 		if (!MeldungEingeschaltet)
 			{
 			GeAusschalten(false);
-			TW39Ausschalten();
+			FernschrAusschalten();
 			while (!KoAusschalten())
-				TW39IO();
+				FernschrIO();
 			return;
 			}
 
 		if (KoAusschalten())
 			{
-			TW39Ausschalten();
+			FernschrAusschalten();
 			GeAusschalten(false); // da braucht auf nichts mehr gewartet zu werden
 			return;
 			}
@@ -879,7 +892,7 @@ static void DemoBetrieb()
 	SeriellUmsetzInit();
 	Aktivieren(false);
 	
-	if (!TW39Einschalten(true))
+	if (!FernschrEinschalten(true))
 		return;
 	
 	set_LEDBLAU();
@@ -889,7 +902,7 @@ static void DemoBetrieb()
 	while (pgm_read_byte(p) != '\0')
 		{
 		LokalZeichenAusgabe(pgm_read_byte(p));	
-			// macht intern TW39IO also auch Schlusstaste-Erkennung
+			// macht intern FernschrIO also auch Schlusstaste-Erkennung
 		p++;
 		TastePruefen();
 		if (Tastendruck != NichtGedr)
@@ -899,7 +912,7 @@ static void DemoBetrieb()
 		}
 
 	Tastendruck = NichtGedr;
-	TW39Ausschalten();
+	FernschrAusschalten();
 	Aktivieren(true);
 	clr_LEDBLAU();
 	
@@ -922,7 +935,7 @@ static void Konfiguration()
 	Aktivieren(false);
 	set_LEDROT();
 	
-	if (!TW39Einschalten(true))
+	if (!FernschrEinschalten(true))
 		return;
 	
 	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
@@ -1221,7 +1234,7 @@ static void Konfiguration()
 
 static void KonfigurationEnde()
 	{
-	TW39Ausschalten();
+	FernschrAusschalten();
 	
 	KonfigSchreibeByte(EEAdr_BusEigenAdresse, BusEigenAdresse);
 	
@@ -1263,14 +1276,14 @@ static void FehlermeldungDrucken()
 	Aktivieren(false);
 	set_LEDROT();
 	
-	if (!TW39Einschalten(true))
+	if (!FernschrEinschalten(true))
 		return;
 	
 	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
 	
 	KonfigSpeicherFehlerAusgeben();
 	
-	TW39Ausschalten();
+	FernschrAusschalten();
 
 	Aktivieren(true);
 
@@ -1311,7 +1324,7 @@ static void KommendSperren(TSperreGrund Grund)
 			break;
 			}
 			
-		TW39IO();
+		FernschrIO();
 		if (MeldungEingeschaltet)
 			break;
 			
@@ -1440,12 +1453,12 @@ int main()
 
 	KommInit();
 
-	TW39IO();
 	
 	TMsTimer Timer;
 	StartTimer(&Timer);
 
 	sei();
+	FernschrIO();
 	
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 250)
@@ -1512,7 +1525,7 @@ int main()
 				BefehlMark = true;
 				StartTimer(&Timer);
 				}
-			TW39IO();
+			FernschrIO();
 
 			bset_LEDROT(BefehlEinschalten);
 			bset_LEDGELB(MeldungEingeschaltet);
@@ -1550,7 +1563,7 @@ int main()
 		clr_LEDBLAU();
 
 		TastePruefen();
-		TW39IO();
+		FernschrIO();
 
 		if (Tastendruck == Lang)
 			{
@@ -1570,7 +1583,7 @@ int main()
 			MsgLen = LokalUhrBaudotAusgabe(MsgBuf);
 
 			Aktivieren(false);
-			if (TW39Einschalten())
+			if (FernschrEinschalten())
 				{
 				LokalCodeAusgabe(TtyCodeWR);
 				LokalCodeAusgabe(TtyCodeZL);
@@ -1578,7 +1591,7 @@ int main()
 					LokalCodeAusgabe(MsgBuf[i]);
 				LokalCodeAusgabe(TtyCodeWR);
 				LokalCodeAusgabe(TtyCodeZL);
-				TW39Ausschalten();
+				FernschrAusschalten();
 				}
 			Aktivieren(true);
 //:HACK */			

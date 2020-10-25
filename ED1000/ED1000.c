@@ -116,6 +116,8 @@ enum { LokalbetriebWahl_Std = 88 };
 enum { KommendSperreWahl_Std = 0 };
 enum { AutoWahlMaxZiffern = 10 }; // bei Änderung ist das EEPROM-Layout kompromittiert.
 enum { AnrufAbbruchZeit_Std = 7 }; // sekunden
+enum { StartQuittVerzoegerung_Std = 5 }; // x/10 sekunden
+enum { StartQuittVerzoegerung_Min = 2 }; // x/10 sekunden
 
 
 // Eeprom-Speicher-Adressen
@@ -130,7 +132,8 @@ enum {
     EEAdr_LokalbetriebWahl = 24,
     EEAdr_AutoWahlZiffern = 25,
 	EEAdr_AnrufAbbruchZeit = 35,
-	EEAdr_Ende = 36 // darf erhöht werden
+	EEAdr_StartQuittVerz = 36,
+	EEAdr_Ende = 37 // darf erhöht werden
 };
 
 
@@ -140,11 +143,42 @@ enum {
 typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrund;
 
 
-// Variablen
-// ---------
+// Allgemeine Variablen
+// ====================
 
 uint8_t AnrufAbbruchZeit; //!< Maximale Zeit zwichen Aktivierung Anrufsignal und Ende des Hochlaufs des Fernschreibers
 
+uint8_t StartQuittVerzoegerung; 
+	//!< zusätzliche Zeit nach Empfang der Betriebsbereitschaft des 
+	//!< Fernschreibers bis zur Meldung "Betriebsbereit" an den Verbindungspartner.
+
+bool BefehlEinschalten; //!< Fs soll laufen
+bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
+bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
+bool MeldungMark; //!< Fs Schleifenstrom ist Ein
+
+TMsTimer AusschaltungTimer; //!< Zählt die Millisekunden von Schleifenunterbrechung bis Ausschaltung
+TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port bis tatsächlichem Pegelwechsel
+TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalter
+
+uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
+
+uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
+
+uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
+	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
+
+typedef enum { Deaktivierung, DemoBetriebStarten, ExtStromEinschalten } TTasteFunktion;
+
+TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb, 2 = Ausgang zum externen Schalter aktivieren
+
+
+
+
+	
+	
+// Schnittstellen-Spezifische Variablen
+// ====================================
 
 static volatile uint8_t SinAusgI; //!< Zeiger auf die Sinus-Ausgabetabelle. Wird im Timerinterrupt inkrementiert.
 
@@ -164,6 +198,45 @@ static volatile uint8_t EmpfBufSchreibI;
 static uint8_t EmpfBufLeseI;
 	//!< Index für das Auslesen von Werten aus #EmpfBuf.
 	
+int8_t x0, x1, x2, ym0, ym1, ym2, ys0, ys1, ys2; 
+	//!< Alles Zwischenwerte für den digitalen Filter
+
+uint8_t PegelGlaettZaehl;
+	//!< Zähler zur Filterung von kurzen Mark-Space-Wechseln.
+
+#define PEGEL_GLAETT 50
+	//!< Grenzwert für #PegelGlaettZaehl.
+	//!< Verursachte Verzögerung: PEGEL_GLAETT / TIMER1_OCFREQ, also 4 ms.
+
+uint16_t EinAusschaltZaehl;
+	//!< Zähler für die Ermittlung von Ein- und Ausschaltungen. Dies sind
+	//!< langandauernde Wechsel der Empfangsfrequenz.
+
+#define EINSCHALT_VERZ (TIMER1_OCFREQ / 10) 
+	//!< Grenzwert für Einschaltung bei EinAusschaltZaehl. 1/10 sek. Mark-Frequenz = ein.
+	
+#define AUSSCHALT_VERZ (TIMER1_OCFREQ / 2) 
+	//!< Grenzwert für Ausschaltung bei EinAusschaltZaehl. 1/2 sek. Space = aus.
+
+#define UEBERSTEUER_GRENZE 90
+	//!< Grenzwert der Aussteuerung (maximal möglich 127) für das Ansprechen der
+	//!< roten LED bei Überlauf der digitalen Filterberechnung.
+
+uint8_t UebersteuerWarnZaehl;
+	//!< Zähler für die Verlängerung des Leuchtens der roten LED bei drohendem 
+	//!< Überlauf der digitalen Filterberechnung.
+
+#define UEBERSTEUER_ZAEHLMAX 40
+	//!< Grenzwert für UebersteuerWarnZaehl. Ein Überschreiten der Amplitude (#UEBERSTEUER_GRENZE)
+	//!< lässt rote LED 40 Zyklen leuchten (4 ms).
+
+bool EmpfangMark; //!< ist false, wenn Endgerät ausgeschaltet oder Endgerät Space sendet
+bool SpaceSperre; //!< Wird gesetzt, wenn die empfangene Space-Frequenz trotzdem als Mark gewertet werden soll.
+
+
+
+// Schnittstellen-Spezifische Funktionen
+// =====================================
 
 //! Initialisiert Zeitgeber.
 void InitTimer()
@@ -178,7 +251,8 @@ void InitTimer()
 	OCR1A = TIMER1_OCR; 
 	SET_BIT(TIMSK1, OCIE1A);
 	}
-	
+
+
 //! Initialisiert ADC-Wandler.
 void InitADC()
 	{
@@ -219,52 +293,10 @@ ISR(TIMER1_COMPA_vect)
 	}
 
 
-bool BefehlEinschalten; //!< Fs soll laufen
-bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
-bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
-bool MeldungMark; //!< Fs Schleifenstrom ist Ein
-
-TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalter
-
-bool EmpfangMark; //!< ist false, wenn Endgerät ausgeschaltet oder Endgerät Space sendet
-bool SpaceSperre; //!< Wird gesetzt, wenn die empfangene Space-Frequenz trotzdem als Mark gewertet werden soll.
-
-int8_t x0, x1, x2, ym0, ym1, ym2, ys0, ys1, ys2; 
-	//!< Alles Zwischenwerte für den digitalen Filter
-
-uint8_t PegelGlaettZaehl;
-	//!< Zähler zur Filterung von kurzen Mark-Space-Wechseln.
-
-#define PEGEL_GLAETT 50
-	//!< Grenzwert für #PegelGlaettZaehl.
-	//!< Verursachte Verzögerung: PEGEL_GLAETT / TIMER1_OCFREQ, also 4 ms.
-
-uint16_t EinAusschaltZaehl;
-	//!< Zähler für die Ermittlung von Ein- und Ausschaltungen. Dies sind
-	//!< langandauernde Wechsel der Empfangsfrequenz.
-
-#define EINSCHALT_VERZ (TIMER1_OCFREQ / 10) 
-	//!< Grenzwert für Einschaltung bei EinAusschaltZaehl. 1/10 sek. Mark-Frequenz = ein.
-	
-#define AUSSCHALT_VERZ (TIMER1_OCFREQ / 2) 
-	//!< Grenzwert für Ausschaltung bei EinAusschaltZaehl. 1/2 sek. Space = aus.
-
-#define UEBERSTEUER_GRENZE 90
-	//!< Grenzwert der Aussteuerung (maximal möglich 127) für das Ansprechen der
-	//!< roten LED bei Überlauf der digitalen Filterberechnung.
-
-uint8_t UebersteuerWarnZaehl;
-	//!< Zähler für die Verlängerung des Leuchtens der roten LED bei drohendem 
-	//!< Überlauf der digitalen Filterberechnung.
-
-#define UEBERSTEUER_ZAEHLMAX 40
-	//!< Grenzwert für UebersteuerWarnZaehl. Ein Überschreiten der Amplitude (#UEBERSTEUER_GRENZE)
-	//!< lässt rote LED 40 Zyklen leuchten (4 ms).
-
 //! Initialisiert die Schnittstelle zum Endgerät.
 //-----------------------------------------------
 //! Initialisierung des digitalen Filters. Initialisierung der Sinus-Ausgabe.	
-static void ED1000Init()
+static void FernschrInit()
 	{
 	x0 = x1 = x2 = ym0 = ym1 = ym2 = ys0 = ys1 = ys2 = 0;
 	EmpfangMark = false;
@@ -282,7 +314,7 @@ static void ED1000Init()
 //! setzt die Ausgabefrequenz entsprechend BefehlEinschalten und BefehlMark,
 //! setzt MeldungEingeschaltet und MeldungMark entsprechend der empfangenen Frequenz,
 //! steuert die Status-LEDs
-static void ED1000IO()
+static void FernschrIO()
 	{
 	if (BefehlEinschalten && BefehlMark)
 		SinAusgInc = SEND_MARK_FAKTOR;
@@ -439,25 +471,18 @@ static void ED1000IO()
 		}
 	}
 
-	
-uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
-
-uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
-
-uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
-	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
-
-typedef enum { Deaktivierung, DemoBetriebStarten, ExtStromEinschalten } TTasteFunktion;
-
-TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb, 2 = Ausgang zum externen Schalter aktivieren
 
 //////////////////////////////////////////////////////////////////
+
+// Allgemeine Funktionen
+// =====================
+	
 
 //! Einschaltung des Fs auslösen.
 //-------------------------------
 //! \returns Einschaltung wurde erfolgreich durch Endgerät quittiert.
 
-static bool ED1000Einschalten()
+static bool FernschrEinschalten(bool WarteQuittVerz)
 	{
 	TMsTimer StabilTimer;
 	TMsTimer AbbruchTimer;
@@ -468,22 +493,33 @@ static bool ED1000Einschalten()
 	set_SV_EIN(); // externen Schalter der Energieversorgung des Fernschreibers einschalten
 	StartTimer(&NachlaufTimer);
 	
+	if (BefehlEinschalten) // ist schon an, dann nicht verzögern
+		WarteQuittVerz = false;
+		
 	do
 		{
 		BefehlEinschalten = true;
 		BefehlMark = true;
-		ED1000IO();
+		FernschrIO();
 		if (!MeldungEingeschaltet)
 			StartTimer(&StabilTimer);
 		if (TimerVal(&AbbruchTimer) > AnrufAbbruchZeit * 1000)
 			{
 			BefehlEinschalten = false;
 			BefehlMark = true;
-			ED1000IO();
+			FernschrIO();
 			StartTimer(&NachlaufTimer);
 			return false;
 			}
 		} while (TimerVal(&StabilTimer) < 300);
+		
+	if (WarteQuittVerz)
+		{
+		StartTimer(&StabilTimer);
+		while (TimerVal(&StabilTimer) < StartQuittVerzoegerung * 100) // StartQuittVerzoegerung ist in 1/10 sekunden
+			FernschrIO();
+		}
+		
 	return true;
 	}
 		
@@ -492,19 +528,19 @@ static bool ED1000Einschalten()
 
 //! Ausschaltung des Fs auslösen.
 
-static void ED1000Ausschalten()
+static void FernschrAusschalten()
 	{
 	TMsTimer Timer;
 	
 	if (MeldungEingeschaltet && !BefehlEinschalten)
-		ED1000Einschalten(); // Rückgabewert ignorieren
+		FernschrEinschalten(false); // Rückgabewert ignorieren
 
 	StartTimer(&Timer);
 	do
 		{
 		BefehlEinschalten = false;
 		BefehlMark = true;
-		ED1000IO();
+		FernschrIO();
 		if (MeldungEingeschaltet)
 			StartTimer(&Timer);
 		}
@@ -532,10 +568,10 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	// 10: unerlaubte Aktivierung / Deaktivierung
 	{
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWEN) | (0<<TWIE);
-	
+
 	BefehlEinschalten = false;
 	BefehlMark = true;
-	ED1000IO(); // damit der Fernschreiber abgeschaltet wird.
+	FernschrIO(); // damit der Fernschreiber abgeschaltet wird.
 	clr_SV_EIN();
 	
 	uint8_t TasteZ = 0;
@@ -544,7 +580,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	StartTimer(&TasteTimer);
 	while (1)
 		{
-		// ED1000IO muss hier nicht aufgerufen werden, da die Generierung des Sinus im Timer-Interrupt erfolgt.
+		// FernschrIO muss hier nicht aufgerufen werden, da die Generierung des Sinus im Timer-Interrupt erfolgt.
 		wdt_reset();
 
 		if (TimerVal(&TasteTimer) > 400)
@@ -604,7 +640,7 @@ char LokalZeichenLesen()
 	EmpfUmsetzModus = UmsetzLokal; // sicherheitshalber
 	while (true)
 		{
-		ED1000IO();
+		FernschrIO();
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
 			{
@@ -634,7 +670,7 @@ static void LokalCodeAusgabe(uint8_t code)
 	while (SerUmSendBitNr != SerUmSendWarte)
 		{
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
-		ED1000IO();
+		FernschrIO();
 		}
 	}
 
@@ -674,12 +710,12 @@ static void KommendSperren(TSperreGrund Grund);
 
 static void VerbindungKommend()
 	{
-	ED1000IO();
+	FernschrIO();
 
 	set_LEDGRUEN();
 	set_LEDROT();
 	
-	if (!ED1000Einschalten())
+	if (!FernschrEinschalten(true))
 		{ // Timeout...
 		clr_LEDGRUEN();
 		GeAusschalten(true);
@@ -690,15 +726,17 @@ static void VerbindungKommend()
 
 	clr_LEDROT();
 	
-	if (GeEinschalten() != GeEinschAnrufquitt)
+	if (!GeEinschaltQuittung())
 		{
 		GeAusschalten(true);
-		ED1000Ausschalten();
+		FernschrAusschalten();
 		}
 	else
 		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
 
 	}
+	
+
 	
 /////////////////////////////////////////////////////////////
 
@@ -714,23 +752,18 @@ static void LokalbetriebSimulieren()
 	
 	if (!BefehlEinschalten) // offensichtlich Wählscheiben-Wahl
 		{
-		ED1000Einschalten();
-
-		TMsTimer AnlaufTimer;
-		StartTimer(&AnlaufTimer);
-		while (TimerVal(&AnlaufTimer) < 500) 
-			ED1000IO();
+		FernschrEinschalten(true);
 		}
 	
 	LokalTextAusgabeP(PSTR("\r\nloc\r\n"));
 
 	while(MeldungEingeschaltet)
 		{
-		ED1000IO();
+		FernschrIO();
 		}
 
-	ED1000Ausschalten();
-	
+	FernschrAusschalten();
+
 	Aktivieren(true);
 	clr_LEDROT();
 	}
@@ -746,13 +779,14 @@ static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	set_LEDROT();
 	GeAusschalten(true);
 	Aktivieren(false);
+	
 	if (Abschaltimpuls)
-		ED1000Ausschalten();
+		FernschrAusschalten();
 	else
 		StartTimer(&NachlaufTimer);
 	
 	while (MeldungEingeschaltet)
-		ED1000IO();
+		FernschrIO();
 	
 	clr_LEDROT();
 	Aktivieren(true);
@@ -773,7 +807,7 @@ static bool WahlMitTastatur()
 	bool EsWurdeGewaehlt;
 	int Falschziffern;
 	
-	if (!ED1000Einschalten())
+	if (!FernschrEinschalten(false))
 		return false;
 
 	SeriellUmsetzInit();
@@ -793,10 +827,10 @@ static bool WahlMitTastatur()
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
 	Falschziffern = 0;
-	
+
 	while (true)
 		{
-		ED1000IO();
+		FernschrIO();
 		
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 
@@ -810,7 +844,7 @@ static bool WahlMitTastatur()
 				EsWurdeGewaehlt = true;
 				}
 			else if (c == 'l' && !EsWurdeGewaehlt)
-				{
+				{ 
 				LokalbetriebSimulieren();
 				return false;
 				}
@@ -841,7 +875,7 @@ static bool WahlMitTastatur()
 
 		if (!MeldungEingeschaltet || KoAusschalten())
 			{
-			// ED1000Ausschalten() macht die aufrufende Routine
+			// FernschrAusschalten() macht die aufrufende Routine
 			return false;
 			}
 			
@@ -859,7 +893,7 @@ static void VerbindungGehend()
 	{
 	if (BusEigenAdresse == BusAdrUngueltig)
 		{
-		ED1000Ausschalten();
+		FernschrAusschalten();
 		return;
 		}
 
@@ -867,60 +901,51 @@ static void VerbindungGehend()
 	
 	set_LEDGELB();
 	
-	switch (GeEinschalten())
-		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
-		case GeEinschFehler:
-			clr_LEDGELB();
-			return; 
-
-		case GeEinschWahl:
-			if (WahlMitTastatur())
-				// Einschalten ist nicht erforderlich, da schon eingeschaltet ist...
-				break; // ist jetzt verbunden
-
-			GeAusschalten(true);
-			
-			if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
-				{
-				clr_LEDGELB();
-				ED1000Ausschalten();
-				KommendSperren(SperreWahl);
-				}
-				
-			else if ((LokalbetriebWahl != 0 && LetzteInterneWahl() == LokalbetriebWahl)
-				|| LetzteInterneWahl() == (BusEigenAdresse >> 1))
-				{
-				LokalbetriebSimulieren();
-				}
-				
-			else
-				ED1000Ausschalten();
-				
-			return;
-
-/*
-		case GeEinschSofortEin:
-			ED1000Einschalten();
-			break; // ist jetzt Verbunden
-
-		case GeEinschFremdKonfig:
-			ED1000Einschalten();
-// passt nicht mehr...			LeitungsSstKonfigurationsDialog();
-			ED1000Ausschalten();
-			GeAusschalten();
-			return; // keine normale Verbindung
-*/
-
-		default:
-			FehlerStop(15); // TODO
-			return;
+	if (!GeAnrufBeginn())
+		{
+		clr_LEDGELB();
+		return; 
 		}
 
-	VerbindungSteht(true); // mit automatischer Kennungsgeber-Abfrage
-
-	SperrzeitAussetzen(); // am Ende nochmal das Flag setzen.
+	bool Verbunden = false;
 	
-	}
+	Verbunden = WahlMitTastatur();
+
+	if (!Verbunden)
+		{
+		GeAusschalten(true);
+		
+		if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
+			{
+			clr_LEDGELB();
+			FernschrAusschalten();
+			KommendSperren(SperreWahl);
+			}
+			
+		else if ((LokalbetriebWahl != 0 && LetzteInterneWahl() == LokalbetriebWahl)
+			|| LetzteInterneWahl() == (BusEigenAdresse >> 1))
+			{
+			LokalbetriebSimulieren();
+				// macht auch am Ende FernschrAusschalten()
+			}
+			
+		else
+			FernschrAusschalten();
+		}
+	else // Verbunden = true
+		{ 
+		if (GeEinschaltQuittung())  // endgültige Einschaltung bestätigen
+			VerbindungSteht(!MitWaehlscheibe); // wenn keine Wählscheibe, dann automatische Kennungsgeber-Abfrage
+		else
+			{ // Fehler
+			GeAusschalten(true);
+			FernschrAusschalten();
+			}
+		}
+		
+	SperrzeitAussetzen();
+	
+	} // VerbindungGehend()
 
 
 /////////////////////////////////////////////////////////////
@@ -947,22 +972,22 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 	while (true)
 		{
-		ED1000IO();
+		FernschrIO();
 		TastePruefen();
 
 		if (!MeldungEingeschaltet)
 			{
 			GeAusschalten(false);
-			ED1000Ausschalten();
+			FernschrAusschalten();
 			while (!KoAusschalten())
-				ED1000IO();
+				FernschrIO();
 			return;
 			}
 
 		if (KoAusschalten())
 			{
-			ED1000Ausschalten();
-			GeAusschalten(false);
+			FernschrAusschalten();
+			GeAusschalten(false); // da braucht auf nichts mehr gewartet zu werden
 			return;
 			}
 
@@ -1021,7 +1046,7 @@ static void DemoBetrieb()
 	SeriellUmsetzInit();
 	Aktivieren(false);
 	
-	if (!ED1000Einschalten())
+	if (!FernschrEinschalten(true))
 		return;
 	
 	set_LEDBLAU();
@@ -1031,7 +1056,7 @@ static void DemoBetrieb()
 	while (pgm_read_byte(p) != '\0')
 		{
 		LokalZeichenAusgabe(pgm_read_byte(p));	
-			// macht intern TW39IO also auch Schlusstaste-Erkennung
+			// macht intern FernschrIO also auch Schlusstaste-Erkennung
 		p++;
 		TastePruefen();
 		if (Tastendruck != NichtGedr)
@@ -1041,7 +1066,7 @@ static void DemoBetrieb()
 		}
 
 	Tastendruck = NichtGedr;
-	ED1000Ausschalten();
+	FernschrAusschalten();
 	Aktivieren(true);
 	clr_LEDBLAU();
 	
@@ -1061,11 +1086,10 @@ static void Konfiguration()
 	bool NoExpertSettings;
 	
 	SeriellUmsetzInit();
-	
 	Aktivieren(false);
 	set_LEDROT();
 	
-	if (!ED1000Einschalten())
+	if (!FernschrEinschalten(true))
 		return;
 	
 	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
@@ -1091,7 +1115,7 @@ static void Konfiguration()
 
 	// Durchwahl und co.
 	// -----------------
-	Abbruch = !KonfigurationAllgemein();
+	Abbruch = !KonfigurationAllgemein(); 
 	if (Abbruch) 
 		return;
 
@@ -1103,6 +1127,7 @@ static void Konfiguration()
 		KommendSperreWahl = KommendSperreWahl_Std;
 		LokalbetriebWahl = LokalbetriebWahl_Std;
 		AnrufAbbruchZeit = AnrufAbbruchZeit_Std;
+		StartQuittVerzoegerung = StartQuittVerzoegerung_Std;
 		SperrzeitInit();
 		TasteFunktion = 0;
 		AutoWahlZiffern[0] = 255; // Ende-Kennzeichen
@@ -1266,6 +1291,31 @@ static void Konfiguration()
 
 	LokalTextAusgabeP(OkStrP);
 		
+	// Verzögerung der Rückmeldung des Starts des Fernschreibers
+	// ---------------------------------------------------------
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n delay confirmation of startup in /10 seconds\r\n (3-200, cur. "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n verzoegerung rueckmeldung fs-anlauf in /10 sekunden\r\n (3-200, akt. "));
+#endif //def SPRACHE_EN
+
+	LokalZahlAusgabe(StartQuittVerzoegerung, 0);
+
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(") new:     "));
+#else
+	LokalTextAusgabeP(PSTR(") neu:     "));
+#endif //def SPRACHE_EN
+
+	if (LokalZahlEingabe(&StartQuittVerzoegerung, 0) < 0)
+		return;
+	if (StartQuittVerzoegerung < StartQuittVerzoegerung_Min)
+		StartQuittVerzoegerung = StartQuittVerzoegerung_Min;
+	else if (StartQuittVerzoegerung > 200)
+		StartQuittVerzoegerung = 200;
+
+	LokalTextAusgabeP(OkStrP);
+		
 	// Modus für Tastendruck
 	// ---------------------
 #ifdef SPRACHE_EN
@@ -1302,7 +1352,7 @@ static void Konfiguration()
 
 static void KonfigurationEnde()
 	{
-	ED1000Ausschalten();
+	FernschrAusschalten();
 
 	KonfigSchreibeByte(EEAdr_BusEigenAdresse, BusEigenAdresse);
 	
@@ -1316,6 +1366,8 @@ static void KonfigurationEnde()
 
 	KonfigSchreibeByte(EEAdr_AnrufAbbruchZeit, AnrufAbbruchZeit);
 
+	KonfigSchreibeByte(EEAdr_StartQuittVerz, StartQuittVerzoegerung);
+	
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
 		KonfigSchreibeByte(EEAdr_AutoWahlZiffern + i, AutoWahlZiffern[i]);
@@ -1338,14 +1390,14 @@ static void FehlermeldungDrucken()
 	Aktivieren(false);
 	set_LEDROT();
 	
-	if (!ED1000Einschalten())
+	if (!FernschrEinschalten(true))
 		return;
 	
 	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
 	
 	KonfigSpeicherFehlerAusgeben();
 	
-	ED1000Ausschalten();
+	FernschrAusschalten();
 
 	Aktivieren(true);
 
@@ -1386,7 +1438,7 @@ static void KommendSperren(TSperreGrund Grund)
 			break;
 			}
 			
-		ED1000IO();
+		FernschrIO();
 		if (MeldungEingeschaltet)
 			break;
 			
@@ -1479,7 +1531,7 @@ int main()
 	KonfigSpeicherInit();
 	
 	MsTimerInit();
-	ED1000Init();
+	FernschrInit();
 	InitTimer();
 	
 	SperrzeitInit();
@@ -1495,8 +1547,9 @@ int main()
 	LokalbetriebWahl = KonfigLeseByteBegrenzt(EEAdr_LokalbetriebWahl, LokalbetriebWahl_Std, 0, 99);
 
 	SperrzeitLadeEeprom(EEAdr_Sperrzeit);
-
 	TasteFunktion = KonfigLeseByteBegrenzt(EEAdr_TasteFunktion, 0, 0, 1); // KEIN Bool
+
+	StartQuittVerzoegerung = KonfigLeseByteBegrenzt(EEAdr_StartQuittVerz, StartQuittVerzoegerung_Std, StartQuittVerzoegerung_Min, 200);
 
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
@@ -1529,7 +1582,7 @@ int main()
 
 	sei();
 
-	ED1000IO(); // initialisiert die Ausgabe von "Space", damit der Fs erstmal abschaltet.
+	FernschrIO(); // initialisiert die Ausgabe von "Space", damit der Fs erstmal abschaltet.
 	
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 250)
@@ -1587,7 +1640,7 @@ int main()
 				BefehlMark = true;
 				StartTimer(&Timer);
 				}
-			ED1000IO();
+			FernschrIO();
 
 			bset_LEDROT(BefehlEinschalten);
 			bset_LEDGELB(MeldungEingeschaltet);
@@ -1625,7 +1678,7 @@ int main()
 		clr_LEDBLAU();
 
 		TastePruefen();
-		ED1000IO();
+		FernschrIO();
 
 		if (Tastendruck == Lang)
 			{
@@ -1645,7 +1698,7 @@ int main()
 			MsgLen = LokalUhrBaudotAusgabe(MsgBuf);
 
 			Aktivieren(false);
-			if (TW39Einschalten())
+			if (FernschrEinschalten())
 				{
 				LokalCodeAusgabe(TtyCodeWR);
 				LokalCodeAusgabe(TtyCodeZL);
@@ -1653,7 +1706,7 @@ int main()
 					LokalCodeAusgabe(MsgBuf[i]);
 				LokalCodeAusgabe(TtyCodeWR);
 				LokalCodeAusgabe(TtyCodeZL);
-				TW39Ausschalten();
+				FernschrAusschalten();
 				}
 			Aktivieren(true);
 //:HACK */			
