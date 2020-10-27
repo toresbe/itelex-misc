@@ -73,7 +73,10 @@ PROGMEM const char Identifier[] = "___itlx_FsV21-aufLA21___" __DATE__ "___" __TI
 
 enum { LokalbetriebWahl_Std = 88 };
 enum { KommendSperreWahl_Std = 0 };
-enum { AutoWahlMaxZiffern = 10 };
+enum { AutoWahlMaxZiffern = 10 }; // bei Änderung ist das EEPROM-Layout kompromittiert.
+enum { AnrufAbbruchZeit_Std = 7 }; // sekunden
+enum { StartQuittVerzoegerung_Std = 5 }; // x/10 sekunden
+enum { StartQuittVerzoegerung_Min = 2 }; // x/10 sekunden
 
 
 // Eeprom-Speicher-Adressen
@@ -87,7 +90,9 @@ enum {
     EEAdr_UmleitungAbweisen = 23,
     EEAdr_LokalbetriebWahl = 24,
     EEAdr_AutoWahlZiffern = 25,
-    EEAdr_Ende = 26 // darf erhöht werden
+	EEAdr_AnrufAbbruchZeit = 35,
+	EEAdr_StartQuittVerz = 36,
+	EEAdr_Ende = 37 // darf erhöht werden
 };
 
 
@@ -96,24 +101,46 @@ enum {
 
 typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrund;
 
-// Variablen
-// ---------
+// Allgemeine Variablen
+// ====================
+
+uint8_t AnrufAbbruchZeit; //!< Maximale Zeit zwichen Aktivierung Anrufsignal und Ende des Hochlaufs des Fernschreibers
+
+uint8_t StartQuittVerzoegerung; 
+	//!< zusätzliche Zeit nach Empfang der Betriebsbereitschaft des 
+	//!< Fernschreibers bis zur Meldung "Betriebsbereit" an den Verbindungspartner.
 
 bool BefehlEinschalten; //!< Fs soll laufen
 bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
 bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
 bool MeldungMark; //!< Fs Schleifenstrom ist Ein
+
+TMsTimer AusschaltungTimer; //!< Zählt die Millisekunden von Schleifenunterbrechung bis Ausschaltung
+TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port bis tatsächlichem Pegelwechsel
+TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalter
+
+uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
+
+uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
+
+uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
+	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
+
+typedef enum { Deaktivierung, DemoBetriebStarten, ExtStromEinschalten } TTasteFunktion;
+
+TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb, 2 = Ausgang zum externen Schalter aktivieren
+
+// Schnittstellen-Spezifische Variablen
+// ====================================
+
 bool SpaceSperre; 
 
 bool ModemPolarityReversed; //!< Mark und Space getauscht, für Österreichisches AGT
 bool ModemAnswerMode; //!< Falls der Fernschreiber ausnahmsweise für das "Originate"-Frequenzband konfiguriert ist.
 
+// Schnittstellen-Spezifische Funktionen
+// =====================================
 
-TMsTimer AusschaltungTimer; //!< Zählt die Millisekunden von Schleifenunterbrechung bis Ausschaltung
-TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port bis tatsächlichem Pegelwechsel
-
-
-///////////////////////////////////////////////////////////////////////////////
 
 //! bedient Hardware-IO entsprechend der aktuellen Zustände.
 
@@ -124,7 +151,7 @@ TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port
  */ 
 
 
-static void V21IO()
+static void FernschrIO()
 	{
 	// Pegel & Polung ausgeben
 	// -----------------------
@@ -181,48 +208,57 @@ static void V21IO()
 			bset_LEDGRUEN(!MeldungMark);
 		}
 	
-	} // V21IO
+	} // FernschrIO
 	
 	
-uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
-
-uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
-
-uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
-	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
-
-typedef enum { Deaktivierung, DemoBetriebStarten } TTasteFunktion;
-
-TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb
-
 //////////////////////////////////////////////////////////////////
+
+// Allgemeine Funktionen
+// =====================
+	
 
 //! Einschaltung des Fs auslösen.
 //-------------------------------
 //! \returns Einschaltung wurde erfolgreich durch Endgerät quittiert.
 
-static bool V21Einschalten()
+static bool FernschrEinschalten(bool WarteQuittVerz)
 	{
 	TMsTimer StabilTimer;
 	TMsTimer AbbruchTimer;
 	
 	StartTimer(&StabilTimer);
 	StartTimer(&AbbruchTimer);
+	
+	set_SV_EIN(); // externen Schalter der Energieversorgung des Fernschreibers einschalten
+	StartTimer(&NachlaufTimer);
+	
+	if (BefehlEinschalten) // ist schon an, dann nicht verzögern
+		WarteQuittVerz = false;
+		
 	do
 		{
 		BefehlEinschalten = true;
 		BefehlMark = true;
-		V21IO();
+		FernschrIO();
 		if (!MeldungEingeschaltet)
 			StartTimer(&StabilTimer);
-		if (TimerVal(&AbbruchTimer) > 7000)
+		if (TimerVal(&AbbruchTimer) > AnrufAbbruchZeit * 1000)
 			{
 			BefehlEinschalten = false;
 			BefehlMark = true;
-			V21IO();
+			FernschrIO();
+			StartTimer(&NachlaufTimer);
 			return false;
 			}
 		} while (TimerVal(&StabilTimer) < 300);
+		
+	if (WarteQuittVerz)
+		{
+		StartTimer(&StabilTimer);
+		while (TimerVal(&StabilTimer) < StartQuittVerzoegerung * 100) // StartQuittVerzoegerung ist in 1/10 sekunden
+			FernschrIO();
+		}
+		
 	return true;
 	}
 		
@@ -231,29 +267,32 @@ static bool V21Einschalten()
 
 //! Ausschaltung des Fs auslösen.
 
-static void V21Ausschalten()
+static void FernschrAusschalten()
 	{
 	TMsTimer Timer;
 	
 	if (MeldungEingeschaltet && !BefehlEinschalten)
-		V21Einschalten(); // Rückgabewert ignorieren
+		FernschrEinschalten(false); // Rückgabewert ignorieren
 
 	StartTimer(&Timer);
 	do
 		{
 		BefehlEinschalten = false;
 		BefehlMark = true;
-		V21IO();
+		FernschrIO();
 		if (MeldungEingeschaltet)
 			StartTimer(&Timer);
 		}
 	while (TimerVal(&Timer) < 500);
+	
+	StartTimer(&NachlaufTimer); 
+	
 	}
 		
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void V21Init()
+void FernschrInit()
 {
 	ModemInit();
 	ModemReset();
@@ -281,7 +320,8 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 
 	BefehlEinschalten = false;
 	BefehlMark = true;
-	V21IO();
+	FernschrIO(); // damit der Fernschreiber abgeschaltet wird.
+	clr_SV_EIN();
 	
 	uint8_t TasteZ = 0;
 	bool TasteWirk = false;
@@ -294,15 +334,15 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
-			if (get_TASTE()) 
+			if (get_TASTE())
 				{ // Taste gedrückt
 				if (TasteZ < 5)
 					TasteZ++;
 				else
 					TasteWirk = true;
 				}
-			else // Taste nicht gedrückt
-				{ 
+			else
+				{ // Taste nicht gedrückt
 				if (TasteZ > 0)
 					{
 					TasteZ--;
@@ -314,7 +354,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 							;
 						}
 					}
-				} 
+				} // Taste nicht gedrückt
 			}
 		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
 		    {
@@ -348,7 +388,7 @@ char LokalZeichenLesen()
 	EmpfUmsetzModus = UmsetzLokal; // sicherheitshalber
 	while (true)
 		{
-		V21IO();
+		FernschrIO();
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
 			{
@@ -378,7 +418,7 @@ static void LokalCodeAusgabe(uint8_t code)
 	while (SerUmSendBitNr != SerUmSendWarte)
 		{
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
-		V21IO();
+		FernschrIO();
 		}
 	}
 
@@ -418,12 +458,12 @@ static void KommendSperren(TSperreGrund Grund);
 
 static void VerbindungKommend()
 	{
-	V21IO();
+	FernschrIO();
 
 	set_LEDGRUEN();
 	set_LEDROT();
 	
-	if (!V21Einschalten())
+	if (!FernschrEinschalten(true))
 		{ // Timeout...
 		clr_LEDGRUEN();
 		GeAusschalten(true);
@@ -434,14 +474,14 @@ static void VerbindungKommend()
 
 	clr_LEDROT();
 	
-	if (GeEinschalten() != GeEinschAnrufquitt)
+	if (!GeEinschaltQuittung())
 		{
 		GeAusschalten(true);
-		V21Ausschalten();
+		FernschrAusschalten();
 		}
 	else
 		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
-		
+
 	}
 	
 
@@ -460,23 +500,18 @@ static void LokalbetriebSimulieren()
 	
 	if (!BefehlEinschalten) // offensichtlich Wählscheiben-Wahl
 		{
-		V21Einschalten();
-
-		TMsTimer AnlaufTimer;
-		StartTimer(&AnlaufTimer);
-		while (TimerVal(&AnlaufTimer) < 500) 
-			V21IO();
+		FernschrEinschalten(true);
 		}
 	
 	LokalTextAusgabeP(PSTR("\r\nloc\r\n"));
 
 	while(MeldungEingeschaltet)
 		{
-		V21IO();
+		FernschrIO();
 		}
 
-	V21Ausschalten();
-	
+	FernschrAusschalten();
+
 	Aktivieren(true);
 	clr_LEDROT();
 	}
@@ -492,10 +527,14 @@ static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	set_LEDROT();
 	GeAusschalten(true);
 	Aktivieren(false);
+	
 	if (Abschaltimpuls)
-		V21Ausschalten();
+		FernschrAusschalten();
+	else
+		StartTimer(&NachlaufTimer);
+	
 	while (MeldungEingeschaltet)
-		V21IO();
+		FernschrIO();
 	clr_LEDROT();
 	Aktivieren(true);
 	}
@@ -503,8 +542,8 @@ static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	
 /////////////////////////////////////////////////////////////
 
-//! Wickelt die gehende Wahl ab bei nicht vorhandener Wählscheibe.
-//----------------------------------------------------------------
+//! Wickelt die gehende Wahl ab. 
+//----------------------------------------------
 //! Tastaturwahl. 
 //! \retval true bei erfolgreichem Verbindungsaufbau.
 
@@ -515,7 +554,7 @@ static bool WahlMitTastatur()
 	bool EsWurdeGewaehlt;
 	int Falschziffern;
 	
-	if (!V21Einschalten())
+	if (!FernschrEinschalten(false))
 		return false;
 
 	SeriellUmsetzInit();
@@ -538,7 +577,7 @@ static bool WahlMitTastatur()
 
 	while (true)
 		{
-		V21IO();
+		FernschrIO();
 		
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 
@@ -583,7 +622,7 @@ static bool WahlMitTastatur()
 
 		if (!MeldungEingeschaltet || KoAusschalten())
 			{
-			// V21Ausschalten() macht die aufrufende Routine
+			// FernschrAusschalten() macht die aufrufende Routine
 			return false;
 			}
 			
@@ -601,7 +640,7 @@ static void VerbindungGehend()
 	{
 	if (BusEigenAdresse == BusAdrUngueltig)
 		{
-		V21Ausschalten();
+		FernschrAusschalten();
 		return;
 		}
 
@@ -609,62 +648,51 @@ static void VerbindungGehend()
 	
 	set_LEDGELB();
 	
-	switch (GeEinschalten())
-		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
-		case GeEinschFehler:
-			clr_LEDGELB();
-			
-			return; 
-
-		case GeEinschWahl:
-			if (WahlMitTastatur())
-				// Einschalten ist nicht erforderlich, da schon eingeschaltet ist...
-				break; // ist jetzt verbunden
-				
-			GeAusschalten(true);
-			
-			if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
-				{
-				clr_LEDGELB();
-				V21Ausschalten();
-				KommendSperren(SperreWahl);
-				}
-				
-			else if ((LokalbetriebWahl != 0 && LetzteInterneWahl() == LokalbetriebWahl)
-				|| LetzteInterneWahl() == (BusEigenAdresse >> 1))
-				{
-				LokalbetriebSimulieren();
-					// macht auch am Ende V21Ausschalten()
-				}
-				
-			else
-				V21Ausschalten();
-				
-			return;
-
-/*
-		case GeEinschSofortEin:
-			V21Einschalten();
-			break; // ist jetzt Verbunden
-
-		case GeEinschFremdKonfig:
-			V21Einschalten();
-// passt nicht mehr...			LeitungsSstKonfigurationsDialog();
-			V21Ausschalten();
-			GeAusschalten();
-			return; // keine normale Verbindung
-*/
-
-		default:
-			FehlerStop(15); // TODO
-			return;
+	if (!GeAnrufBeginn())
+		{
+		clr_LEDGELB();
+		return; 
 		}
 
-	VerbindungSteht(true); // wenn keine Wählscheibe, dann automatische Kennungsgeber-Abfrage
+	bool Verbunden = false;
+	
+	Verbunden = WahlMitTastatur();
 
+	if (!Verbunden)
+		{
+		GeAusschalten(true);
+		
+		if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
+			{
+			clr_LEDGELB();
+			FernschrAusschalten();
+			KommendSperren(SperreWahl);
+			}
+			
+		else if ((LokalbetriebWahl != 0 && LetzteInterneWahl() == LokalbetriebWahl)
+			|| LetzteInterneWahl() == (BusEigenAdresse >> 1))
+			{
+			LokalbetriebSimulieren();
+				// macht auch am Ende FernschrAusschalten()
+			}
+			
+		else
+			FernschrAusschalten();
+		}
+	else // Verbunden = true
+		{ 
+		if (GeEinschaltQuittung())  // endgültige Einschaltung bestätigen
+			VerbindungSteht(true);
+		else
+			{ // Fehler
+			GeAusschalten(true);
+			FernschrAusschalten();
+			}
+		}
+		
 	SperrzeitAussetzen();
 	
-	}
+	} // VerbindungGehend()
 
 
 /////////////////////////////////////////////////////////////
@@ -691,21 +719,21 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 	while (true)
 		{
-		V21IO();
+		FernschrIO();
 		TastePruefen();
 
 		if (!MeldungEingeschaltet)
 			{
 			GeAusschalten(false);
-			V21Ausschalten();
+			FernschrAusschalten();
 			while (!KoAusschalten())
-				V21IO();
+				FernschrIO();
 			return;
 			}
 
 		if (KoAusschalten())
 			{
-			V21Ausschalten();
+			FernschrAusschalten();
 			GeAusschalten(false); // da braucht auf nichts mehr gewartet zu werden
 			return;
 			}
@@ -765,7 +793,7 @@ static void DemoBetrieb()
 	SeriellUmsetzInit();
 	Aktivieren(false);
 	
-	if (!V21Einschalten())
+	if (!FernschrEinschalten(true))
 		return;
 	
 	set_LEDBLAU();
@@ -775,7 +803,7 @@ static void DemoBetrieb()
 	while (pgm_read_byte(p) != '\0')
 		{
 		LokalZeichenAusgabe(pgm_read_byte(p));	
-			// macht intern V21IO also auch Schlusstaste-Erkennung
+			// macht intern FernschrIO also auch Schlusstaste-Erkennung
 		p++;
 		TastePruefen();
 		if (Tastendruck != NichtGedr)
@@ -785,7 +813,7 @@ static void DemoBetrieb()
 		}
 
 	Tastendruck = NichtGedr;
-	V21Ausschalten();
+	FernschrAusschalten();
 	Aktivieren(true);
 	clr_LEDBLAU();
 	
@@ -808,17 +836,17 @@ static void Konfiguration()
 	Aktivieren(false);
 	set_LEDROT();
 	
-	if (!V21Einschalten())
+	if (!FernschrEinschalten(true))
 		return;
 	
 	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
 	
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n configuration V21plus version " SVNVERSION " date " __DATE__));
+	LokalTextAusgabeP(PSTR("\r\n configuration v21-la version " SVNVERSION " date " __DATE__));
 #else
-	LokalTextAusgabeP(PSTR("\r\n konfiguration V21plus version " SVNVERSION " datum " __DATE__));
+	LokalTextAusgabeP(PSTR("\r\n konfiguration v21-la version " SVNVERSION " datum " __DATE__));
 #endif //def SPRACHE_EN
-
+	
 	// Vorab die Frage nach "Expertenfunktionen"
 	// -----------------------------------------
 #ifdef SPRACHE_EN
@@ -834,10 +862,10 @@ static void Konfiguration()
 
 	// Durchwahl und co.
 	// -----------------
-	Abbruch = !KonfigurationAllgemein();
+	Abbruch = !KonfigurationAllgemein(); 
 	if (Abbruch) 
 		return;
-		
+
 	
 	// jetzt bei einfacher Konfiguration abbrechen
 	// -------------------------------------------
@@ -845,6 +873,8 @@ static void Konfiguration()
 		{
 		KommendSperreWahl = KommendSperreWahl_Std;
 		LokalbetriebWahl = LokalbetriebWahl_Std;
+		AnrufAbbruchZeit = AnrufAbbruchZeit_Std;
+		StartQuittVerzoegerung = StartQuittVerzoegerung_Std;
 		SperrzeitInit();
 		TasteFunktion = 0;
 		AutoWahlZiffern[0] = 255; // Ende-Kennzeichen
@@ -983,6 +1013,56 @@ static void Konfiguration()
 		AutoWahlZiffern[0] = 255;
 		}
 		
+	// Timeout beim Anruf
+	// ------------------
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n timeout for incoming calls in seconds (3-25, cur. "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n maximale hochlauf-zeit in sekunden (3-25, akt. "));
+#endif //def SPRACHE_EN
+
+	LokalZahlAusgabe(AnrufAbbruchZeit, 0);
+
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(") new:     "));
+#else
+	LokalTextAusgabeP(PSTR(") neu:     "));
+#endif //def SPRACHE_EN
+
+	if (LokalZahlEingabe(&AnrufAbbruchZeit, 0) < 0)
+		return;
+	if (AnrufAbbruchZeit < 3)
+		AnrufAbbruchZeit = 3;
+	else if (AnrufAbbruchZeit > 25)
+		AnrufAbbruchZeit = 25;
+
+	LokalTextAusgabeP(OkStrP);
+		
+	// Verzögerung der Rückmeldung des Starts des Fernschreibers
+	// ---------------------------------------------------------
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n delay confirmation of startup in /10 seconds\r\n (3-200, cur. "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n verzoegerung rueckmeldung fs-anlauf in /10 sekunden\r\n (3-200, akt. "));
+#endif //def SPRACHE_EN
+
+	LokalZahlAusgabe(StartQuittVerzoegerung, 0);
+
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(") new:     "));
+#else
+	LokalTextAusgabeP(PSTR(") neu:     "));
+#endif //def SPRACHE_EN
+
+	if (LokalZahlEingabe(&StartQuittVerzoegerung, 0) < 0)
+		return;
+	if (StartQuittVerzoegerung < StartQuittVerzoegerung_Min)
+		StartQuittVerzoegerung = StartQuittVerzoegerung_Min;
+	else if (StartQuittVerzoegerung > 200)
+		StartQuittVerzoegerung = 200;
+
+	LokalTextAusgabeP(OkStrP);
+		
 	// Modus für Tastendruck
 	// ---------------------
 #ifdef SPRACHE_EN
@@ -1019,7 +1099,7 @@ static void Konfiguration()
 
 static void KonfigurationEnde()
 	{
-	V21Ausschalten();
+	FernschrAusschalten();
 	
 	KonfigSchreibeByte(EEAdr_BusEigenAdresse, BusEigenAdresse);
 	
@@ -1031,6 +1111,10 @@ static void KonfigurationEnde()
 
 	KonfigSchreibeByte(EEAdr_TasteFunktion, TasteFunktion);
 
+	KonfigSchreibeByte(EEAdr_AnrufAbbruchZeit, AnrufAbbruchZeit);
+
+	KonfigSchreibeByte(EEAdr_StartQuittVerz, StartQuittVerzoegerung);
+	
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
 		KonfigSchreibeByte(EEAdr_AutoWahlZiffern + i, AutoWahlZiffern[i]);
@@ -1038,6 +1122,7 @@ static void KonfigurationEnde()
 	SperrzeitSpeicherEeprom(EEAdr_Sperrzeit);
 
 	Aktivieren(true);
+
 	clr_LEDROT();
 	}
 	
@@ -1052,14 +1137,14 @@ static void FehlermeldungDrucken()
 	Aktivieren(false);
 	set_LEDROT();
 	
-	if (!V21Einschalten())
+	if (!FernschrEinschalten(true))
 		return;
 	
 	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
 	
 	KonfigSpeicherFehlerAusgeben();
 	
-	V21Ausschalten();
+	FernschrAusschalten();
 
 	Aktivieren(true);
 
@@ -1100,7 +1185,7 @@ static void KommendSperren(TSperreGrund Grund)
 			break;
 			}
 			
-		V21IO();
+		FernschrIO();
 		if (MeldungEingeschaltet)
 			break;
 			
@@ -1177,6 +1262,9 @@ int main()
 	init_MODEJMP_POLARITY();
 	init_MODEJMP_ANSWER();
 
+	init_SV_EIN();
+	init_TASTEEXT();
+
 	set_LEDROT();
 
 	KonfigSpeicherInit();
@@ -1199,10 +1287,14 @@ int main()
 
 	TasteFunktion = KonfigLeseByteBegrenzt(EEAdr_TasteFunktion, 0, 0, 1); // KEIN Bool
 
+	StartQuittVerzoegerung = KonfigLeseByteBegrenzt(EEAdr_StartQuittVerz, StartQuittVerzoegerung_Std, StartQuittVerzoegerung_Min, 200);
+
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
 		AutoWahlZiffern[i] = KonfigLeseByte(EEAdr_AutoWahlZiffern + i, 255); // nicht begrenzt, da alles über 9 das Endezeichen ist.
 	
+	AnrufAbbruchZeit = KonfigLeseByteBegrenzt(EEAdr_AnrufAbbruchZeit, AnrufAbbruchZeit_Std, 3, 25);
+		
 	BefehlEinschalten = false;
 	BefehlMark = true;
 	MeldungEingeschaltet = false;
@@ -1225,7 +1317,7 @@ int main()
 
 	V21Init();
 
-	V21IO();
+	FernschrIO();
 	
 	// Bei Tastendruck Selbsttest
 	bool SelbsttestAusfuehen = get_TASTE();
@@ -1271,15 +1363,7 @@ int main()
 
 	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
-	
-	// Test of correct register Settings of the 73K221:
-	if (ModemGetReg(3) != 0)
-		FehlerStop(14);
-	if (ModemGetReg(1) != 0x20)
-		FehlerStop(13);
-	if (ModemGetReg(0) != (ModemAnswerMode ? 0x32 : 0x33))
-		FehlerStop(12);
-	
+
 	if (SelbsttestAusfuehen)
 		{
 		BefehlEinschalten = false;
@@ -1299,7 +1383,7 @@ int main()
 				BefehlMark = true;
 				StartTimer(&Timer);
 				}
-			V21IO();
+			FernschrIO();
 
 			bset_LEDROT(BefehlEinschalten);
 			bset_LEDGELB(MeldungEingeschaltet);
@@ -1320,6 +1404,8 @@ int main()
 	BefehlEinschalten = false;
 	BefehlMark = true;
 
+	StartTimer(&NachlaufTimer);
+	
 	while (true)
 		{
 		// aktueller Zustand: Ausgeschaltet
@@ -1335,7 +1421,7 @@ int main()
 		clr_LEDBLAU();
 
 		TastePruefen();
-		V21IO();
+		FernschrIO();
 
 		if (Tastendruck == Lang)
 			{
@@ -1355,7 +1441,7 @@ int main()
 			MsgLen = LokalUhrBaudotAusgabe(MsgBuf);
 
 			Aktivieren(false);
-			if (V21Einschalten())
+			if (FernschrEinschalten())
 				{
 				LokalCodeAusgabe(TtyCodeWR);
 				LokalCodeAusgabe(TtyCodeZL);
@@ -1363,7 +1449,7 @@ int main()
 					LokalCodeAusgabe(MsgBuf[i]);
 				LokalCodeAusgabe(TtyCodeWR);
 				LokalCodeAusgabe(TtyCodeZL);
-				V21Ausschalten();
+				FernschrAusschalten();
 				}
 			Aktivieren(true);
 //:HACK */			
@@ -1373,6 +1459,12 @@ int main()
 				case DemoBetriebStarten:
 					DemoBetrieb();
 					break;
+					
+				case ExtStromEinschalten:
+					set_SV_EIN();
+					StartTimer(&NachlaufTimer);
+					break;
+					
 				default:
 					Deaktivieren();
 					break;
@@ -1406,6 +1498,15 @@ int main()
 				
 			RundsendAnzDaten = 0;
 			}
+			
+		if (get_TASTEEXT())
+			{
+			set_SV_EIN();
+			StartTimer(&NachlaufTimer);
+			}
+			
+		if (TimerVal(&NachlaufTimer) > 60000)
+			clr_SV_EIN();
 		
 		} // while (true)
 	} // main()

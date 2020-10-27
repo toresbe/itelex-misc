@@ -286,7 +286,7 @@ static void VerbindungKommend()
 	{
 	LED_EIN(GRUEN);
 	
-	if (GeEinschalten() != GeEinschAnrufquitt)
+	if (!GeEinschaltQuittung())
 		{
 		GeAusschalten(true);
 		}

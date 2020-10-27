@@ -64,8 +64,6 @@ extern bool GeEinschaltQuittung();
 extern uint8_t KoAnwahlnummer();
 	// im Regelfall 0. Kann bei Mehrfach-Endgerät 0 bis BusEigenAdrMehrfach-1 sein
 
-// extern TGeEinschResultat GeEinschalten(); -> ersetzt durch GeAnrufBeginn() und GeEinschaltQuittung()
-
 extern bool GeAnrufBeginn();
 extern void GeWaehlen(uint8_t Ziffer);
 extern bool KoEmpfMark(); // true bei Mark

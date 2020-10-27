@@ -1,5 +1,5 @@
 //================================================================
-// Fernschreiber-Schnittstelle Einfachstrom ohne Fernschaltgerät für TxP2-System
+// Fernschreiber-Schnittstelle Einfachstrom ohne Fernschaltgerät für i-Telex-System
 //	für ATmega168 auf Platine FernschrTW39
 //================================================================
 // Fernschreiber muss über einen Zeitschalter (Motorschalter) verfügen.
@@ -78,8 +78,8 @@ enum { AutoWahlMaxZiffern = 10 };
 enum { BusEigenAdresse_Std = 39 };
 
 
-// Eeprom-Speicher
-// ---------------
+// Eeprom-Speicher-Adressen
+// ------------------------
 
 enum {
 	EEAdr_BusEigenAdresse = 5,
@@ -93,6 +93,9 @@ enum {
     EEAdr_UmleitungAbweisen = 133,
 	EEAdr_LokalbetriebWahl = 134,
 	EEAdr_TasteFunktion = 135
+	// EEAdr_AnrufAbbruchZeit nicht benutzt
+	EEAdr_StartQuittVerz = 136,
+	EEAdr_Ende = 138 // darf erhöht werden
 }; // MaxIndex < BankOffset = 160
 
 // Typen
@@ -103,26 +106,40 @@ typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrun
 typedef enum { EndeNurBreak, EndeNachNNNN, EndeNach3Plus } TVerbindungsEndeKriterium;
 
 
+// Allgemeine Variablen
+// ====================
 
-// Variablen
-// =========
+// uint8_t AnrufAbbruchZeit; //!< Maximale Zeit zwichen Aktivierung Anrufsignal und Ende des Hochlaufs des Fernschreibers
 
-// Hardware-Level
-// --------------
+uint8_t StartQuittVerzoegerung; 
+	//!< zusätzliche Zeit nach Empfang der Betriebsbereitschaft des 
+	//!< Fernschreibers bis zur Meldung "Betriebsbereit" an den Verbindungspartner.
 
+// bool BefehlEinschalten; //!< Fs soll laufen
 bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
+// bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
 bool MeldungMark; //!< Fs Schleifenstrom ist Ein
-bool BreakSignal; //!< Fs Schleife wurde für mehr als 0,8 Sekunden unterbrochen. Muss von der Anwendung zurückgesetzt werden.
-
 TMsTimer AusschaltungTimer; //!< Zählt die Millisekunden von Schleifenunterbrechung bis Break-Signal
 TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port bis tatsächlichem Pegelwechsel
-TMsTimer RuheTimer; //!< Läuft, wenn weder gedruckt noch geschrieben wird
-
-
-// Ablauf-Variablen
-// ----------------
+TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalter
 
 uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
+
+uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
+
+uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
+	//!< bei gehender Aktivierung wird sofort diese Nummer gewählt
+
+typedef enum { Deaktivierung, DemoBetriebStarten, ExtStromEinschalten } TTasteFunktion;
+
+TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb, 2 = Ausgang zum externen Schalter aktivieren
+
+// Schnittstellen-Spezifische Variablen
+// ====================================
+
+TMsTimer RuheTimer; //!< Läuft, wenn weder gedruckt noch geschrieben wird
+
+bool BreakSignal; //!< Fs Schleife wurde für mehr als 0,8 Sekunden unterbrochen. Muss von der Anwendung zurückgesetzt werden.
 
 enum { MaxCodefolgeLaenge = 30 }; //!< Maximale Länge von #AusschaltZeichen, #Wahlaufforderung, #VerbindungHergestelltZeichen, #EigeneKennung
 
@@ -151,6 +168,9 @@ PROGMEM uint8_t VerbindungHergestelltZeichenDefault[] = { TtyCodeBuUm, TtyCodeLe
 	
 uint8_t EigeneKennung[MaxCodefolgeLaenge+1];
 	//!< Text des eigenen Kennungsgeber-Simulators
+
+// Schnittstellen-Spezifische Funktionen
+// =====================================
 
 	
 	
@@ -222,8 +242,6 @@ static void FernschrIO(bool TasteMachtBreak)
 	} // FernschrIO()
 	
 	
-
-uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
 
 //////////////////////////////////////////////////////////////////
 
@@ -314,6 +332,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	
 	BefehlMark = true;
 	FernschrIO(false);
+	clr_SV_EIN();
 	
 	uint8_t TasteZ = 0;
 	bool TasteWirk = false;
@@ -326,15 +345,15 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 		if (TimerVal(&TasteTimer) > 400)
 			{
 			StartTimer(&TasteTimer);
-			if (get_TASTE()) 
+			if (get_TASTE())
 				{ // Taste gedrückt
 				if (TasteZ < 5)
 					TasteZ++;
 				else
 					TasteWirk = true;
 				}
-			else // Taste nicht gedrückt
-				{ 
+			else
+				{ // Taste nicht gedrückt
 				if (TasteZ > 0)
 					{
 					TasteZ--;
@@ -346,7 +365,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 							;
 						}
 					}
-				}
+				} // Taste nicht gedrückt
 			}
 		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
 		    {
@@ -575,17 +594,18 @@ static void VerbindungKommend()
 
 	clr_LEDROT();
 	
-	if (GeEinschalten() != GeEinschAnrufquitt)
+	if (!GeEinschaltQuittung())
 		{
 		GeAusschalten(true);
 		FsAusschalten();
 		}
 	else
 		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
-		
+
 	}
 	
 
+	
 /////////////////////////////////////////////////////////////
 
 //! Wird aufgerufen, wenn durch Wahl der entsprechenden Nummer oder
@@ -626,8 +646,8 @@ static void LokalbetriebSimulieren()
 
 /////////////////////////////////////////////////////////////
 
-//! Wickelt die gehende Wahl ab bei nicht vorhandener Wählscheibe.
-//----------------------------------------------------------------
+//! Wickelt die gehende Wahl ab. 
+//----------------------------------------------
 //! Tastaturwahl. 
 //! \retval true bei erfolgreichem Verbindungsaufbau.
 
@@ -662,7 +682,7 @@ static bool WahlMitTastatur()
 		FernschrIO(true);
 		
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
-		
+
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
 			{
 			c = CodeZuZeichen(SerUmEmpfDaten, &BaudotMode);
@@ -673,7 +693,7 @@ static bool WahlMitTastatur()
 				EsWurdeGewaehlt = true;
 				}
 			else if (c == 'l' && !EsWurdeGewaehlt)
-				{
+				{ 
 				LokalbetriebSimulieren();
 				return false;
 				}
@@ -681,7 +701,8 @@ static bool WahlMitTastatur()
 				{
 				Falschziffern++;
 				}
-			StartTimer(&RuheTimer);
+
+			StartTimer(&WahlendeTimer);
 			}
 
 			while (Falschziffern > 0 && TimerVal(&RuheTimer) >= 200)
@@ -690,7 +711,7 @@ static bool WahlMitTastatur()
 				Falschziffern--;
 				}
 
-			if (TimerVal(&RuheTimer) > (EsWurdeGewaehlt ? 30000 : 15000)) // 15 / 30 Sekunden nicht gewählt
+			if (TimerVal(&RuheTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 45 / 15 Sekunden nicht gewählt
 				{ 
 				// GeAusschalten() und FsAusschalten() macht die aufrufende Routine
 				return false;
@@ -780,48 +801,52 @@ static void VerbindungGehend()
 		
 	set_LEDGELB();
 	
-	switch (GeEinschalten())
-		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
-		case GeEinschFehler:
-			clr_LEDGELB();
-			
-			return; 
-
-		case GeEinschWahl:
-			if (WahlMitTastatur())
-				// Einschalten macht WahlMitTastatur()
-				break; // ist jetzt verbunden
-				
-			GeAusschalten(true);
-			FsAusschalten();
-			BreakSignal = false;
-			
-			if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
-				{
-				clr_LEDGELB();
-				KommendSperren(SperreWahl);
-				}
-				
-			else if ((LokalbetriebWahl != 0 && LetzteInterneWahl() == LokalbetriebWahl)
-				|| LetzteInterneWahl() == (BusEigenAdresse >> 1))
-				{
-				/* TODO später LokalbetriebSimulieren(); */
-					// macht auch am Ende TW39Ausschalten()
-				}
-				
-			return;
-
-		default:
-			FehlerStop(15); // TODO
-			return;
+	if (!GeAnrufBeginn())
+		{
+		clr_LEDGELB();
+		return; 
 		}
 
-	// VerbindungSteht(true); // automatische Kennungsgeber-Abfrage ist in Abstimmung mit dem Kunden gestrichen
-	VerbindungSteht(false); 
+	bool Verbunden = false;
 	
-	SperrzeitAussetzen(); // am Ende nochmal das Flag setzen.
+	Verbunden = WahlMitTastatur();
 
-	}
+	if (!Verbunden)
+		{
+		GeAusschalten(true);
+		BreakSignal = false;
+			
+		if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
+			{
+			clr_LEDGELB();
+			FsAusschalten();
+			KommendSperren(SperreWahl);
+			}
+				
+		else if ((LokalbetriebWahl != 0 && LetzteInterneWahl() == LokalbetriebWahl)
+			|| LetzteInterneWahl() == (BusEigenAdresse >> 1))
+			{
+			/* TODO später LokalbetriebSimulieren(); */
+				// macht auch am Ende TW39Ausschalten()
+			}
+			
+		else
+			FernschrAusschalten();
+		}
+	else // Verbunden = true
+		{ 
+		if (GeEinschaltQuittung())  // endgültige Einschaltung bestätigen
+			VerbindungSteht(false); // Automatische KG-Abfrage ist nicht gewünscht
+		else
+			{ // Fehler
+			GeAusschalten(true);
+			FernschrAusschalten();
+			}
+		}
+		
+	SperrzeitAussetzen();
+	
+	} // VerbindungGehend()
 
 
 /////////////////////////////////////////////////////////////

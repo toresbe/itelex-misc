@@ -1,5 +1,5 @@
 //================================================================
-// Fernschreiber-Schnittstelle ED1000 für TxP2-System
+// Fernschreiber-Schnittstelle ED1000 für i-Telex-System
 //	für ATmega168 auf Platine ED1000
 //================================================================
 
@@ -172,11 +172,6 @@ typedef enum { Deaktivierung, DemoBetriebStarten, ExtStromEinschalten } TTasteFu
 
 TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb, 2 = Ausgang zum externen Schalter aktivieren
 
-
-
-
-	
-	
 // Schnittstellen-Spezifische Variablen
 // ====================================
 
@@ -935,7 +930,7 @@ static void VerbindungGehend()
 	else // Verbunden = true
 		{ 
 		if (GeEinschaltQuittung())  // endgültige Einschaltung bestätigen
-			VerbindungSteht(!MitWaehlscheibe); // wenn keine Wählscheibe, dann automatische Kennungsgeber-Abfrage
+			VerbindungSteht(true);
 		else
 			{ // Fehler
 			GeAusschalten(true);

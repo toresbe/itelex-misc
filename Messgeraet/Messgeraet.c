@@ -617,27 +617,18 @@ static void VerbindungRueckruf()
 	Aktivieren(true);
 	PufferPos = 0;
 	
-	switch (GeEinschalten())
-		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
-		case GeEinschFehler:
-			return; 
-
-		case GeEinschWahl:
-			while (!KoEinschalten())
-				{
-				if (GeSendePufferLeer() && Puffer[PufferPos] < 10)
-					GeWaehlen(Puffer[PufferPos++]);
-				if (KoAusschalten())
-					{ // Abbruch ???
-					return;
-					}
-				} // while !KoEinschalten()
-			break; // ist jetzt Verbunden
-
-		default:
-			FehlerStop(15); // TODO
+	if (!GeAnrufBeginn())
+		return;
+	
+	while (!KoEinschalten())
+		{
+		if (GeSendePufferLeer() && Puffer[PufferPos] < 10)
+			GeWaehlen(Puffer[PufferPos++]);
+		if (KoAusschalten())
+			{ // Abbruch ???
 			return;
-		}
+			}
+		} // while !KoEinschalten()
 
 	while (Puffer[PufferPos] != 255)
 		PufferPos++;
@@ -1025,7 +1016,7 @@ static void VerbindungKommend()
 	{
 	set_LED_GRUEN();
 	
-	if (GeEinschalten() != GeEinschAnrufquitt)
+	if (!GeEinschaltQuittung())
 		{
 		GeAusschalten(true);
 		}

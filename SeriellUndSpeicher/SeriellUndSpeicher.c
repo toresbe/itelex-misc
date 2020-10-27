@@ -543,7 +543,6 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	// 10: unerlaubte Aktivierung / Deaktivierung
 	// 11: Fehler beim externen EEPROM
 	// 12: Versuch, beim MEGA 8 mehrere Adressen einzustellen
-	// 13: GeEinschalten liefert ungültigen Code
 	{
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWEN) | (0<<TWIE);
 	
@@ -645,7 +644,7 @@ static void VerbindungKommend()
 	bool AufzeichnungEin = AufzeichnungBeginn(Jahr, Monat, Tag, Stunde, Minute);
 #endif //def AF_ANRUFSPEICHER
 
-	if (GeEinschalten() != GeEinschAnrufquitt)
+	if (!GeEinschaltQuittung())
 		{
 #ifdef SPRACHE_EN		
 		LokalTextAusgabeP(PSTR("\r\nError\r\n"));
@@ -688,65 +687,50 @@ static void VerbindungGehend()
 	#endif //def AF_ZEITSPERRE
 
 	set_LEDGELB();
-	switch (GeEinschalten())
-		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
-		case GeEinschFehler:
-			clr_LEDGELB();
-			return; 
-
-		case GeEinschWahl:
-#ifdef SPRACHE_EN		
-			LokalTextAusgabeP(PSTR("\r\nDial: "));
-#else			
-			LokalTextAusgabeP(PSTR("\r\nWaehlen: "));
-#endif			
-			while (!KoEinschalten())
-				{
-				SeriellIO();
-				DoSwTwi();
-				if (!PufferLeer(&SerInBuf))
-					{
-					char c;
-					c = SerEmpfZ(true);
-					if (c >= '0' && c <= '9')
-						{ // Ziffer eingegeben
-						GeWaehlen(c - '0');
-						}
-
-					else if (c == CTRL('s'))
-						{ // Abbruch durch Bediener
-						GeAusschalten(false);
-						} // auf die Quittung wird dann in dieser Schleife gewartet...
-					}
-
-				if (KoAusschalten())
-					{
-#ifdef SPRACHE_EN					
-					LokalTextAusgabeP(PSTR("\r\nAbort"));
-#else
-					LokalTextAusgabeP(PSTR("\r\nAbbruch"));
-#endif
-					GeAusschalten(false); // zu warten ist nicht mehr nötig.
-					// TODO hier Lokalbetrieb / KommendSperre?
-					return;
-					}
-
-				} // while !KoEinschalten()
-
-			break; // ist jetzt Verbunden
-
-//		case GeEinschSofortEin: GIBTS NICHT MEHR
-//			break; // ist jetzt Verbunden
-
-//		case GeEinschFremdKonfig: GIBTS NICHT MEHR
-//			LeitungsSstKonfigurationsDialog();
-//			GeAusschalten();
-//			return; // keine normale Verbindung
-
-		default:
-			FehlerStop(13); 
-			return;
+	if (!GeAnrufBeginn())
+		{ 
+		clr_LEDGELB();
+		return; 
 		}
+		
+#ifdef SPRACHE_EN		
+	LokalTextAusgabeP(PSTR("\r\nDial: "));
+#else			
+	LokalTextAusgabeP(PSTR("\r\nWaehlen: "));
+#endif			
+	while (!KoEinschalten())
+		{
+		SeriellIO();
+		DoSwTwi();
+		if (!PufferLeer(&SerInBuf))
+			{
+			char c;
+			c = SerEmpfZ(true);
+			if (c >= '0' && c <= '9')
+				{ // Ziffer eingegeben
+				GeWaehlen(c - '0');
+				}
+
+			else if (c == CTRL('s'))
+				{ // Abbruch durch Bediener
+				GeAusschalten(false);
+				} // auf die Quittung wird dann in dieser Schleife gewartet...
+			}
+
+		if (KoAusschalten())
+			{
+#ifdef SPRACHE_EN					
+			LokalTextAusgabeP(PSTR("\r\nAbort"));
+#else
+			LokalTextAusgabeP(PSTR("\r\nAbbruch"));
+#endif
+			GeAusschalten(false); // zu warten ist nicht mehr nötig.
+			// TODO hier Lokalbetrieb / KommendSperre?
+			return;
+			}
+
+		} // while !KoEinschalten()
+
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("\r\nConnected\r\n"));
 #else	

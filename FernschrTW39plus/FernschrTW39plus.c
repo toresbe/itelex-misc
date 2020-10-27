@@ -150,7 +150,6 @@ TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-B
 // =====================================
 
 
-
 //! bedient Hardware-IO entsprechend der aktuellen Zustände.
 
 /*!
@@ -497,7 +496,7 @@ static void VerbindungKommend()
 		}
 	else
 		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
-
+		
 	}
 	
 

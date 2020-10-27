@@ -385,7 +385,7 @@ static void VerbindungKommend()
 
 	clr_LEDROT();
 	
-	if (GeEinschalten() != GeEinschAnrufquitt)
+	if (!GeEinschaltQuittung())
 		{
 		GeAusschalten(true);
 		while (!KoAusschalten())
@@ -540,39 +540,19 @@ static void VerbindungGehend()
 		return;
 		}
 	
-	switch (GeEinschalten())
-		{ // hier nur break benutzen, wenn Einschaltung erfolgreich
-		case GeEinschFehler:
-			return; 
+	if (!GeAnrufBeginn())
+		{ 
+		return; 
+		}
 
-		case GeEinschWahl:
-			if (WahlMitTastatur())
-				// Einschalten ist nicht erforderlich, da schon eingeschaltet ist...
-				break; // ist jetzt verbunden
-
-			GeAusschalten(true);
-			TW39Ausschalten();
-			while (!KoAusschalten())
-				TW39IO(); // wartet auf Quittung der Ausschaltung
-			
-			return;
-
-/*
-		case GeEinschSofortEin:
-			TW39Einschalten();
-			break; // ist jetzt Verbunden
-
-		case GeEinschFremdKonfig:
-			TW39Einschalten();
-// passt nicht mehr...			LeitungsSstKonfigurationsDialog();
-			TW39Ausschalten();
-			GeAusschalten();
-			return; // keine normale Verbindung
-*/
-
-		default:
-			FehlerStop(15); // TODO
-			return;
+	if (!WahlMitTastatur())
+		{
+		GeAusschalten(true);
+		TW39Ausschalten();
+		while (!KoAusschalten())
+			TW39IO(); // wartet auf Quittung der Ausschaltung
+		
+		return;
 		}
 
 	VerbindungSteht(false); // keine automatische Kennungsgeber-Abfrage
