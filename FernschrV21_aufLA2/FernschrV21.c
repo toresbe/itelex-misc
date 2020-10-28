@@ -1315,7 +1315,7 @@ int main()
 	ModemAnswerMode = get_MODEJMP_ANSWER();
 	ModemPolarityReversed = get_MODEJMP_POLARITY();
 
-	V21Init();
+	FernschrInit();
 
 	FernschrIO();
 	

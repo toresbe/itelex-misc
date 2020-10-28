@@ -54,35 +54,36 @@
 
 #if PLATINE_VERSION >= 20
 
-								// 73K221  Mega168
-								//			 1  Reset
-DEFPORTINPULL(RXD, 		D, 0)	//	22		 2  RXD
-DEFPORTOUT(TXD, 		D, 1)	//	21		 3  TXD
-DEFPORTOUT(LEDBLAU,		D, 2)	//			 4
-DEFPORTINPULL(INT, 		D, 3)	//	17		 5
-DEFPORTOUT(EXCLK, 		D, 4)  	//	19		 6
-								//			 7	VCC
-								//			 8	GND
-//						B, 6)	//			 9	XTAL1
-DEFPORTOUT(WR, 			B, 7)	//	13		10	XTAL2
-DEFPORTOUT(RD, 			D, 5)	//	14		11
-//DEFPORTOUT(, 		D, 6)	//				12
+										// 73K221  Mega168
+										//			 1  Reset
+DEFPORTINPULL	(RXD, 			D, 0)	//	22		 2  RXD
+DEFPORTOUT		(TXD, 			D, 1)	//	21		 3  TXD
+DEFPORTOUT		(LEDBLAU,		D, 2)	//			 4
+DEFPORTINPULL	(INT, 			D, 3)	//	17		 5
+DEFPORTOUT		(EXCLK, 		D, 4)  	//	19		 6
+										//			 7	VCC
+										//			 8	GND
+//								B, 6)	//			 9	XTAL1
+DEFPORTOUT		(WR, 			B, 7)	//	13		10	XTAL2
+DEFPORTOUT		(RD, 			D, 5)	//	14		11
+DEFPORTOUT		(SV_EIN, 		D, 6)	//				12
 DEFPORTINPULLAL(MODEJMP_POLARITY, D, 7)	//	13
-//DEFPORTOUT(,		B, 0)	//				14
-DEFPORTOUT(AD1, 		B, 1)	//	 5		15
-DEFPORTOUT(AD2, 		B, 2)	//	 6		16
-DEFPORTTRI(AD7, 		B, 3)	//	11		17	MOSI
-DEFPORTOUT(AD0, 		B, 4)	//	 4		18	MISO
-DEFPORTINPULLAL(MODEJMP_ANSWER, B, 5)	//	19	SCK
-								//			20	AVCC
-								//			21	AREF
-								//			22	AGND
-DEFPORTOUT(LEDGRUEN, 	C, 0)	//			23
-DEFPORTOUT(LEDGELB, 	C, 1)	//			24
-DEFPORTOUT(LEDROT, 		C, 2)	//			25
-DEFPORTINPULLAL(TASTE,	C, 3)	//			26
-//						C, 4)	//			27	SDA
-//						C, 5)	//			28	SCL
+DEFPORTINPULLAL	(TASTEEXT,		B, 0)	//				14
+DEFPORTOUT		(AD1, 			B, 1)	//	 5		15
+DEFPORTOUT		(AD2, 			B, 2)	//	 6		16
+DEFPORTTRI		(AD7, 			B, 3)	//	11		17	MOSI
+DEFPORTOUT		(AD0, 			B, 4)	//	 4		18	MISO
+DEFPORTINPULLAL	(MODEJMP_ANSWER, B, 5)	//			19	SCK
+										//			20	AVCC
+										//			21	AREF
+										//			22	AGND
+DEFPORTOUT		(LEDGRUEN, 		C, 0)	//			23
+DEFPORTOUT		(LEDGELB, 		C, 1)	//			24
+DEFPORTOUT		(LEDROT, 		C, 2)	//			25
+DEFPORTINPULLAL	(TASTE,			C, 3)	//			26
+//								C, 4)	//			27	SDA
+//								C, 5)	//			28	SCL
+
 
 #else
 
