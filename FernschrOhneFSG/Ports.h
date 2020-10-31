@@ -59,6 +59,7 @@ DEFPORTOUT		(FS_AUSG,	B, 0) // Schleifenschluﬂ-Ausgabe
 DEFPORTOUT		(FS_AKTIV,	D, 7) // Einschaltung (Ausgabe, Optionaler Motor-Schalter
 DEFPORTINPULL	(FS_EING, 	D, 6) // Strom-Einlesung
 
+
 #else
 
 #error Ungueltige Angabe fuer PLATINE_VERSION...

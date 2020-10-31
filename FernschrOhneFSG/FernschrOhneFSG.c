@@ -92,7 +92,7 @@ enum {
 	EEAdr_SperrzeitDaten = 132,
     EEAdr_UmleitungAbweisen = 133,
 	EEAdr_LokalbetriebWahl = 134,
-	EEAdr_TasteFunktion = 135
+	EEAdr_TasteFunktion = 135,
 	// EEAdr_AnrufAbbruchZeit nicht benutzt
 	EEAdr_StartQuittVerz = 136,
 	EEAdr_Ende = 138 // darf erhöht werden
@@ -147,14 +147,14 @@ uint8_t AusschaltZeichen[MaxCodefolgeLaenge+1];
 	//!< Druck-Sequenz als Zeichen für Ende der Verbindung.
 	//!< 0 markiert Sequenz-Ende, damit KonfigSchreibeString verwendet werden kann.
 
-PROGMEM uint8_t AusschaltZeichenDefault[] = { TtyCodeBuUm, TtyCodeBuUm, TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 6, 6, 6, 6, TtyCodeWR, TtyCodeZL, TtyCodeZL } ; // NNNN
+PROGMEM const uint8_t AusschaltZeichenDefault[] = { TtyCodeBuUm, TtyCodeBuUm, TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 6, 6, 6, 6, TtyCodeWR, TtyCodeZL, TtyCodeZL } ; // NNNN
 	//!< Standardwert für #AusschaltZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
 	
 uint8_t WahlaufforderungZeichen[MaxCodefolgeLaenge+1];
 	//!< Druck-Sequenz als Zeichen jetzt zu wählen
 
-PROGMEM uint8_t WahlaufforderungZeichenDefault[] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 
+PROGMEM const uint8_t WahlaufforderungZeichenDefault[] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 
 													 11, 24, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeZiUm } ; // GA _ _ _ _ _
 	//!< Standardwert für #WahlaufforderungZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
@@ -162,7 +162,7 @@ PROGMEM uint8_t WahlaufforderungZeichenDefault[] = { TtyCodeBuUm, TtyCodeWR, Tty
 uint8_t VerbindungHergestelltZeichen[MaxCodefolgeLaenge+1];
 	//!< Druck-Sequenz nach Eingang der Verbindungsbestätigung
 	
-PROGMEM uint8_t VerbindungHergestelltZeichenDefault[] = { TtyCodeBuUm, TtyCodeLeer, 14, 3, 6, TtyCodeWR, TtyCodeZL } ; // CON
+PROGMEM const uint8_t VerbindungHergestelltZeichenDefault[] = { TtyCodeBuUm, TtyCodeLeer, 14, 3, 6, TtyCodeWR, TtyCodeZL } ; // CON
 	//!< Standardwert für #VerbindungHergestelltZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
 	
