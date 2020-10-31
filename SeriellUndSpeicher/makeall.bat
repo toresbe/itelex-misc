@@ -1,0 +1,13 @@
+make -C PlatVer13
+make -C PlatVer13-CodeSw
+make -C PlatVer13-Full
+make -C PlatVer13-SerDurch
+make -C PlatVer21
+make -C PlatVer21-CodeSw
+make -C PlatVer21-Full
+make -C OhneSpeicher13
+make -C USTTY-45_21
+make -C 110-7_21
+make -C 110-7_EN_21
+make -C KOI8R_21
+make -C KOI7N2_21

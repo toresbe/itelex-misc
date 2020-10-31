@@ -1,0 +1,9 @@
+Fuses füer TxP2-Firmware: 
+(extended / high / low)
+AnalogModem: F9 D5 E0
+TW39: D1 BF
+TW39plus: F9 D5 F7
+Seriell: F9 D5 F7
+ED1000: F9 D5 F7
+Messgeraet: F9 D5 F7
+ip-Telex mit Bootloader: FD D6 F7
