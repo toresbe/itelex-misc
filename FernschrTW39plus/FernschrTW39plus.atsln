@@ -7,6 +7,7 @@ Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "FernschrTW39plus", "Fernsch
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		100Baud|AVR = 100Baud|AVR
 		75Baud|AVR = 75Baud|AVR
 		AltePlatine|AVR = AltePlatine|AVR
 		default|AVR = default|AVR
@@ -14,6 +15,8 @@ Global
 		USTTY-45|AVR = USTTY-45|AVR
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.100Baud|AVR.ActiveCfg = 100Baud|AVR
+		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.100Baud|AVR.Build.0 = 100Baud|AVR
 		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.75Baud|AVR.ActiveCfg = 75Baud|AVR
 		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.75Baud|AVR.Build.0 = 75Baud|AVR
 		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.AltePlatine|AVR.ActiveCfg = AltePlatine|AVR

@@ -30,8 +30,8 @@
 //   16: B2  	bis V1.2 LED blau: High = ein
 //				ab V1.31 Maschine 2 Ausgabe FS Daten: High = Strom ein = Mark
 //   17: B3 MOSI
-//   18: B4 MISO
-//   19: B5 SCK 
+//   18: B4 MISO	option Ausgang Energieversorgung Fs einschalten
+//   19: B5 SCK 	option Taste Energieversorgung Fs einschalten
 //   20: AVCC
 //   21: AREF
 //   22: GND

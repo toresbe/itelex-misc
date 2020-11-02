@@ -291,7 +291,7 @@ static void LokalCodeAusgabeS(uint8_t *codep, bool StopIfCalled); // kommt erst 
 //-------------------------------
 //! Da es keine echte Ausschaltung gibt, entsprechende Kennung ausgeben
 
-static void FsAusschalten()
+static void FernschrAusschalten()
 	{
 	BefehlMark = true;
 	BreakSignal = false;	
@@ -597,7 +597,7 @@ static void VerbindungKommend()
 	if (!GeEinschaltQuittung())
 		{
 		GeAusschalten(true);
-		FsAusschalten();
+		FernschrAusschalten();
 		}
 	else
 		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
@@ -654,6 +654,7 @@ static void LokalbetriebSimulieren()
 static bool WahlMitTastatur()
 	{
 	char c;
+	TMsTimer WahlendeTimer;
 	bool EsWurdeGewaehlt;
 	int Falschziffern;
 	
@@ -705,21 +706,21 @@ static bool WahlMitTastatur()
 			StartTimer(&WahlendeTimer);
 			}
 
-			while (Falschziffern > 0 && TimerVal(&RuheTimer) >= 200)
+			while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 200)
 				{
 				LokalZeichenAusgabe('?');
 				Falschziffern--;
 				}
 
-			if (TimerVal(&RuheTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 45 / 15 Sekunden nicht gewählt
+			if (TimerVal(&WahlendeTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 45 / 15 Sekunden nicht gewählt
 				{ 
-				// GeAusschalten() und FsAusschalten() macht die aufrufende Routine
+				// GeAusschalten() und FernschrAusschalten() macht die aufrufende Routine
 				return false;
 				}
 
 		if (BreakSignal || KoAusschalten())
 			{
-			// FsAusschalten() macht die aufrufende Routine
+			// FernschrAusschalten() macht die aufrufende Routine
 			return false;
 			}
 			
@@ -793,7 +794,7 @@ static void VerbindungGehend()
 	{
 	if (BusEigenAdresse == BusAdrUngueltig)
 		{
-		FsAusschalten();
+		FernschrAusschalten();
 		return;
 		}
 
@@ -819,7 +820,7 @@ static void VerbindungGehend()
 		if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
 			{
 			clr_LEDGELB();
-			FsAusschalten();
+			FernschrAusschalten();
 			KommendSperren(SperreWahl);
 			}
 				
@@ -958,7 +959,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			GeAusschalten(false);
 			while (!KoAusschalten())
 				FernschrIO(false);
-			FsAusschalten();
+			FernschrAusschalten();
 			BreakSignal = false;
 			return;
 			}
@@ -966,7 +967,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		if (KoAusschalten())
 			{
 			GeAusschalten(false); // da braucht auf nichts mehr gewartet zu werden
-			FsAusschalten();
+			FernschrAusschalten();
 			return;
 			}
 		
@@ -1076,7 +1077,7 @@ static void Konfiguration()
 		SperrzeitInit();
 		// TasteFunktion = 0;
 		// AutoWahlZiffern[0] = 255; // Ende-Kennzeichen
-		// Ende-Kennung druckt FsAusschalten()		
+		// Ende-Kennung druckt FernschrAusschalten()		
 		return;
 		}
 
@@ -1176,7 +1177,7 @@ static void Konfiguration()
 	if (Res == 0 || BreakSignal)
 		return;
 
-	// Ende-Kennung druckt FsAusschalten()
+	// Ende-Kennung druckt FernschrAusschalten()
 	
 	} // Konfiguration()
 
@@ -1190,7 +1191,7 @@ static void Konfiguration()
 static void KonfigurationEnde()
 	{
 	BreakSignal = false;
-	FsAusschalten();
+	FernschrAusschalten();
 	
 	KonfigSchreibeByte(EEAdr_BusEigenAdresse, BusEigenAdresse);
 	
@@ -1238,7 +1239,7 @@ static void FehlermeldungDrucken()
 	
 	KonfigSpeicherFehlerAusgeben();
 	
-	FsAusschalten();
+	FernschrAusschalten();
 
 	Aktivieren(true);
 
@@ -1402,6 +1403,8 @@ int main()
 	//init_TASTE2();
 
 	set_LEDROT();
+
+	pgm_read_byte(Identifier); // Dummy read to force the identifier to be placed in the FLASH.
 
 	KonfigSpeicherInit();
 	

@@ -1312,7 +1312,9 @@ static void KommendSperren(TSperreGrund Grund)
 		BlinkTaktFaktor = 4;
 	else
 		BlinkTaktFaktor = 1;
-	
+
+	pgm_read_byte(Identifier); // Dummy read to force the identifier to be placed in the FLASH.
+		
 	while (true)
 		{
 		TastePruefen();

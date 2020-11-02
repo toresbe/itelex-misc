@@ -1531,6 +1531,8 @@ int main()
 	
 	SperrzeitInit();
 
+	pgm_read_byte(Identifier); // Dummy read to force the identifier to be placed in the FLASH.
+
 	BusEigenAdresse = KonfigLeseByteBegrenzt(EEAdr_BusEigenAdresse, 31 << 1/*Standardwert*/, BusAdrMin, BusAdrMax) & 0xFE; // Bit 0 löschen
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
