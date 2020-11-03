@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Atmel Studio Solution File, Format Version 11.00
+VisualStudioVersion = 14.0.23107.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "FernschrTW39", "FernschrTW39.cproj", "{28893037-8F89-4905-95EC-ED22A360D79C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		AltePlatine|AVR = AltePlatine|AVR
+		default|AVR = default|AVR
+		USTTY-45|AVR = USTTY-45|AVR
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{28893037-8F89-4905-95EC-ED22A360D79C}.AltePlatine|AVR.ActiveCfg = AltePlatine|AVR
+		{28893037-8F89-4905-95EC-ED22A360D79C}.AltePlatine|AVR.Build.0 = AltePlatine|AVR
+		{28893037-8F89-4905-95EC-ED22A360D79C}.default|AVR.ActiveCfg = default|AVR
+		{28893037-8F89-4905-95EC-ED22A360D79C}.default|AVR.Build.0 = default|AVR
+		{28893037-8F89-4905-95EC-ED22A360D79C}.USTTY-45|AVR.ActiveCfg = USTTY-45|AVR
+		{28893037-8F89-4905-95EC-ED22A360D79C}.USTTY-45|AVR.Build.0 = USTTY-45|AVR
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Atmel Studio Solution File, Format Version 11.00
+VisualStudioVersion = 14.0.23107.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "ED1000", "ED1000.cproj", "{CCDAF6BC-5C01-431E-87D3-1FCF7BB30B49}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		100Baud|AVR = 100Baud|AVR
+		75Baud|AVR = 75Baud|AVR
+		default|AVR = default|AVR
+		FuerPrototyp|AVR = FuerPrototyp|AVR
+		V.21|AVR = V.21|AVR
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CCDAF6BC-5C01-431E-87D3-1FCF7BB30B49}.100Baud|AVR.ActiveCfg = A100Baud|AVR
+		{CCDAF6BC-5C01-431E-87D3-1FCF7BB30B49}.100Baud|AVR.Build.0 = A100Baud|AVR
+		{CCDAF6BC-5C01-431E-87D3-1FCF7BB30B49}.75Baud|AVR.ActiveCfg = A75Baud|AVR
+		{CCDAF6BC-5C01-431E-87D3-1FCF7BB30B49}.75Baud|AVR.Build.0 = A75Baud|AVR
+		{CCDAF6BC-5C01-431E-87D3-1FCF7BB30B49}.default|AVR.ActiveCfg = default|AVR
+		{CCDAF6BC-5C01-431E-87D3-1FCF7BB30B49}.default|AVR.Build.0 = default|AVR
+		{CCDAF6BC-5C01-431E-87D3-1FCF7BB30B49}.FuerPrototyp|AVR.ActiveCfg = FuerPrototyp|AVR
+		{CCDAF6BC-5C01-431E-87D3-1FCF7BB30B49}.FuerPrototyp|AVR.Build.0 = FuerPrototyp|AVR
+		{CCDAF6BC-5C01-431E-87D3-1FCF7BB30B49}.V.21|AVR.ActiveCfg = V.21|AVR
+		{CCDAF6BC-5C01-431E-87D3-1FCF7BB30B49}.V.21|AVR.Build.0 = V.21|AVR
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

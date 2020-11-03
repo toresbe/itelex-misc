@@ -1,101 +1,235 @@
-###############################################################################
-# Makefile for the project FernschrTW39
-###############################################################################
+################################################################################
+# Automatically-generated file. Do not edit!
+################################################################################
 
-## General Flags
-PROJECT = FernschrTW39
-MCU = atmega8
-TARGET = FernschrTW39.elf
-CC = avr-gcc
+SHELL := cmd.exe
+RM := rm -rf
 
-CPP = avr-g++
+USER_OBJS :=
 
-## Options common to compile, link and assembly rules
-COMMON = -mmcu=$(MCU)
+LIBS := 
+PROJ := 
 
-## Compile options common for all C compilation units.
-CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -fgnu89-inline -DPLATINE_VERSION=13   -DFUER_TW39              -DF_CPU=6144000UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
-CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
+O_SRCS := 
+C_SRCS := 
+S_SRCS := 
+S_UPPER_SRCS := 
+OBJ_SRCS := 
+ASM_SRCS := 
+PREPROCESSING_SRCS := 
+OBJS := 
+OBJS_AS_ARGS := 
+C_DEPS := 
+C_DEPS_AS_ARGS := 
+EXECUTABLES := 
+OUTPUT_FILE_PATH :=
+OUTPUT_FILE_PATH_AS_ARGS :=
+AVR_APP_PATH :=$$$AVR_APP_PATH$$$
+QUOTE := "
+ADDITIONAL_DEPENDENCIES:=
+OUTPUT_FILE_DEP:=
+LIB_DEP:=
+LINKER_SCRIPT_DEP:=
 
-## Assembly specific flags
-ASMFLAGS = $(COMMON)
-ASMFLAGS += $(CFLAGS)
-ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
-
-## Linker flags
-LDFLAGS = $(COMMON)
-LDFLAGS +=  -Wl,-Map=FernschrTW39.map
+# Every subdirectory with source files must be described here
+SUBDIRS := 
 
 
-## Intel Hex file production flags
-HEX_FLASH_FLAGS = -R .eeprom -R .fuse -R .lock -R .signature
+# Add inputs and outputs from these tool invocations to the build variables 
+C_SRCS +=  \
+../FernschrTW39.c \
+../../Gemeinsam/TxP2-Endgeraet.c \
+../../Gemeinsam/FifoPuffer.c \
+../../Gemeinsam/BaudotCode.c \
+../../Gemeinsam/BusKomm.c \
+../Taste.c \
+../../Gemeinsam/SeriellUmsetz.c \
+../../Gemeinsam/KonfigDialog.c \
+../../Gemeinsam/LokalAusgabe.c \
+../../../C-Libs/MsTimer.c
 
-HEX_EEPROM_FLAGS = -j .eeprom
-HEX_EEPROM_FLAGS += --set-section-flags=.eeprom="alloc,load"
-HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
+
+PREPROCESSING_SRCS += 
 
 
-## Include Directories
-INCLUDES = -I"D:\Daten\AvrProgs\TxP2\FernschrTW39\..\..\C-Libs" -I"D:\Daten\AvrProgs\TxP2\FernschrTW39\..\Gemeinsam" 
+ASM_SRCS += 
 
-## Objects that must be built in order to link
-OBJECTS = FernschrTW39.o TxP2-Endgeraet.o FifoPuffer.o BaudotCode.o BusKomm.o Taste.o SeriellUmsetz.o KonfigDialog.o LokalAusgabe.o MsTimer.o 
 
-## Objects explicitly added by the user
-LINKONLYOBJECTS = 
+OBJS +=  \
+FernschrTW39.o \
+TxP2-Endgeraet.o \
+FifoPuffer.o \
+BaudotCode.o \
+BusKomm.o \
+Taste.o \
+SeriellUmsetz.o \
+KonfigDialog.o \
+LokalAusgabe.o \
+MsTimer.o
 
-## Build
-all: $(TARGET) FernschrTW39.hex FernschrTW39.eep FernschrTW39.lss## Compile
-FernschrTW39.o: ../FernschrTW39.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+OBJS_AS_ARGS +=  \
+FernschrTW39.o \
+TxP2-Endgeraet.o \
+FifoPuffer.o \
+BaudotCode.o \
+BusKomm.o \
+Taste.o \
+SeriellUmsetz.o \
+KonfigDialog.o \
+LokalAusgabe.o \
+MsTimer.o
 
-TxP2-Endgeraet.o: ../../Gemeinsam/TxP2-Endgeraet.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+C_DEPS +=  \
+FernschrTW39.d \
+TxP2-Endgeraet.d \
+FifoPuffer.d \
+BaudotCode.d \
+BusKomm.d \
+Taste.d \
+SeriellUmsetz.d \
+KonfigDialog.d \
+LokalAusgabe.d \
+MsTimer.d
 
-FifoPuffer.o: ../../Gemeinsam/FifoPuffer.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+C_DEPS_AS_ARGS +=  \
+FernschrTW39.d \
+TxP2-Endgeraet.d \
+FifoPuffer.d \
+BaudotCode.d \
+BusKomm.d \
+Taste.d \
+SeriellUmsetz.d \
+KonfigDialog.d \
+LokalAusgabe.d \
+MsTimer.d
 
-BaudotCode.o: ../../Gemeinsam/BaudotCode.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+OUTPUT_FILE_PATH +=FernschrTW39.elf
 
-BusKomm.o: ../../Gemeinsam/BusKomm.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+OUTPUT_FILE_PATH_AS_ARGS +=FernschrTW39.elf
 
-Taste.o: ../Taste.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+ADDITIONAL_DEPENDENCIES:=
 
-SeriellUmsetz.o: ../../Gemeinsam/SeriellUmsetz.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+OUTPUT_FILE_DEP:= ./makedep.mk
 
-KonfigDialog.o: ../../Gemeinsam/KonfigDialog.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+LIB_DEP+= 
 
-LokalAusgabe.o: ../../Gemeinsam/LokalAusgabe.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+LINKER_SCRIPT_DEP+= 
 
-MsTimer.o: ../../../C-Libs/MsTimer.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-##Link
-$(TARGET): $(OBJECTS)
-	 $(CC) $(LDFLAGS) $(OBJECTS) $(LINKONLYOBJECTS) $(LIBDIRS) $(LIBS) -o $(TARGET)
+# AVR32/GNU C Compiler
+./FernschrTW39.o: .././FernschrTW39.c
+	@echo Building file: $<
+	@echo Invoking: AVR/GNU C Compiler : 5.4.0
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DFUER_TW39 -DF_CPU=6144000UL -D__PROG_TYPES_COMPAT__ -DPLATINE_VERSION=13  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\include"  -Os -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega8 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\gcc\dev\atmega8" -c -gdwarf-2 -std=gnu99 -fgnu89-inline -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	@echo Finished building: $<
+	
 
-%.hex: $(TARGET)
-	avr-objcopy -O ihex $(HEX_FLASH_FLAGS)  $< $@
+./TxP2-Endgeraet.o: ../../Gemeinsam/TxP2-Endgeraet.c
+	@echo Building file: $<
+	@echo Invoking: AVR/GNU C Compiler : 5.4.0
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DFUER_TW39 -DF_CPU=6144000UL -D__PROG_TYPES_COMPAT__ -DPLATINE_VERSION=13  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\include"  -Os -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega8 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\gcc\dev\atmega8" -c -gdwarf-2 -std=gnu99 -fgnu89-inline -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	@echo Finished building: $<
+	
 
-%.eep: $(TARGET)
-	-avr-objcopy $(HEX_EEPROM_FLAGS) -O ihex $< $@ || exit 0
+./FifoPuffer.o: ../../Gemeinsam/FifoPuffer.c
+	@echo Building file: $<
+	@echo Invoking: AVR/GNU C Compiler : 5.4.0
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DFUER_TW39 -DF_CPU=6144000UL -D__PROG_TYPES_COMPAT__ -DPLATINE_VERSION=13  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\include"  -Os -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega8 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\gcc\dev\atmega8" -c -gdwarf-2 -std=gnu99 -fgnu89-inline -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	@echo Finished building: $<
+	
 
-%.lss: $(TARGET)
-	avr-objdump -h -S $< > $@
+./BaudotCode.o: ../../Gemeinsam/BaudotCode.c
+	@echo Building file: $<
+	@echo Invoking: AVR/GNU C Compiler : 5.4.0
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DFUER_TW39 -DF_CPU=6144000UL -D__PROG_TYPES_COMPAT__ -DPLATINE_VERSION=13  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\include"  -Os -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega8 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\gcc\dev\atmega8" -c -gdwarf-2 -std=gnu99 -fgnu89-inline -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	@echo Finished building: $<
+	
 
-## Clean target
-.PHONY: clean
+./BusKomm.o: ../../Gemeinsam/BusKomm.c
+	@echo Building file: $<
+	@echo Invoking: AVR/GNU C Compiler : 5.4.0
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DFUER_TW39 -DF_CPU=6144000UL -D__PROG_TYPES_COMPAT__ -DPLATINE_VERSION=13  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\include"  -Os -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega8 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\gcc\dev\atmega8" -c -gdwarf-2 -std=gnu99 -fgnu89-inline -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	@echo Finished building: $<
+	
+
+./Taste.o: .././Taste.c
+	@echo Building file: $<
+	@echo Invoking: AVR/GNU C Compiler : 5.4.0
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DFUER_TW39 -DF_CPU=6144000UL -D__PROG_TYPES_COMPAT__ -DPLATINE_VERSION=13  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\include"  -Os -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega8 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\gcc\dev\atmega8" -c -gdwarf-2 -std=gnu99 -fgnu89-inline -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	@echo Finished building: $<
+	
+
+./SeriellUmsetz.o: ../../Gemeinsam/SeriellUmsetz.c
+	@echo Building file: $<
+	@echo Invoking: AVR/GNU C Compiler : 5.4.0
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DFUER_TW39 -DF_CPU=6144000UL -D__PROG_TYPES_COMPAT__ -DPLATINE_VERSION=13  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\include"  -Os -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega8 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\gcc\dev\atmega8" -c -gdwarf-2 -std=gnu99 -fgnu89-inline -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	@echo Finished building: $<
+	
+
+./KonfigDialog.o: ../../Gemeinsam/KonfigDialog.c
+	@echo Building file: $<
+	@echo Invoking: AVR/GNU C Compiler : 5.4.0
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DFUER_TW39 -DF_CPU=6144000UL -D__PROG_TYPES_COMPAT__ -DPLATINE_VERSION=13  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\include"  -Os -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega8 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\gcc\dev\atmega8" -c -gdwarf-2 -std=gnu99 -fgnu89-inline -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	@echo Finished building: $<
+	
+
+./LokalAusgabe.o: ../../Gemeinsam/LokalAusgabe.c
+	@echo Building file: $<
+	@echo Invoking: AVR/GNU C Compiler : 5.4.0
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DFUER_TW39 -DF_CPU=6144000UL -D__PROG_TYPES_COMPAT__ -DPLATINE_VERSION=13  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\include"  -Os -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega8 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\gcc\dev\atmega8" -c -gdwarf-2 -std=gnu99 -fgnu89-inline -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	@echo Finished building: $<
+	
+
+./MsTimer.o: ../../../C-Libs/MsTimer.c
+	@echo Building file: $<
+	@echo Invoking: AVR/GNU C Compiler : 5.4.0
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DFUER_TW39 -DF_CPU=6144000UL -D__PROG_TYPES_COMPAT__ -DPLATINE_VERSION=13  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\include"  -Os -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega8 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\gcc\dev\atmega8" -c -gdwarf-2 -std=gnu99 -fgnu89-inline -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	@echo Finished building: $<
+	
+
+
+
+
+# AVR32/GNU Preprocessing Assembler
+
+
+
+# AVR32/GNU Assembler
+
+
+
+
+ifneq ($(MAKECMDGOALS),clean)
+ifneq ($(strip $(C_DEPS)),)
+-include $(C_DEPS)
+endif
+endif
+
+# Add inputs and outputs from these tool invocations to the build variables 
+
+# All Target
+all: $(OUTPUT_FILE_PATH) $(ADDITIONAL_DEPENDENCIES)
+
+$(OUTPUT_FILE_PATH): $(OBJS) $(USER_OBJS) $(OUTPUT_FILE_DEP) $(LIB_DEP) $(LINKER_SCRIPT_DEP)
+	@echo Building target: $@
+	@echo Invoking: AVR/GNU Linker : 5.4.0
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE) -o$(OUTPUT_FILE_PATH_AS_ARGS) $(OBJS_AS_ARGS) $(USER_OBJS) $(LIBS) -Wl,-Map="FernschrTW39.map" -Wl,--start-group  -Wl,--end-group -Wl,--gc-sections -mmcu=atmega8 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\gcc\dev\atmega8"  
+	@echo Finished building target: $@
+	"C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objcopy.exe" -O ihex -R .eeprom -R .fuse -R .lock -R .signature -R .user_signatures  "FernschrTW39.elf" "FernschrTW39.hex"
+	"C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objcopy.exe" -j .eeprom  --set-section-flags=.eeprom=alloc,load --change-section-lma .eeprom=0  --no-change-warnings -O ihex "FernschrTW39.elf" "FernschrTW39.eep" || exit 0
+	"C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objdump.exe" -h -S "FernschrTW39.elf" > "FernschrTW39.lss"
+	"C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objcopy.exe" -O srec -R .eeprom -R .fuse -R .lock -R .signature -R .user_signatures "FernschrTW39.elf" "FernschrTW39.srec"
+	"C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-size.exe" "FernschrTW39.elf"
+	
+	
+
+
+
+
+
+# Other Targets
 clean:
-	-rm -rf $(OBJECTS) FernschrTW39.elf dep/* FernschrTW39.hex FernschrTW39.eep FernschrTW39.lss FernschrTW39.map
-
-
-## Other dependencies
--include $(shell mkdir dep 2>NUL) $(wildcard dep/*)
-
+	-$(RM) $(OBJS_AS_ARGS) $(EXECUTABLES)  
+	-$(RM) $(C_DEPS_AS_ARGS)   
+	rm -rf "FernschrTW39.elf" "FernschrTW39.a" "FernschrTW39.hex" "FernschrTW39.lss" "FernschrTW39.eep" "FernschrTW39.map" "FernschrTW39.srec" "FernschrTW39.usersignatures"
+	
