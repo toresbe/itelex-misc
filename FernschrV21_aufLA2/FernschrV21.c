@@ -1267,6 +1267,8 @@ int main()
 
 	set_LEDROT();
 
+	pgm_read_byte(Identifier); // Dummy read to force the identifier to be placed in the FLASH.
+
 	KonfigSpeicherInit();
 	
 	MsTimerInit();
