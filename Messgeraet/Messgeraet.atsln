@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Atmel Studio Solution File, Format Version 11.00
+VisualStudioVersion = 14.0.23107.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "Messgeraet", "Messgeraet.cproj", "{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		75Baud|AVR = 75Baud|AVR
+		AufAnalog|AVR = AufAnalog|AVR
+		AufED1000|AVR = AufED1000|AVR
+		default|AVR = default|AVR
+		USTTY-45|AVR = USTTY-45|AVR
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}.75Baud|AVR.ActiveCfg = 75Baud|AVR
+		{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}.75Baud|AVR.Build.0 = 75Baud|AVR
+		{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}.AufAnalog|AVR.ActiveCfg = AufAnalog|AVR
+		{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}.AufAnalog|AVR.Build.0 = AufAnalog|AVR
+		{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}.AufED1000|AVR.ActiveCfg = AufED1000|AVR
+		{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}.AufED1000|AVR.Build.0 = AufED1000|AVR
+		{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}.default|AVR.ActiveCfg = default|AVR
+		{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}.default|AVR.Build.0 = default|AVR
+		{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}.USTTY-45|AVR.ActiveCfg = USTTY-45|AVR
+		{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}.USTTY-45|AVR.Build.0 = USTTY-45|AVR
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

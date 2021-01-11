@@ -1648,6 +1648,8 @@ int main()
 	SperrzeitInit();
 #endif //def AF_ZEITSPERRE
 
+	pgm_read_byte(Identifier); // Dummy read to force the identifier to be placed in the FLASH.
+	
 	KonfigSpeicherInit();
 	
 	BusEigenAdresse = KonfigLeseByteBegrenzt(EEAdr_BusEigenAdresse, 31 << 1/*Standardwert*/, BusAdrMin, BusAdrMax) & 0xFE; // Bit 0 löschen
