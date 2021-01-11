@@ -43,7 +43,6 @@
 #include <inttypes.h>
 
 #include "bits.h"
-#include "EepromTools.h"
 
 #include "TwiEvents.h"
 
