@@ -1341,7 +1341,10 @@ static void KommendSperren(TSperreGrund Grund)
 			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
 				{
 				if (Grund == SperreZeit && !SperrzeitAktiv())
+					{
+					RundsendAnzDaten = 0;
 					break;
+					}
 				}
 			// else Daten anderwertig auswerten
 			

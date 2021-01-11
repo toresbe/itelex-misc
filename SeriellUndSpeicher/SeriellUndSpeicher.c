@@ -1308,7 +1308,10 @@ static void KommendSperren(TSperreGrund Grund)
 				{
 #ifdef AF_ZEITSPERRE
 				if (Grund == SperreZeit && !SperrzeitAktiv())
+					{
+					RundsendAnzDaten = 0;
 					break;
+					}
 #endif //def AF_ZEITSPERRE
 				UhrzeitUeberBus	= true;
 				}
