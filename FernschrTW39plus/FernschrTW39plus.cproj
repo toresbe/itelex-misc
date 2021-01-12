@@ -29,16 +29,16 @@
     <eraseonlaunchrule>0</eraseonlaunchrule>
     <EraseKey />
     <AsfFrameworkConfig>
-      <framework-data xmlns="">
-        <options />
-        <configurations />
-        <files />
-        <documentation help="" />
-        <offline-documentation help="" />
-        <dependencies>
-          <content-extension eid="atmel.asf" uuidref="Atmel.ASF" version="3.49.1" />
-        </dependencies>
-      </framework-data>
+      <framework-data>
+  <options />
+  <configurations />
+  <files />
+  <documentation help="" />
+  <offline-documentation help="" />
+  <dependencies>
+    <content-extension eid="atmel.asf" uuidref="Atmel.ASF" version="3.39.0" />
+  </dependencies>
+</framework-data>
     </AsfFrameworkConfig>
     <avrtoolserialnumber>0000B0036196</avrtoolserialnumber>
     <avrdeviceexpectedsignature>0x1E9406</avrdeviceexpectedsignature>
@@ -344,6 +344,9 @@
   </PropertyGroup>
   <Import Project="$(AVRSTUDIO_EXE_PATH)\\Vs\\Compiler.targets" />
   <ItemGroup>
+    <Compile Include="DemoText.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="KonfigSpeicher.c">
       <SubType>compile</SubType>
     </Compile>
@@ -400,9 +403,6 @@
     <Compile Include="..\Gemeinsam\Zeitsperre.h">
       <SubType>compile</SubType>
       <Link>Zeitsperre.h</Link>
-    </Compile>
-    <Compile Include="DemoText.h">
-      <SubType>compile</SubType>
     </Compile>
     <Compile Include="FernschrTW39plus.c">
       <SubType>compile</SubType>
