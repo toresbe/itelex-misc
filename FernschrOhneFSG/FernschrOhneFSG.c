@@ -677,6 +677,8 @@ static bool WahlMitTastatur()
 
 	SendeUmsetzModus = UmsetzLokal;
 	EmpfUmsetzModus = UmsetzFern; // Vorbereitend für den Zustand nach Verbindungsaufbau
+
+	StartTimer(&WahlendeTimer);
 	
 	while (true)
 		{
@@ -706,17 +708,17 @@ static bool WahlMitTastatur()
 			StartTimer(&WahlendeTimer);
 			}
 
-			while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 200)
-				{
-				LokalZeichenAusgabe('?');
-				Falschziffern--;
-				}
+		while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 200)
+			{
+			LokalZeichenAusgabe('?');
+			Falschziffern--;
+			}
 
-			if (TimerVal(&WahlendeTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 45 / 15 Sekunden nicht gewählt
-				{ 
-				// GeAusschalten() und FernschrAusschalten() macht die aufrufende Routine
-				return false;
-				}
+		if (TimerVal(&WahlendeTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 45 / 15 Sekunden nicht gewählt
+			{ 
+			// GeAusschalten() und FernschrAusschalten() macht die aufrufende Routine
+			return false;
+			}
 
 		if (BreakSignal || KoAusschalten())
 			{
