@@ -984,12 +984,14 @@ static void Konfiguration()
 		{
 		// Länge Wahlaufforderungsimpuls?
 #ifdef SPRACHE_EN
-		LokalTextAusgabeP(PSTR("\r\n duration call proceed pulse? cur. "));
-#else		
-		LokalTextAusgabeP(PSTR("\r\n laenge wahlauff-imp.? akt. "));
-#endif //def SPRACHE_EN
+		LokalTextAusgabeP(PSTR("\r\n duration dial proceed pulse: cur. "));
 		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
-		LokalTextAusgabeP(PSTR("/100 sek,"));
+		LokalTextAusgabeP(PSTR("/100 sec, "));
+#else
+		LokalTextAusgabeP(PSTR("\r\n laenge wahlauff-imp.: akt. "));
+		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
+		LokalTextAusgabeP(PSTR("/100 sek, "));
+#endif //def SPRACHE_EN
 		LokalTextAusgabeP(NeuStrP);
 
 		if (LokalZahlEingabe(&WahlauffordImpulsLaenge, 0) < 0)

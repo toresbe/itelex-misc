@@ -12,6 +12,7 @@ Global
 		AltePlatine|AVR = AltePlatine|AVR
 		default|AVR = default|AVR
 		DoppelAusgabe|AVR = DoppelAusgabe|AVR
+		English|AVR = English|AVR
 		USTTY-45|AVR = USTTY-45|AVR
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
@@ -25,8 +26,11 @@ Global
 		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.default|AVR.Build.0 = default|AVR
 		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.DoppelAusgabe|AVR.ActiveCfg = DoppelAusgabe|AVR
 		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.DoppelAusgabe|AVR.Build.0 = DoppelAusgabe|AVR
+		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.English|AVR.ActiveCfg = English|AVR
+		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.English|AVR.Build.0 = English|AVR
 		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.USTTY-45|AVR.ActiveCfg = USTTY-45|AVR
 		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.USTTY-45|AVR.Build.0 = USTTY-45|AVR
+		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.USTTY-45|AVR.Deploy.0 = USTTY-45|AVR
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -86,52 +86,56 @@
     </ToolchainSettings>
     <BuildTarget>all</BuildTarget>
     <CleanTarget>clean</CleanTarget>
+    <PostBuildEvent>"$(AVRSTUDIO_EXE_PATH)\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objcopy.exe" -I ihex -O binary "$(MSBuildProjectDirectory)\$(Configuration)\$(OutputFileName).hex" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_ED1000-100Bd.bin"
+copy /Y  "$(MSBuildProjectDirectory)\..\FuseMuster\Mega168_Quarz.txt" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_ED1000-100Bd.txt"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == '75Baud' ">
     <OutputPath>bin\A75Baud\</OutputPath>
     <ToolchainSettings>
       <AvrGcc>
-  <avrgcc.common.Device>-mmcu=atmega168 -B "%24(PackRepoDir)\atmel\ATmega_DFP\1.3.300\gcc\dev\atmega168"</avrgcc.common.Device>
-  <avrgcc.common.outputfiles.hex>True</avrgcc.common.outputfiles.hex>
-  <avrgcc.common.outputfiles.lss>True</avrgcc.common.outputfiles.lss>
-  <avrgcc.common.outputfiles.eep>True</avrgcc.common.outputfiles.eep>
-  <avrgcc.common.outputfiles.srec>False</avrgcc.common.outputfiles.srec>
-  <avrgcc.common.outputfiles.usersignatures>False</avrgcc.common.outputfiles.usersignatures>
-  <avrgcc.compiler.general.ChangeDefaultCharTypeUnsigned>True</avrgcc.compiler.general.ChangeDefaultCharTypeUnsigned>
-  <avrgcc.compiler.general.ChangeDefaultBitFieldUnsigned>True</avrgcc.compiler.general.ChangeDefaultBitFieldUnsigned>
-  <avrgcc.compiler.symbols.DefSymbols>
-    <ListValues>
-      <Value>F_CPU=14745600UL</Value>
-      <Value>__PROG_TYPES_COMPAT__</Value>
-      <Value>PLATINE_VERSION=12</Value>
-      <Value>BIT_LENGTH=13</Value>
-      <Value>PROGIDZUSATZ=\"75Bd\"</Value>
-    </ListValues>
-  </avrgcc.compiler.symbols.DefSymbols>
-  <avrgcc.compiler.directories.IncludePaths>
-    <ListValues>
-      <Value>..\..\Gemeinsam</Value>
-      <Value>..\..\..\C-Libs</Value>
-      <Value>%24(PackRepoDir)\atmel\ATmega_DFP\1.3.300\include</Value>
-    </ListValues>
-  </avrgcc.compiler.directories.IncludePaths>
-  <avrgcc.compiler.optimization.level>Optimize for size (-Os)</avrgcc.compiler.optimization.level>
-  <avrgcc.compiler.optimization.PackStructureMembers>True</avrgcc.compiler.optimization.PackStructureMembers>
-  <avrgcc.compiler.optimization.AllocateBytesNeededForEnum>True</avrgcc.compiler.optimization.AllocateBytesNeededForEnum>
-  <avrgcc.compiler.warnings.AllWarnings>True</avrgcc.compiler.warnings.AllWarnings>
-  <avrgcc.compiler.miscellaneous.OtherFlags>-gdwarf-2 -std=gnu99 -fgnu89-inline</avrgcc.compiler.miscellaneous.OtherFlags>
-  <avrgcc.assembler.general.AssemblerFlags>-Wall -gdwarf-2 -std=gnu99 -fgnu89-inline -DPLATINE_VERSION=12 -DBIT_LENGTH=13   -DPROGIDZUSATZ=\"75Bd\"   -DF_CPU=14745600UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums</avrgcc.assembler.general.AssemblerFlags>
-  <avrgcc.assembler.general.IncludePaths>
-    <ListValues>
-      <Value>..\..\Gemeinsam</Value>
-      <Value>..\..\..\C-Libs</Value>
-      <Value>%24(PackRepoDir)\atmel\ATmega_DFP\1.3.300\include</Value>
-    </ListValues>
-  </avrgcc.assembler.general.IncludePaths>
-</AvrGcc>
+        <avrgcc.common.Device>-mmcu=atmega168 -B "%24(PackRepoDir)\atmel\ATmega_DFP\1.3.300\gcc\dev\atmega168"</avrgcc.common.Device>
+        <avrgcc.common.outputfiles.hex>True</avrgcc.common.outputfiles.hex>
+        <avrgcc.common.outputfiles.lss>True</avrgcc.common.outputfiles.lss>
+        <avrgcc.common.outputfiles.eep>True</avrgcc.common.outputfiles.eep>
+        <avrgcc.common.outputfiles.srec>False</avrgcc.common.outputfiles.srec>
+        <avrgcc.common.outputfiles.usersignatures>False</avrgcc.common.outputfiles.usersignatures>
+        <avrgcc.compiler.general.ChangeDefaultCharTypeUnsigned>True</avrgcc.compiler.general.ChangeDefaultCharTypeUnsigned>
+        <avrgcc.compiler.general.ChangeDefaultBitFieldUnsigned>True</avrgcc.compiler.general.ChangeDefaultBitFieldUnsigned>
+        <avrgcc.compiler.symbols.DefSymbols>
+          <ListValues>
+            <Value>F_CPU=14745600UL</Value>
+            <Value>__PROG_TYPES_COMPAT__</Value>
+            <Value>PLATINE_VERSION=12</Value>
+            <Value>BIT_LENGTH=13</Value>
+            <Value>PROGIDZUSATZ=\"75Bd\"</Value>
+          </ListValues>
+        </avrgcc.compiler.symbols.DefSymbols>
+        <avrgcc.compiler.directories.IncludePaths>
+          <ListValues>
+            <Value>..\..\Gemeinsam</Value>
+            <Value>..\..\..\C-Libs</Value>
+            <Value>%24(PackRepoDir)\atmel\ATmega_DFP\1.3.300\include</Value>
+          </ListValues>
+        </avrgcc.compiler.directories.IncludePaths>
+        <avrgcc.compiler.optimization.level>Optimize for size (-Os)</avrgcc.compiler.optimization.level>
+        <avrgcc.compiler.optimization.PackStructureMembers>True</avrgcc.compiler.optimization.PackStructureMembers>
+        <avrgcc.compiler.optimization.AllocateBytesNeededForEnum>True</avrgcc.compiler.optimization.AllocateBytesNeededForEnum>
+        <avrgcc.compiler.warnings.AllWarnings>True</avrgcc.compiler.warnings.AllWarnings>
+        <avrgcc.compiler.miscellaneous.OtherFlags>-gdwarf-2 -std=gnu99 -fgnu89-inline</avrgcc.compiler.miscellaneous.OtherFlags>
+        <avrgcc.assembler.general.AssemblerFlags>-Wall -gdwarf-2 -std=gnu99 -fgnu89-inline -DPLATINE_VERSION=12 -DBIT_LENGTH=13   -DPROGIDZUSATZ=\"75Bd\"   -DF_CPU=14745600UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums</avrgcc.assembler.general.AssemblerFlags>
+        <avrgcc.assembler.general.IncludePaths>
+          <ListValues>
+            <Value>..\..\Gemeinsam</Value>
+            <Value>..\..\..\C-Libs</Value>
+            <Value>%24(PackRepoDir)\atmel\ATmega_DFP\1.3.300\include</Value>
+          </ListValues>
+        </avrgcc.assembler.general.IncludePaths>
+      </AvrGcc>
     </ToolchainSettings>
     <BuildTarget>all</BuildTarget>
     <CleanTarget>clean</CleanTarget>
+    <PostBuildEvent>"$(AVRSTUDIO_EXE_PATH)\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objcopy.exe" -I ihex -O binary "$(MSBuildProjectDirectory)\$(Configuration)\$(OutputFileName).hex" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_ED1000-75Bd.bin"
+copy /Y  "$(MSBuildProjectDirectory)\..\FuseMuster\Mega168_Quarz.txt" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_ED1000-75Bd.txt"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'FuerPrototyp' ">
     <OutputPath>bin\FuerPrototyp\</OutputPath>
@@ -177,6 +181,8 @@
     </ToolchainSettings>
     <BuildTarget>all</BuildTarget>
     <CleanTarget>clean</CleanTarget>
+    <PostBuildEvent>"$(AVRSTUDIO_EXE_PATH)\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objcopy.exe" -I ihex -O binary "$(MSBuildProjectDirectory)\$(Configuration)\$(OutputFileName).hex" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_ED1000-PROTO.bin"
+copy /Y  "$(MSBuildProjectDirectory)\..\FuseMuster\Mega168_Quarz.txt" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_ED1000-PROTO.txt"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'V.21' ">
     <OutputPath>bin\V.21\</OutputPath>
@@ -222,6 +228,8 @@
     </ToolchainSettings>
     <BuildTarget>all</BuildTarget>
     <CleanTarget>clean</CleanTarget>
+    <PostBuildEvent>"$(AVRSTUDIO_EXE_PATH)\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objcopy.exe" -I ihex -O binary "$(MSBuildProjectDirectory)\$(Configuration)\$(OutputFileName).hex" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_V21.bin"
+copy /Y  "$(MSBuildProjectDirectory)\..\FuseMuster\Mega168_Quarz.txt" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_V21.txt"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'default' ">
     <OutputPath>bin\default\</OutputPath>
@@ -266,6 +274,8 @@
     </ToolchainSettings>
     <BuildTarget>all</BuildTarget>
     <CleanTarget>clean</CleanTarget>
+    <PostBuildEvent>"$(AVRSTUDIO_EXE_PATH)\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objcopy.exe" -I ihex -O binary "$(MSBuildProjectDirectory)\$(Configuration)\$(OutputFileName).hex" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_ED1000.bin"
+copy /Y  "$(MSBuildProjectDirectory)\..\FuseMuster\Mega168_Quarz.txt" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_ED1000.txt"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'All' ">
     <OutputPath>bin\All\</OutputPath>

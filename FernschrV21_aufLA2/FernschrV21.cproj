@@ -30,15 +30,15 @@
     <EraseKey />
     <AsfFrameworkConfig>
       <framework-data xmlns="">
-  <options />
-  <configurations />
-  <files />
-  <documentation help="" />
-  <offline-documentation help="" />
-  <dependencies>
-    <content-extension eid="atmel.asf" uuidref="Atmel.ASF" version="3.49.1" />
-  </dependencies>
-</framework-data>
+        <options />
+        <configurations />
+        <files />
+        <documentation help="" />
+        <offline-documentation help="" />
+        <dependencies>
+          <content-extension eid="atmel.asf" uuidref="Atmel.ASF" version="3.49.1" />
+        </dependencies>
+      </framework-data>
     </AsfFrameworkConfig>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'USTTY-45' ">
@@ -88,6 +88,8 @@
     </ToolchainSettings>
     <BuildTarget>all</BuildTarget>
     <CleanTarget>clean</CleanTarget>
+    <PostBuildEvent>"$(AVRSTUDIO_EXE_PATH)\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objcopy.exe" -I ihex -O binary "$(MSBuildProjectDirectory)\$(Configuration)\$(OutputFileName).hex" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_FsV21-aufLA21-US45.bin"
+copy /Y  "$(MSBuildProjectDirectory)\..\FuseMuster\Mega168_Quarz.txt" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_FsV21-aufLA21-US45.txt"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'default' ">
     <OutputPath>bin\default\</OutputPath>
@@ -132,6 +134,8 @@
     </ToolchainSettings>
     <BuildTarget>all</BuildTarget>
     <CleanTarget>clean</CleanTarget>
+    <PostBuildEvent>"$(AVRSTUDIO_EXE_PATH)\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objcopy.exe" -I ihex -O binary "$(MSBuildProjectDirectory)\$(Configuration)\$(OutputFileName).hex" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_FsV21-aufLA21.bin"
+copy /Y  "$(MSBuildProjectDirectory)\..\FuseMuster\Mega168_Quarz.txt" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_FsV21-aufLA21.txt"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'english' ">
     <OutputPath>bin\english\</OutputPath>
@@ -178,6 +182,8 @@
     </ToolchainSettings>
     <BuildTarget>all</BuildTarget>
     <CleanTarget>clean</CleanTarget>
+    <PostBuildEvent>"$(AVRSTUDIO_EXE_PATH)\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objcopy.exe" -I ihex -O binary "$(MSBuildProjectDirectory)\$(Configuration)\$(OutputFileName).hex" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_FsV21-aufLA21-EN.bin"
+copy /Y  "$(MSBuildProjectDirectory)\..\FuseMuster\Mega168_Quarz.txt" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_FsV21-aufLA21-EN.txt"</PostBuildEvent>
   </PropertyGroup>
   <Import Project="$(AVRSTUDIO_EXE_PATH)\\Vs\\Compiler.targets" />
   <ItemGroup>
