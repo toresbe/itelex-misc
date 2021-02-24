@@ -92,7 +92,7 @@ enum {
 	EEAdr_SperrzeitDaten = 132,
     EEAdr_UmleitungAbweisen = 133,
 	EEAdr_LokalbetriebWahl = 134,
-	EEAdr_TasteFunktion = 135
+	EEAdr_TasteFunktion = 135,
 	// EEAdr_AnrufAbbruchZeit nicht benutzt
 	EEAdr_StartQuittVerz = 136,
 	EEAdr_Ende = 138 // darf erhöht werden
@@ -147,14 +147,14 @@ uint8_t AusschaltZeichen[MaxCodefolgeLaenge+1];
 	//!< Druck-Sequenz als Zeichen für Ende der Verbindung.
 	//!< 0 markiert Sequenz-Ende, damit KonfigSchreibeString verwendet werden kann.
 
-PROGMEM uint8_t AusschaltZeichenDefault[] = { TtyCodeBuUm, TtyCodeBuUm, TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 6, 6, 6, 6, TtyCodeWR, TtyCodeZL, TtyCodeZL } ; // NNNN
+PROGMEM const uint8_t AusschaltZeichenDefault[] = { TtyCodeBuUm, TtyCodeBuUm, TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 6, 6, 6, 6, TtyCodeWR, TtyCodeZL, TtyCodeZL } ; // NNNN
 	//!< Standardwert für #AusschaltZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
 	
 uint8_t WahlaufforderungZeichen[MaxCodefolgeLaenge+1];
 	//!< Druck-Sequenz als Zeichen jetzt zu wählen
 
-PROGMEM uint8_t WahlaufforderungZeichenDefault[] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 
+PROGMEM const uint8_t WahlaufforderungZeichenDefault[] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, 
 													 11, 24, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeLeer, TtyCodeZiUm } ; // GA _ _ _ _ _
 	//!< Standardwert für #WahlaufforderungZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
@@ -162,7 +162,7 @@ PROGMEM uint8_t WahlaufforderungZeichenDefault[] = { TtyCodeBuUm, TtyCodeWR, Tty
 uint8_t VerbindungHergestelltZeichen[MaxCodefolgeLaenge+1];
 	//!< Druck-Sequenz nach Eingang der Verbindungsbestätigung
 	
-PROGMEM uint8_t VerbindungHergestelltZeichenDefault[] = { TtyCodeBuUm, TtyCodeLeer, 14, 3, 6, TtyCodeWR, TtyCodeZL } ; // CON
+PROGMEM const uint8_t VerbindungHergestelltZeichenDefault[] = { TtyCodeBuUm, TtyCodeLeer, 14, 3, 6, TtyCodeWR, TtyCodeZL } ; // CON
 	//!< Standardwert für #VerbindungHergestelltZeichen.
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
 	
@@ -291,7 +291,7 @@ static void LokalCodeAusgabeS(uint8_t *codep, bool StopIfCalled); // kommt erst 
 //-------------------------------
 //! Da es keine echte Ausschaltung gibt, entsprechende Kennung ausgeben
 
-static void FsAusschalten()
+static void FernschrAusschalten()
 	{
 	BefehlMark = true;
 	BreakSignal = false;	
@@ -597,7 +597,7 @@ static void VerbindungKommend()
 	if (!GeEinschaltQuittung())
 		{
 		GeAusschalten(true);
-		FsAusschalten();
+		FernschrAusschalten();
 		}
 	else
 		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
@@ -654,6 +654,7 @@ static void LokalbetriebSimulieren()
 static bool WahlMitTastatur()
 	{
 	char c;
+	TMsTimer WahlendeTimer;
 	bool EsWurdeGewaehlt;
 	int Falschziffern;
 	
@@ -676,6 +677,8 @@ static bool WahlMitTastatur()
 
 	SendeUmsetzModus = UmsetzLokal;
 	EmpfUmsetzModus = UmsetzFern; // Vorbereitend für den Zustand nach Verbindungsaufbau
+
+	StartTimer(&WahlendeTimer);
 	
 	while (true)
 		{
@@ -705,21 +708,21 @@ static bool WahlMitTastatur()
 			StartTimer(&WahlendeTimer);
 			}
 
-			while (Falschziffern > 0 && TimerVal(&RuheTimer) >= 200)
-				{
-				LokalZeichenAusgabe('?');
-				Falschziffern--;
-				}
+		while (Falschziffern > 0 && TimerVal(&WahlendeTimer) >= 200)
+			{
+			LokalZeichenAusgabe('?');
+			Falschziffern--;
+			}
 
-			if (TimerVal(&RuheTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 45 / 15 Sekunden nicht gewählt
-				{ 
-				// GeAusschalten() und FsAusschalten() macht die aufrufende Routine
-				return false;
-				}
+		if (TimerVal(&WahlendeTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 45 / 15 Sekunden nicht gewählt
+			{ 
+			// GeAusschalten() und FernschrAusschalten() macht die aufrufende Routine
+			return false;
+			}
 
 		if (BreakSignal || KoAusschalten())
 			{
-			// FsAusschalten() macht die aufrufende Routine
+			// FernschrAusschalten() macht die aufrufende Routine
 			return false;
 			}
 			
@@ -793,7 +796,7 @@ static void VerbindungGehend()
 	{
 	if (BusEigenAdresse == BusAdrUngueltig)
 		{
-		FsAusschalten();
+		FernschrAusschalten();
 		return;
 		}
 
@@ -819,7 +822,7 @@ static void VerbindungGehend()
 		if (KommendSperreWahl != 0 && LetzteInterneWahl() == KommendSperreWahl)
 			{
 			clr_LEDGELB();
-			FsAusschalten();
+			FernschrAusschalten();
 			KommendSperren(SperreWahl);
 			}
 				
@@ -958,7 +961,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			GeAusschalten(false);
 			while (!KoAusschalten())
 				FernschrIO(false);
-			FsAusschalten();
+			FernschrAusschalten();
 			BreakSignal = false;
 			return;
 			}
@@ -966,7 +969,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		if (KoAusschalten())
 			{
 			GeAusschalten(false); // da braucht auf nichts mehr gewartet zu werden
-			FsAusschalten();
+			FernschrAusschalten();
 			return;
 			}
 		
@@ -1076,7 +1079,7 @@ static void Konfiguration()
 		SperrzeitInit();
 		// TasteFunktion = 0;
 		// AutoWahlZiffern[0] = 255; // Ende-Kennzeichen
-		// Ende-Kennung druckt FsAusschalten()		
+		// Ende-Kennung druckt FernschrAusschalten()		
 		return;
 		}
 
@@ -1176,7 +1179,7 @@ static void Konfiguration()
 	if (Res == 0 || BreakSignal)
 		return;
 
-	// Ende-Kennung druckt FsAusschalten()
+	// Ende-Kennung druckt FernschrAusschalten()
 	
 	} // Konfiguration()
 
@@ -1190,7 +1193,7 @@ static void Konfiguration()
 static void KonfigurationEnde()
 	{
 	BreakSignal = false;
-	FsAusschalten();
+	FernschrAusschalten();
 	
 	KonfigSchreibeByte(EEAdr_BusEigenAdresse, BusEigenAdresse);
 	
@@ -1238,7 +1241,7 @@ static void FehlermeldungDrucken()
 	
 	KonfigSpeicherFehlerAusgeben();
 	
-	FsAusschalten();
+	FernschrAusschalten();
 
 	Aktivieren(true);
 
@@ -1296,7 +1299,10 @@ static void KommendSperren(TSperreGrund Grund)
 			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
 				{
 				if (Grund == SperreZeit && !SperrzeitAktiv())
+					{
+					RundsendAnzDaten = 0;
 					break;
+					}
 				}
 			// else Daten anderwertig auswerten
 			
@@ -1402,6 +1408,8 @@ int main()
 	//init_TASTE2();
 
 	set_LEDROT();
+
+	pgm_read_byte(Identifier); // Dummy read to force the identifier to be placed in the FLASH.
 
 	KonfigSpeicherInit();
 	

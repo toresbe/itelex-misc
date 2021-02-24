@@ -23,8 +23,8 @@
 //   15: B1  	frei
 //   16: B2  	frei
 //   17: B3 MOSI
-//   18: B4 MISO
-//   19: B5 SCK 
+//   18: B4 MISO	option Ausgang Energieversorgung Fs einschalten
+//   19: B5 SCK 	option Taste Energieversorgung Fs einschalten
 //   20: AVCC
 //   21: AREF
 //   22: GND
@@ -58,6 +58,9 @@ DEFPORTOUT		(LEDBLAU, 	D, 4)
 DEFPORTOUT		(FS_AUSG,	B, 0) // Schleifenschluß-Ausgabe
 DEFPORTOUT		(FS_AKTIV,	D, 7) // Einschaltung (Ausgabe, Optionaler Motor-Schalter
 DEFPORTINPULL	(FS_EING, 	D, 6) // Strom-Einlesung
+
+DEFPORTOUT		(SV_EIN,	B, 5) // Ausgang für Zusatzschaltung zur Stromversorgung des Fernschreibers
+DEFPORTINPULLAL	(TASTEEXT,	B, 4) // Eingang für externe Taste zur Aktivierung
 
 #else
 

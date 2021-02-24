@@ -797,9 +797,15 @@ static void Konfiguration()
 	if (MitWaehlscheibe)
 		{
 		// Länge Wahlaufforderungsimpuls?
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("\r\n duration dial proceed pulse: cur. "));
+		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
+		LokalTextAusgabeP(PSTR("/100 sec)?      "));
+#else
 		LokalTextAusgabeP(PSTR("\r\n laenge wahlauff-imp. (akt. "));
 		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
 		LokalTextAusgabeP(PSTR("/100 sek)?      "));
+#endif //def SPRACHE_EN
 
 		if (LokalZahlEingabe(&WahlauffordImpulsLaenge, 0) < 0)
 			return;
@@ -960,6 +966,8 @@ __attribute__ ((noreturn)) int main()
 
 	// Timer initialisieren
 	MsTimerInit();
+	
+	pgm_read_byte(Identifier); // Dummy read to force the identifier to be placed in the FLASH.
 	
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)

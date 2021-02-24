@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Atmel Studio Solution File, Format Version 11.00
+VisualStudioVersion = 14.0.23107.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "FernschrOhneFSG", "FernschrOhneFSG.cproj", "{F7C30280-79D7-4480-94B5-32A9291D1649}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		default|AVR = default|AVR
+		English|AVR = English|AVR
+		USTTY-45|AVR = USTTY-45|AVR
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F7C30280-79D7-4480-94B5-32A9291D1649}.default|AVR.ActiveCfg = default|AVR
+		{F7C30280-79D7-4480-94B5-32A9291D1649}.default|AVR.Build.0 = default|AVR
+		{F7C30280-79D7-4480-94B5-32A9291D1649}.English|AVR.ActiveCfg = English|AVR
+		{F7C30280-79D7-4480-94B5-32A9291D1649}.English|AVR.Build.0 = English|AVR
+		{F7C30280-79D7-4480-94B5-32A9291D1649}.USTTY-45|AVR.ActiveCfg = USTTY-45|AVR
+		{F7C30280-79D7-4480-94B5-32A9291D1649}.USTTY-45|AVR.Build.0 = USTTY-45|AVR
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

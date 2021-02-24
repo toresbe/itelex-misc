@@ -1201,7 +1201,10 @@ static void KommendSperren(TSperreGrund Grund)
 			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
 				{
 				if (Grund == SperreZeit && !SperrzeitAktiv())
+					{
+					RundsendAnzDaten = 0;
 					break;
+					}
 				}
 			// else Daten anderwertig auswerten
 			
@@ -1266,6 +1269,8 @@ int main()
 	init_TASTEEXT();
 
 	set_LEDROT();
+
+	pgm_read_byte(Identifier); // Dummy read to force the identifier to be placed in the FLASH.
 
 	KonfigSpeicherInit();
 	

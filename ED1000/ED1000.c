@@ -1449,9 +1449,14 @@ static void KommendSperren(TSperreGrund Grund)
 			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
 				{
 				if (Grund == SperreZeit && !SperrzeitAktiv())
+					{
+					RundsendAnzDaten = 0;
 					break;
+					}
 				}
 			// else Daten anderwertig auswerten
+			else
+				RundsendAnzDaten = 0; // ungültige Daten loeschen
 			
 			RundsendAnzDaten = 0;
 			}
@@ -1530,6 +1535,8 @@ int main()
 	InitTimer();
 	
 	SperrzeitInit();
+
+	pgm_read_byte(Identifier); // Dummy read to force the identifier to be placed in the FLASH.
 
 	BusEigenAdresse = KonfigLeseByteBegrenzt(EEAdr_BusEigenAdresse, 31 << 1/*Standardwert*/, BusAdrMin, BusAdrMax) & 0xFE; // Bit 0 löschen
 	BusEigenAdrMehrfach = 1;

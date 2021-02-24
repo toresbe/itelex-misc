@@ -984,12 +984,14 @@ static void Konfiguration()
 		{
 		// Länge Wahlaufforderungsimpuls?
 #ifdef SPRACHE_EN
-		LokalTextAusgabeP(PSTR("\r\n duration call proceed pulse? cur. "));
-#else		
-		LokalTextAusgabeP(PSTR("\r\n laenge wahlauff-imp.? akt. "));
-#endif //def SPRACHE_EN
+		LokalTextAusgabeP(PSTR("\r\n duration dial proceed pulse: cur. "));
 		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
-		LokalTextAusgabeP(PSTR("/100 sek,"));
+		LokalTextAusgabeP(PSTR("/100 sec, "));
+#else
+		LokalTextAusgabeP(PSTR("\r\n laenge wahlauff-imp.: akt. "));
+		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
+		LokalTextAusgabeP(PSTR("/100 sek, "));
+#endif //def SPRACHE_EN
 		LokalTextAusgabeP(NeuStrP);
 
 		if (LokalZahlEingabe(&WahlauffordImpulsLaenge, 0) < 0)
@@ -1312,7 +1314,9 @@ static void KommendSperren(TSperreGrund Grund)
 		BlinkTaktFaktor = 4;
 	else
 		BlinkTaktFaktor = 1;
-	
+
+	pgm_read_byte(Identifier); // Dummy read to force the identifier to be placed in the FLASH.
+		
 	while (true)
 		{
 		TastePruefen();
@@ -1339,7 +1343,10 @@ static void KommendSperren(TSperreGrund Grund)
 			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
 				{
 				if (Grund == SperreZeit && !SperrzeitAktiv())
+					{
+					RundsendAnzDaten = 0;
 					break;
+					}
 				}
 			// else Daten anderwertig auswerten
 			

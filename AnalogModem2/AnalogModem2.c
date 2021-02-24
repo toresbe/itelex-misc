@@ -2459,6 +2459,8 @@ int main()
 	
 	init_TASTE();
 
+	pgm_read_byte(Identifier); // Dummy read to force the identifier to be placed in the FLASH.
+	
 	// Variablen aus EEPROM initialisieren
 	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)

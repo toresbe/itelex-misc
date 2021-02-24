@@ -49,8 +49,8 @@ uint8_t KonfigLeseByte(uint16_t Adresse, uint8_t Default)
 	uint8_t a, b, c;
 	
 	a = eeprom_read_byte((uint8_t *) Adresse);
-	b = eeprom_read_byte((uint8_t *) Adresse + BankOffset);
-	c = eeprom_read_byte((uint8_t *) Adresse + 2 * BankOffset);
+	b = eeprom_read_byte((uint8_t *) (Adresse + BankOffset));
+	c = eeprom_read_byte((uint8_t *) (Adresse + 2 * BankOffset));
 
 	if (a == b && b == c)
 		return a;
