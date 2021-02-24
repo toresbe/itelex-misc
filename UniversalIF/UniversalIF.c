@@ -582,6 +582,8 @@ static void DoTWICommunication()
 
 int main()
 	{
+	pgm_read_byte(Identifier); // Dummy read to force the identifier to be placed in the FLASH.
+		
 	// initializing everything
 	InitVariables();
 

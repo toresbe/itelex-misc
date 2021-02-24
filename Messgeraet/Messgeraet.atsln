@@ -8,7 +8,6 @@ EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		75Baud|AVR = 75Baud|AVR
-		AufAnalog|AVR = AufAnalog|AVR
 		AufED1000|AVR = AufED1000|AVR
 		default|AVR = default|AVR
 		USTTY-45|AVR = USTTY-45|AVR
@@ -16,8 +15,6 @@ Global
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}.75Baud|AVR.ActiveCfg = 75Baud|AVR
 		{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}.75Baud|AVR.Build.0 = 75Baud|AVR
-		{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}.AufAnalog|AVR.ActiveCfg = AufAnalog|AVR
-		{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}.AufAnalog|AVR.Build.0 = AufAnalog|AVR
 		{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}.AufED1000|AVR.ActiveCfg = AufED1000|AVR
 		{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}.AufED1000|AVR.Build.0 = AufED1000|AVR
 		{8FABA79D-D5AD-4754-BCD7-EC7225B71A43}.default|AVR.ActiveCfg = default|AVR
