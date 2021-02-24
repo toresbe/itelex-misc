@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Atmel Studio Solution File, Format Version 11.00
+VisualStudioVersion = 14.0.23107.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "SeriellPur", "SeriellPur.cproj", "{C1DCAB91-44C7-42C1-BAFD-5549F3FB22B8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		default|AVR = default|AVR
+		PlatVer13|AVR = PlatVer13|AVR
+		USTTY-45|AVR = USTTY-45|AVR
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C1DCAB91-44C7-42C1-BAFD-5549F3FB22B8}.default|AVR.ActiveCfg = default|AVR
+		{C1DCAB91-44C7-42C1-BAFD-5549F3FB22B8}.default|AVR.Build.0 = default|AVR
+		{C1DCAB91-44C7-42C1-BAFD-5549F3FB22B8}.PlatVer13|AVR.ActiveCfg = PlatVer13|AVR
+		{C1DCAB91-44C7-42C1-BAFD-5549F3FB22B8}.PlatVer13|AVR.Build.0 = PlatVer13|AVR
+		{C1DCAB91-44C7-42C1-BAFD-5549F3FB22B8}.USTTY-45|AVR.ActiveCfg = USTTY-45|AVR
+		{C1DCAB91-44C7-42C1-BAFD-5549F3FB22B8}.USTTY-45|AVR.Build.0 = USTTY-45|AVR
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

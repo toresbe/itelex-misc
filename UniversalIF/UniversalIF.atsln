@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Atmel Studio Solution File, Format Version 11.00
+VisualStudioVersion = 14.0.23107.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "UniversalIF", "UniversalIF.cproj", "{C9C872D5-A125-467D-BEB9-110178EC8CF6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		RS232-Hex|AVR = RS232-Hex|AVR
+		RS232-Hex-Sim|AVR = RS232-Hex-Sim|AVR
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C9C872D5-A125-467D-BEB9-110178EC8CF6}.RS232-Hex|AVR.ActiveCfg = RS232-Hex|AVR
+		{C9C872D5-A125-467D-BEB9-110178EC8CF6}.RS232-Hex|AVR.Build.0 = RS232-Hex|AVR
+		{C9C872D5-A125-467D-BEB9-110178EC8CF6}.RS232-Hex-Sim|AVR.ActiveCfg = RS232-Hex-Sim|AVR
+		{C9C872D5-A125-467D-BEB9-110178EC8CF6}.RS232-Hex-Sim|AVR.Build.0 = RS232-Hex-Sim|AVR
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
