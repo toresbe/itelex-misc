@@ -1351,7 +1351,7 @@ static void Deaktivieren()
 //! ggf. ungültige Codefolgen
 //------------------------------------------------------------
 
-void CodefolgeLadenPruefenInitialisieren(uint8_t* cf, uint8_t size, uint8_t cf_eep_adr, uint8_t* cf_default, uint8_t def_size)
+void CodefolgeLadenPruefenInitialisieren(uint8_t* cf, uint8_t size, uint8_t cf_eep_adr, const uint8_t* cf_default, uint8_t def_size)
 	{
 	uint8_t i;
 

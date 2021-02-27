@@ -6,7 +6,7 @@
     <ToolchainName>com.Atmel.AVRGCC8.C</ToolchainName>
     <ProjectGuid>b3070b7e-d85c-4ee4-99db-dd854f1cf6b4</ProjectGuid>
     <Name>SeriellUndSpeicher</Name>
-    <avrdevice>ATmega168PA</avrdevice>
+    <avrdevice>ATmega328P</avrdevice>
     <avrdeviceseries>none</avrdeviceseries>
     <AvrProjectType>Importer</AvrProjectType>
     <OutputType>Executable</OutputType>
