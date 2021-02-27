@@ -1,3 +1,3 @@
-make -C default
-make -C english
-make -C USTTY-45
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C default
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C english
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C USTTY-45

@@ -1,6 +1,7 @@
-make -C AltePlatine
-make -C default
-make -C DoppelAusgabe
-make -C USTTY-45
-make -C 75Baud
-make -C 100Baud
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C AltePlatine 
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C default
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C DoppelAusgabe
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C English
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C USTTY-45
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C 75Baud
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C 100Baud

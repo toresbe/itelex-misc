@@ -1,13 +1,13 @@
-make -C PlatVer13
-make -C PlatVer13-CodeSw
-make -C PlatVer13-Full
-make -C PlatVer13-SerDurch
-make -C PlatVer21
-make -C PlatVer21-CodeSw
-make -C PlatVer21-Full
-make -C OhneSpeicher13
-make -C USTTY-45_21
-make -C 110-7_21
-make -C 110-7_EN_21
-make -C KOI8R_21
-make -C KOI7N2_21
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C PlatVer13
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C PlatVer13-CodeSw
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C PlatVer13-Full
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C PlatVer13-SerDurch
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C PlatVer21
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C PlatVer21-CodeSw
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C PlatVer21-Full
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C OhneSpeicher13
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C USTTY-45_21
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C 110-7_21
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C 110-7_EN_21
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C KOI8R_21
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C KOI7N2_21
