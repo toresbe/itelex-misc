@@ -197,10 +197,10 @@ PROGMEM const char TtyCodeTab_STD_Zi[]	= { '#', '5','\r', '9', ' ', '#', ',', '.
 #ifdef AF_TTYCODE_SWITCHABLE
 
 // Variablen, die auf die aktuelle Code-Tabelle zeigen:
-prog_char * TtyCodeTabBu;
-prog_char * TtyCodeTabZi;
-prog_char * TtyCodeTab3E;
-prog_char * ErsetzTab;
+const char * TtyCodeTabBu;
+const char * TtyCodeTabZi;
+const char * TtyCodeTab3E;
+const char * ErsetzTab;
 bool GrossZuKleinbuchstaben;
 bool DritteEbeneVorhanden;
 
@@ -268,7 +268,7 @@ char CodeZuZeichen(uint8_t code, TBaudotMode *Mode)
 //! \retval 255 bei nicht passendem c (nicht in Code-Tabelle).
 uint8_t ZeichenZuCode(char c, TBaudotMode Mode)
 	{
-	prog_char* tp;
+	const char* tp;
 	if (BaudotMode_IstZiffern(Mode))
 		tp = TtyCodeTabZi;
 	else if (DritteEbeneVorhanden && BaudotMode_IstDritteEb(Mode))
@@ -396,7 +396,7 @@ bool ZeichenZuCode2(char c, TBaudotMode *Mode, uint8_t* Code1, uint8_t* Code2)
 	
 	if (ErsetzTab != NULL) // muss etwas vorab getauscht werden?
 		{
-		prog_char* p = ErsetzTab;
+		const char* p = ErsetzTab;
 		while (pgm_read_byte(p) != '\0')
 			if (pgm_read_byte(p) == c)
 				{

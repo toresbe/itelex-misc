@@ -72,7 +72,6 @@
           <ListValues>
             <Value>PLATINE_VERSION=13</Value>
             <Value>F_CPU=6144000UL</Value>
-            <Value>__PROG_TYPES_COMPAT__</Value>
             <Value>SPRACHE_EN</Value>
             <Value>PROGIDZUSATZ=\"EN\"</Value>
           </ListValues>
@@ -121,7 +120,6 @@ copy /Y  "$(MSBuildProjectDirectory)\..\FuseMuster\Mega168_Quarz.txt" "$(MSBuild
           <ListValues>
             <Value>PLATINE_VERSION=13</Value>
             <Value>F_CPU=6144000UL</Value>
-            <Value>__PROG_TYPES_COMPAT__</Value>
             <Value>SPRACHE_EN</Value>
             <Value>BIT_LENGTH=22</Value>
             <Value>USTTY</Value>
@@ -172,7 +170,6 @@ copy /Y  "$(MSBuildProjectDirectory)\..\FuseMuster\Mega168_Quarz.txt" "$(MSBuild
           <ListValues>
             <Value>PLATINE_VERSION=13</Value>
             <Value>F_CPU=6144000UL</Value>
-            <Value>__PROG_TYPES_COMPAT__</Value>
           </ListValues>
         </avrgcc.compiler.symbols.DefSymbols>
         <avrgcc.compiler.directories.IncludePaths>

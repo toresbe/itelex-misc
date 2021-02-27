@@ -57,7 +57,6 @@
           <ListValues>
             <Value>PLATINE_VERSION=20</Value>
             <Value>F_CPU=11059200UL</Value>
-            <Value>__PROG_TYPES_COMPAT__</Value>
           </ListValues>
         </avrgcc.compiler.symbols.DefSymbols>
         <avrgcc.compiler.directories.IncludePaths>

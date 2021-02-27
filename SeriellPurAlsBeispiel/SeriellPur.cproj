@@ -56,7 +56,6 @@
         <avrgcc.compiler.symbols.DefSymbols>
           <ListValues>
             <Value>F_CPU=6144000UL</Value>
-            <Value>__PROG_TYPES_COMPAT__</Value>
             <Value>PLATINE_VERSION=13</Value>
           </ListValues>
         </avrgcc.compiler.symbols.DefSymbols>
@@ -100,7 +99,6 @@
         <avrgcc.compiler.symbols.DefSymbols>
           <ListValues>
             <Value>F_CPU=6144000UL</Value>
-            <Value>__PROG_TYPES_COMPAT__</Value>
             <Value>USTTY</Value>
             <Value>BIT_LENGTH=22</Value>
             <Value>PLATINE_VERSION=21</Value>
@@ -147,7 +145,6 @@
         <avrgcc.compiler.symbols.DefSymbols>
           <ListValues>
             <Value>F_CPU=6144000UL</Value>
-            <Value>__PROG_TYPES_COMPAT__</Value>
             <Value>PLATINE_VERSION=21</Value>
           </ListValues>
         </avrgcc.compiler.symbols.DefSymbols>

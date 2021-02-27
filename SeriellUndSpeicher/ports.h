@@ -45,7 +45,7 @@ DEFPORTIN		(SER_CTS,	D, 2)
 
 #elif (PLATINE_VERSION < 21)
 
-#warning "Nur für alte Platinen-Version 1.3 bis 1.x"
+#warning "Nur fuer alte Platinen-Version 1.3 bis 1.x"
 
 DEFPORTINPULLAL	(TASTE,		D, 2)
 
