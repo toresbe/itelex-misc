@@ -1,5 +1,0 @@
-Entwicklung abgebrochen, da höherer Aufwand:
-
-Timer 0 wird von Hellgeber (Pixeltakt) und von Txp2-Endgeraet.c (Regelmäßiger Aufruf von BusKomm) benutzt.
-
-Lösungsweg: Aufruf von BusKomm() schaltbar bei Txp2-Endgeraet herausloesen. 

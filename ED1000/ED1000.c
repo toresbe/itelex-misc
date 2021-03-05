@@ -142,8 +142,7 @@ enum {
 
 typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrund;
 
-
-// Allgemeine Variablen
+// Konfigurations-Variablen
 // ====================
 
 uint8_t AnrufAbbruchZeit; //!< Maximale Zeit zwichen Aktivierung Anrufsignal und Ende des Hochlaufs des Fernschreibers
@@ -151,15 +150,6 @@ uint8_t AnrufAbbruchZeit; //!< Maximale Zeit zwichen Aktivierung Anrufsignal und
 uint8_t StartQuittVerzoegerung; 
 	//!< zusätzliche Zeit nach Empfang der Betriebsbereitschaft des 
 	//!< Fernschreibers bis zur Meldung "Betriebsbereit" an den Verbindungspartner.
-
-bool BefehlEinschalten; //!< Fs soll laufen
-bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
-bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
-bool MeldungMark; //!< Fs Schleifenstrom ist Ein
-
-TMsTimer AusschaltungTimer; //!< Zählt die Millisekunden von Schleifenunterbrechung bis Ausschaltung
-TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port bis tatsächlichem Pegelwechsel
-TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalter
 
 uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 
@@ -171,6 +161,20 @@ uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
 typedef enum { Deaktivierung, DemoBetriebStarten, ExtStromEinschalten } TTasteFunktion;
 
 TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb, 2 = Ausgang zum externen Schalter aktivieren
+
+// Arbeits-Variablen 
+// =======================
+
+bool BefehlEinschalten; //!< Fs soll laufen
+bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
+bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
+bool MeldungMark; //!< Fs Schleifenstrom ist Ein
+
+TMsTimer AusschaltungTimer; //!< Zählt die Millisekunden von Schleifenunterbrechung bis Ausschaltung
+TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port bis tatsächlichem Pegelwechsel
+TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalter
+
+
 
 // Schnittstellen-Spezifische Variablen
 // ====================================
@@ -728,7 +732,7 @@ static void VerbindungKommend()
 		}
 	else
 		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
-
+		
 	}
 	
 
@@ -1348,7 +1352,7 @@ static void Konfiguration()
 static void KonfigurationEnde()
 	{
 	FernschrAusschalten();
-
+	
 	KonfigSchreibeByte(EEAdr_BusEigenAdresse, BusEigenAdresse);
 	
 	KonfigSchreibeByte(EEAdr_UmleitungAbweisen, UmleitungAbweisen);
@@ -1543,14 +1547,15 @@ int main()
 	RundsendEmpfFreig = true;
 	
 	UmleitungAbweisen = KonfigLeseBool(EEAdr_UmleitungAbweisen, false);
-	
+
 	KommendSperreWahl = KonfigLeseByteBegrenzt(EEAdr_KommendSperreWahl, KommendSperreWahl_Std, 0, 99);
 
-	LokalbetriebWahl = KonfigLeseByteBegrenzt(EEAdr_LokalbetriebWahl, LokalbetriebWahl_Std, 0, 99);
-
-	SperrzeitLadeEeprom(EEAdr_Sperrzeit);
 	TasteFunktion = KonfigLeseByteBegrenzt(EEAdr_TasteFunktion, 0, 0, 1); // KEIN Bool
 
+	SperrzeitLadeEeprom(EEAdr_Sperrzeit);
+
+	LokalbetriebWahl = KonfigLeseByteBegrenzt(EEAdr_LokalbetriebWahl, LokalbetriebWahl_Std, 0, 99);
+	
 	StartQuittVerzoegerung = KonfigLeseByteBegrenzt(EEAdr_StartQuittVerz, StartQuittVerzoegerung_Std, StartQuittVerzoegerung_Min, 200);
 
 	uint8_t i;

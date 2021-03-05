@@ -1,6 +1,7 @@
 //================================================================
-// Fernschreiber-Schnittstelle TW39 für TxP2-System
-//	für ATmega168 auf Platine FernschrTW39
+// Schnittstelle für i-Telex-System für Hellschreiber (z.B. Hell GL72)
+// für ATmega168 auf Platine Seriell+Spezial
+// Teil Kommunikation
 //================================================================
 //				
 //  
@@ -33,19 +34,16 @@
 #include "LokalUhr.h"
 #include "Zeitsperre.h"
 
+#include "SwTwi.h"
+
+#include "HellCodes.h" // Steuerzeichen auf der Schnittstelle zwischen Kommunikations-Prozessor und Signalprozessor.
+
 #include "../SvnVersion.h"
 
 
 // Schalter für Code-Varianten
 // ===========================
 
-//#define PARALLELAUSGABE
-	//!< Für Platine TW39doppel: Sendung und Empfang wird auf der zweiten 
-	//!< Schnittstelle mitprotokolliert. Dann darf der Kontroller der 
-	//!< zweiten Schnittstelle nicht bestückt sein.
-
-//#define FALSCHKDO_FEHLERSTOP
-	//!< Unpassende Kommandos auf dem I²C-Bus werden mit Fehlerstop quittiert.
 
 //#define TWI_DEBUG
 	//!< TWI-Ereignisse werden protokolliert. 
@@ -68,13 +66,28 @@
 	//!< Watchdog abgeschaltet
 
 
+#if (PLATINE_VERSION >= 20)
+	
 #ifdef PROGIDZUSATZ
 //! Marker im Code als Identifikation
-PROGMEM const char Identifier[] = "___itlx_TW39plus-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+PROGMEM const char Identifier[] = "___itlx_HellschrKomm2-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #else
 //! Marker im Code als Identifikation
-PROGMEM const char Identifier[] = "___itlx_TW39plus___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+PROGMEM const char Identifier[] = "___itlx_HellschrKomm2___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif
+
+#else // PLATINE_VERSION < 20
+	
+#ifdef PROGIDZUSATZ
+//! Identifikation im Programmspeicher
+PROGMEM const char Identifier[] = "___itlx_HellschrKomm-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#else
+//! Identifikation im Programmspeicher
+PROGMEM const char Identifier[] = "___itlx_HellschrKomm___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#endif
+	
+#endif // PLATINE_VERSION
+
 
 // Konstanten
 // ----------
@@ -87,13 +100,26 @@ enum { StartQuittVerzoegerung_Std = 5 }; // x/10 sekunden
 enum { StartQuittVerzoegerung_Min = 2 }; // x/10 sekunden
 
 
+#define BUS_MEHRFACH_ADR 1
+	// muss Zehnerpozenz von 2 sein
+
+#if ((BUS_MEHRFACH_ADR - 1) & BUS_MEHRFACH_ADR) != 0
+#error BUS_MEHRFACH_ADR muss 1, 2, 4, 8 ... sein
+
+#endif
+
+
+// sonstige Konstanten
+// -------------------
+
+#define KENNUNG_MAXLEN 20 //!< maximale Länge des Kennungsgebers.
+
+
 // Eeprom-Speicher-Adressen
 // ------------------------
 
 enum {
 	EEAdr_BusEigenAdresse = 0,
-    EEAdr_MitWaehlscheibe = 1,
-    EEAdr_WahlauffordImpulsLaenge = 2,
     EEAdr_KommendSperreWahl = 3,
     EEAdr_Sperrzeit = 4, // Beansprucht 20 Bytes
     EEAdr_TasteFunktion = 24,
@@ -102,7 +128,8 @@ enum {
     EEAdr_AutoWahlZiffern = 27,
 	EEAdr_AnrufAbbruchZeit = 37,
 	EEAdr_StartQuittVerz = 38,
-	EEAdr_Ende = 39 // Platz für neue Werte, darf erhöht werden	
+	EEAdr_Kennung = 39, // Beansprucht 20 Bytes
+	EEAdr_Ende = 59 // Platz für neue Werte, darf erhöht werden	
 };
 
 
@@ -111,14 +138,10 @@ enum {
 
 typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrund;
 
+typedef char TKennung[KENNUNG_MAXLEN];
 
 // Konfigurations-Variablen
 // ====================
-
-
-bool MitWaehlscheibe; //!< Gerät het eine Wählscheibe
-
-uint8_t WahlauffordImpulsLaenge; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
 
 uint8_t AnrufAbbruchZeit; //!< Maximale Zeit zwichen Aktivierung Anrufsignal und Ende des Hochlaufs des Fernschreibers
 
@@ -137,114 +160,231 @@ typedef enum { Deaktivierung, DemoBetriebStarten, ExtStromEinschalten } TTasteFu
 
 TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb, 2 = Ausgang zum externen Schalter aktivieren
 
-// Arbeits-Variablen 
-// =======================
+TKennung Kennung; //!< Eigene Kennungen, da kein echter Fernschreiber angeschlossen.
 
-bool BefehlEinschalten; //!< Fs soll laufen
-bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
-bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
-bool MeldungMark; //!< Fs Schleifenstrom ist Ein
-
-TMsTimer AusschaltungTimer; //!< Zählt die Millisekunden von Schleifenunterbrechung bis Ausschaltung
-TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port bis tatsächlichem Pegelwechsel
 TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalter
 
 
 
-// Schnittstellen-Spezifische Variablen
-// ====================================
+// Arbeits-Variablen 
+// =======================
 
-// keine
+// Einstell-Modus
+bool WarteKonfig; // TODO noch nicht implementiert
+
+TPuffer SerInBuf; //!< Empfangspuffer für die serielle Schnittstelle. Nicht identisch mit Puffer für Baudot-Ein/-Ausgabe.
+TPuffer SerOutBuf; //!< Sendepuffer für die serielle Schnittstelle. Nicht identisch mit Puffer für Baudot-Ein/-Ausgabe.
+
+enum { Aus, Ein, KdoEin, MeldEin, KdoAus, MeldAus } HellBetrieb;
+	
 
 // Schnittstellen-Spezifische Funktionen
 // =====================================
 
 //! bedient Hardware-IO entsprechend der aktuellen Zustände.
 
-/*!
- * setzt FS_AKTIV und FS_AUSG entsprechend BefehlEinschalten und BefehlMark,
- * setzt MeldungEingeschaltet und MeldungMark entsprechend FS_EING,
- * steuert die Status-LEDs
- */ 
+//! Hier ist es nur das Schreiben und Lesen auf der Seriellen Schnittstelle
+
 
 static void FernschrIO()
 	{
-	// Pegel & Polung ausgeben
-	// -----------------------
-	bset_FS_AKTIV(BefehlEinschalten);
-	#ifdef PARALLELAUSGABE
-		bset_FS2_AKTIV(BefehlEinschalten);
-	#endif //def PARALLELAUSGABE
-
+	static TMsTimer KdoTimer;
+	
+/* TODO LED Anzeigen
 	if (BefehlEinschalten)
 		bset_LEDBLAU(!BefehlMark);
-	bset_FS_AUSG(BefehlMark);
-	#ifdef PARALLELAUSGABE
-		bset_FS2_AUSG(BefehlMark);
-	#endif //def PARALLELAUSGABE
 
-	// Schleifenstrom auswerten: Einschaltung oder nicht
-	// -------------------------------------------------
-	if (get_FS_EING())
-		{ // Schleifenstrom ist aus (negierter Eingang)
-		if (MeldungEingeschaltet)
-			{
-			if (TimerVal(&AusschaltungTimer) > 800) // mehr als 800 ms kein Strom --> aus
-				MeldungEingeschaltet = false;
-			} 
-		else
-			StartTimer(&AusschaltungTimer); // Meldung und tatsächlicher Zustand stimmen überein
-		}
-	else
-		{ // Schleifenstrom ist ein
-		if (!MeldungEingeschaltet)
-			{
-			if (TimerVal(&AusschaltungTimer) > 5) // mehr als 5 ms Strom --> ein
-				MeldungEingeschaltet = true;
-			} 
-		else
-			StartTimer(&AusschaltungTimer); // Meldung und tatsächlicher Zustand stimmen überein
-		} // else Schleifenstrom ist ein
-		
-	// Schleifenstrom auswerten: Mark / Space
-	// --------------------------------------
-	if (!BefehlMark || !MeldungEingeschaltet)
-		{
-		MeldungMark = true; // Beim Senden von Space ist kein Empfang möglich --> Grundstellung
-		StartTimer(&EntprellungTimer);
-		}
-	else
-		{ // sinnvolle Auswertung des Schleifenstroms möglich
-		if (get_FS_EING())
-			{ // Strom ist aus --> Space
-			if (MeldungMark)
-				{ // der Applikation wird noch Mark gemeldet
-				if (TimerVal(&EntprellungTimer) > 3) // mindestens 3 ms konstant Space --> Space melden
-					MeldungMark = false;
-				}
-			else // !MeldungMark
-				StartTimer(&EntprellungTimer); // Regelzustand bei Space: Space wird auch gemeldet
-			} // Strom ist aus
-		else // !get_FS_EING()
-			{ // Schleifenstrom fließt
-			if (!MeldungMark)
-				{ // der Applikation wird noch Space gemeldet
-				if (TimerVal(&EntprellungTimer) > 3) // mindestens 3 ms konstant Mark --> Mark melden
-					MeldungMark = true;
-				}
-			else // MeldungMark
-				StartTimer(&EntprellungTimer); // Regelzustand bei Mark: Mark wird auch gemeldet
-			} // else !get_FS_EING() == Schleifenstrom fließt
-		} // else BefehlMark && MeldungEingeschaltet
-	
 	if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
 		bset_LEDGELB(!MeldungMark);
 	else // !BIT_IS_SET(Status, StatBit_AngerufenBelegt))
 		bset_LEDGRUEN(!MeldungMark);
+*/
+
+	// Empfang von Codes und Zeichen vom Signalprozessor verarbeiten:	
+	if (BIT_IS_SET(UCSR0A, RXC0))
+		{ // Zeichen empfangen
+		char c = UDR0;
+		if (c == HellEinschaltMeldung)
+			{
+			switch (HellBetrieb)
+				{
+				case Aus:
+					HellBetrieb = MeldEin;
+					break;
+				case KdoAus:
+				case MeldAus:
+					HellBetrieb = Ein;
+					break;
+				default:
+					break;
+				}
+			}
+		else if (c == HellAusschaltMeldung)
+			{
+			switch (HellBetrieb)
+				{
+				case Ein:
+					HellBetrieb = MeldAus;
+					break;
+				case KdoEin:
+				case MeldEin:
+					HellBetrieb = Aus;
+					break;
+				default:
+					break;
+				}
+			}
+		else // normales Zeichen -> Puffern
+			{
+			if (PufferAnzahl(&SerInBuf) < MaxPuffer - 2)
+				{
+				if (c == '%')
+					c = CodeChrKlingel;
+				PufferSpeich(&SerInBuf, c); 
+				}
+			} // PufferAnzahl(&SerInBuf) < MaxPuffer - 2
+			
+		} // Serielles Zeichen empfangen
+
+	if (BIT_IS_SET(UCSR0A, UDRE0)) // Schnittstelle bereit für Daten
+		{
+		switch (HellBetrieb)
+			{
+			case Aus: 
+				// nix, ggf. Puffer leeren
+				break;
+				
+			case KdoEin:
+				if (TimerVal(&KdoTimer) >= 500)
+					{
+					UDR0 = HellEinschaltBefehl;
+					StartTimer(&KdoTimer);
+					}
+				break;
+
+			case KdoAus:
+				if (TimerVal(&KdoTimer) >= 500)
+					{
+					UDR0 = HellAusschaltBefehl;
+					StartTimer(&KdoTimer);
+					}
+				break;
+
+			case Ein:
+			case MeldAus:
+				if (!PufferLeer(&SerOutBuf))
+					UDR0 = PufferAusg(&SerOutBuf);
+				break;
+
+			default:
+				break; 
+			} // switch (HellBetrieb)
+		} // if Schnittstelle bereit für Daten
 
 	} // FernschrIO
+
+
+//!	Holt das nächste Zeichen aus dem seriell-Empfangspuffer.
+//----------------------------------------------------------
+//! Vorher muss sicher sein, dass mindestens ein Zeichen im Empfangspuffer
+//! ist!
+//! \param Loesch Zeichen wird auch aus dem Empfangspuffer gelöscht
+//! \returns Das nächste Zeichen des Empfangspuffers.
+
+static char SerEmpfZ(bool Loesch)
+	{
+	char Res;
+	if (Loesch)
+		Res = PufferAusg(&SerInBuf);
+	else
+		Res = PufferZeig(&SerInBuf);
+	return Res;
+	}
+
+
+
+//! Wartet, bis ein Zeichen über die serielle Schnittstelle angekommen ist.
+//-------------------------------------------------------------------------
+//! Alle erforderlichen Routinefunktionen werden aufgerufen.
+//! Falls gefüllt, wird auch das nächste Zeichen aus dem Empfangspuffer verwendet.
+//! \returns Das nächste Zeichen.
+char LokalZeichenLesen()
+	{
+	while (PufferLeer(&SerInBuf))
+		{
+		FernschrIO();
+		TastePruefen();
+		DoSwTwi();
+		if (Tastendruck != NichtGedr)
+			{
+			Tastendruck = NichtGedr;
+			return '\t';
+			}
+		if (HellBetrieb != Ein)
+			return '\0';
+		}
+		
+	char c;
+	c = SerEmpfZ(true);
+	if (c >= 'A' && c <= 'Z')
+		c += 'a'-'A'; // zum Kleinbuchstaben umwandeln
+	return c;
+	}
 	
 	
+//! Ein Zeichen auf der seriellen Schnittstelle ausgeben.
+//-------------------------------------------------------
+//! Wenn Ausgabepuffer voll, blockiert diese Funktion, erledigt aber die 
+//! Routinefunktionen.
+//! \param c Das auszugebende Zeichen.
+
+void LokalZeichenAusgabe(char c)
+	{
+	while (PufferVoll(&SerOutBuf) && HellBetrieb == Ein)
+		{
+		FernschrIO();
+		DoSwTwi();
+		TastePruefen();
+		PufferAusg(&SerOutBuf); // wird verworfen um Platz zu schaffen.
+		}
+
+	PufferSpeich(&SerOutBuf, c); 
+	// SET_BIT(UCSR0B, UDRIE0);
+	}
+
+	
+//! Initialisiert serielle Schnittstelle und Puffer dazu.
+static void SerIOInit()
+	{
+	// PORTS initialisieren (Ausgabepins)
+	// Serielle Schnittstelle initialisieren
+	#ifndef SERBAUD
+	#define BAUD 9600
+	#else
+	#define BAUD SERBAUD
+	#endif //ndef SERBAUD
+
+	#include <util/setbaud.h>
+	UBRR0H = UBRRH_VALUE;
+	UBRR0L = UBRRL_VALUE;
+
+	#if USE_2X
+	UCSR0A = (1 << U2X0);
+	#else
+	UCSR0A = (0 << U2X0);
+	#endif
+
+	UCSR0B = (1<<TXEN0)+(1<<RXEN0)+(0<<RXCIE0)+(0<<UCSZ02);
+
+	#ifdef SER7BIT
+	UCSR0C = (0<<UMSEL01)+(0<<UMSEL00)+(0<<UPM00)+(0<<UPM01)+(1<<USBS0)+(1<<UCSZ01)+(0<<UCSZ00);
+	#else
+	UCSR0C = (0<<UMSEL01)+(0<<UMSEL00)+(0<<UPM00)+(0<<UPM01)+(0<<USBS0)+(1<<UCSZ01)+(1<<UCSZ00);
+	#endif
+
+	}
+
+
 //////////////////////////////////////////////////////////////////
 
 // Allgemeine Funktionen
@@ -257,42 +397,20 @@ static void FernschrIO()
 
 static bool FernschrEinschalten(bool WarteQuittVerz)
 	{
-	TMsTimer StabilTimer;
-	TMsTimer AbbruchTimer;
-	
-	StartTimer(&StabilTimer);
-	StartTimer(&AbbruchTimer);
-	
-	set_SV_EIN(); // externen Schalter der Energieversorgung des Fernschreibers einschalten
-	StartTimer(&NachlaufTimer);
-	
-	if (BefehlEinschalten) // ist schon an, dann nicht verzögern
-		WarteQuittVerz = false;
-		
-	do
+	if (HellBetrieb == Aus || HellBetrieb == KdoAus || HellBetrieb == MeldAus)
+		HellBetrieb = KdoEin;
+
+	PufferInit(&SerInBuf);
+	PufferInit(&SerOutBuf);
+
+	while (HellBetrieb != Ein)
 		{
-		BefehlEinschalten = true;
-		BefehlMark = true;
 		FernschrIO();
-		if (!MeldungEingeschaltet)
-			StartTimer(&StabilTimer);
-		if (TimerVal(&AbbruchTimer) > AnrufAbbruchZeit * 1000)
-			{
-			BefehlEinschalten = false;
-			BefehlMark = true;
-			FernschrIO();
-			StartTimer(&NachlaufTimer);
+		if (HellBetrieb == MeldAus)
 			return false;
-			}
-		} while (TimerVal(&StabilTimer) < 300);
-		
-	if (WarteQuittVerz)
-		{
-		StartTimer(&StabilTimer);
-		while (TimerVal(&StabilTimer) < StartQuittVerzoegerung * 100) // StartQuittVerzoegerung ist in 1/10 sekunden
-			FernschrIO();
 		}
-		
+
+	// TODO irgendwas zu WarteQuittVerz
 	return true;
 	}
 		
@@ -303,26 +421,69 @@ static bool FernschrEinschalten(bool WarteQuittVerz)
 
 static void FernschrAusschalten()
 	{
-	TMsTimer Timer;
-	
-	if (MeldungEingeschaltet && !BefehlEinschalten)
-		FernschrEinschalten(false); // Rückgabewert ignorieren
+	if (HellBetrieb == MeldAus)
+		HellBetrieb = Aus;
 
-	StartTimer(&Timer);
-	do
+	else if (HellBetrieb == Ein || HellBetrieb == KdoEin || HellBetrieb == MeldEin)
+		HellBetrieb = KdoAus;
+
+	while (HellBetrieb != Aus)
 		{
-		BefehlEinschalten = false;
-		BefehlMark = true;
 		FernschrIO();
-		if (MeldungEingeschaltet)
-			StartTimer(&Timer);
+		if (HellBetrieb == MeldEin)
+			HellBetrieb = KdoAus;
 		}
-	while (TimerVal(&Timer) < 500);
-	
-	StartTimer(&NachlaufTimer); 
-	
+
 	}
 		
+
+
+//! Schaltet LED entspechend der Status-Bits an.
+static void LEDAktualisieren()
+	{
+/* TODO		
+	if (BIT_IS_SET(Status, StatBit_AngerufenBelegt))
+		if (BIT_IS_SET(Status, StatBit_FsMeldEin))
+			LED_AUS(GELB);
+		else
+			LED_EIN(GELB);
+	else // !BIT_IS_SET(Status, StatBit_AngerufenBelegt))
+		if (BIT_IS_SET(Status, StatBit_FsMeldEin))
+			LED_AUS(GRUEN);
+		else
+			LED_EIN(GRUEN);
+			
+	if (BIT_IS_SET(Status, StatBit_FsBefEin)) // komme ich anders nicht dran...
+		LED_AUS(BLAU);
+	else
+		LED_EIN(BLAU);
+		
+*/
+	}
+
+
+//! Wartet einen kurzen moment.	
+void KurzePause() // = 500 ms
+	{
+	TMsTimer MessTimer;
+	
+	StartTimer(&MessTimer);
+	while (TimerVal(&MessTimer) < 500)
+		;
+	}
+		
+
+//! Wartet einen langen Moment.		
+void LangePause() // = 2 sek
+	{
+	TMsTimer MessTimer;
+	
+	StartTimer(&MessTimer);
+	while (TimerVal(&MessTimer) < 500)
+		;
+	}
+		
+	
 
 /////////////////////////////////////////////////////////////////////////////////////////7
 
@@ -342,9 +503,6 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	{
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWEN) | (0<<TWIE);
 
-	BefehlEinschalten = false;
-	BefehlMark = true;
-	FernschrIO(); // damit der Fernschreiber abgeschaltet wird.
 	clr_SV_EIN();
 	
 	uint8_t TasteZ = 0;
@@ -356,8 +514,11 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 		wdt_reset();
 
 		if (TimerVal(&TasteTimer) > 400)
-			{
+			{ // alle 400 ms:
 			StartTimer(&TasteTimer);
+
+			UDR0 = HellAusschaltBefehl; // sicherheitshalber Ausschaltbefehle an den Signalprozessor
+
 			if (get_TASTE())
 				{ // Taste gedrückt
 				if (TasteZ < 5)
@@ -398,75 +559,35 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	}	
 
 
-/////////////////////////////////////////////////////////////
-
-//! Liest ein Zeichen vom angeschlossenen Fs ein.
-//-----------------------------------------------
-//! Serialisiert die ankommenden Impulse und wandelt BAUDOT in ASCII
-//! \return Zeichen im ASCII-Code
-
-char LokalZeichenLesen()
+//! Sendet ein Zeichen an die Gegenstelle, wartet aber bei vollem Puffer
+static void ZeichenSenden(char c)
 	{
-	char c;
-
-	EmpfUmsetzModus = UmsetzLokal; // sicherheitshalber
-	while (true)
+	while (!GeSendePufferLeer())
 		{
+		DoSwTwi();
 		FernschrIO();
-		SeriellUmsetzung(MeldungMark, &BefehlMark);
-		if (SerUmEmpfBitNr == SerUmEmpfFertig)
-			{
-			c = CodeZuZeichen(SerUmEmpfDaten, &BaudotMode);
-			SerUmEmpfBitNr = SerUmEmpfWarte;
-			if (c != '\0')
-				return c;
-			}
-		if (!MeldungEingeschaltet)
-			return '\0';
+		if (KoAusschalten())
+			return;
+		LEDAktualisieren();
 		}
+	while (!GeSendeZeichen(c))
+		; // kann eigentlich nicht lange dauern
 	}
 
 
-/////////////////////////////////////////////////////////////
-
-//! Gibt ein Zeichen am angeschlossenen Fs aus.
-//----------------------------------------------
-//! serialisiert den Code und gibt ihn auf dem Endgerät aus.
-//! \param code Zeichen im Baudot-Code
-
-static void LokalCodeAusgabe(uint8_t code)
+static void GeSendeText(char* s)
 	{
-	SendeUmsetzModus = UmsetzLokal; // sicherheitshalber
-	SerUmSendDaten = code;
-	SerUmSendBitNr = SerUmSendStart;
-	while (SerUmSendBitNr != SerUmSendWarte)
+	while (!GeSendePufferLeer())
+		;
+	GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
+	while (*s != '\0')
 		{
-		SeriellUmsetzung(MeldungMark, &BefehlMark);
-		FernschrIO();
+		GeSendeZeichen(*s);
+		s++;
 		}
 	}
-
-
-/////////////////////////////////////////////////////////////
-
-//! Gibt ein Zeichen am angeschlossenen Fs aus.
-//----------------------------------------------
-//! wandelt ASCII in Baudort und serialisiert den Code
-//! \param c Zeichen im ASCII-Code
-
-void LokalZeichenAusgabe(char c)
-	{
-	uint8_t code1, code2;
 	
-	// Umwandlung von GROSS in klein macht ZeichenZuCode
-	if (!ZeichenZuCode2(c, &BaudotMode, &code1, &code2))
-		return;
-	LokalCodeAusgabe(code1);
-	if (code2 != 255)
-		LokalCodeAusgabe(code2);
-	}
-			
-		
+	
 static void VerbindungSteht(bool AutoKennungAbfrage);
 
 static void KommendSperren(TSperreGrund Grund);
@@ -479,6 +600,7 @@ static void KommendSperren(TSperreGrund Grund);
 //! Schaltet das Endgerät ein, wartet auf Einschalt-Quittung 
 //! und bestätigt den erfolgreichen Aufbau. Ruft seinerseits VerbindungSteht()
 //! auf und kehrt erst nach Verbindungsabbau zurück.
+
 
 static void VerbindungKommend()
 	{
@@ -520,16 +642,9 @@ static void LokalbetriebSimulieren()
 	set_LEDROT();
 	Aktivieren(false);
 	
-	BefehlMark = true;
-	
-	if (!BefehlEinschalten) // offensichtlich Wählscheiben-Wahl
-		{
-		FernschrEinschalten(true);
-		}
-	
-	LokalTextAusgabeP(PSTR("\r\nloc\r\n"));
+	LokalTextAusgabeP(PSTR("loc  "));
 
-	while(MeldungEingeschaltet)
+	while (HellBetrieb == Ein)
 		{
 		FernschrIO();
 		}
@@ -558,87 +673,13 @@ static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	else
 		StartTimer(&NachlaufTimer);
 	
-	while (MeldungEingeschaltet)
-		FernschrIO();
-	
 	clr_LEDROT();
 	Aktivieren(true);
 	}
 	
 	
-/////////////////////////////////////////////////////////////
-
-//! Wickelt die gehende Wahl ab bei vorhandener Wählscheibe.
-//----------------------------------------------
-//! \retval true bei erfolgreichem Verbindungsaufbau.
-
-static bool WahlMitWaehlscheibe()
-	{
-	uint8_t Wahlziffer;
-	TMsTimer WahlendeTimer;
-	bool EsWurdeGewaehlt;
-
-	// kurzzeitiger Mißbrauch von WahlendeTimer für Wahlaufforderung: 0,3 Sek unterbrechung
-	StartTimer(&WahlendeTimer);
-	EsWurdeGewaehlt = false;
-	while (TimerVal(&WahlendeTimer) < 700)
-		FernschrIO();
-
-	BefehlMark = false;
 	
-	StartTimer(&WahlendeTimer);
-	while (TimerVal(&WahlendeTimer) < 10 * WahlauffordImpulsLaenge) 
-		FernschrIO();
-		
-	BefehlMark = true;
 
-	// AutoWahlZiffern vorweg in den Wählpuffer schreiben
-	for (Wahlziffer = 0 ; Wahlziffer < AutoWahlMaxZiffern ; Wahlziffer++)
-		// Wahlziffer wird als Index missbraucht
-		if (AutoWahlZiffern[Wahlziffer] <= 9)
-			GeWaehlen(AutoWahlZiffern[Wahlziffer]);
-		else
-			break;
-		
-	Wahlziffer = 0;
-	StartTimer(&WahlendeTimer); // der Timer prüft auch, ob überhaupt gewählt wird...
-	while (true)
-		{
-		FernschrIO();
-		if (!MeldungMark)
-			{ // Pause durch Wählscheibe
-			Wahlziffer++;
-			do
-				FernschrIO();
-			while (!MeldungMark && MeldungEingeschaltet);
-			StartTimer(&WahlendeTimer);
-			}
-		
-		if (!MeldungEingeschaltet || KoAusschalten())
-			return false;
-			
-		if (Wahlziffer > 0 && TimerVal(&WahlendeTimer) > 200)
-			{
-			if (Wahlziffer > 9)
-				GeWaehlen(0);
-			else
-				GeWaehlen(Wahlziffer);
-			Wahlziffer = 0;
-			EsWurdeGewaehlt = true;
-			}
-			
-		if (KoEinschalten())
-			return true;
-
-		if (TimerVal(&WahlendeTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 15 / 45 Sekunden nicht gewählt
-			{ // auf das Ausschalten durch die Schlusstaste warten
-			AbschaltungZuLangeWahlpause(EsWurdeGewaehlt);
-			return false;
-			}
-		} // while (true)
-	}
-	
-	
 /////////////////////////////////////////////////////////////
 
 //! Wickelt die gehende Wahl ab bei nicht vorhandener Wählscheibe.
@@ -653,14 +694,14 @@ static bool WahlMitTastatur()
 	bool EsWurdeGewaehlt;
 	int Falschziffern;
 	
-	if (!FernschrEinschalten(false))
-		return false;
-
-	SeriellUmsetzInit();
-		
-	LokalCodeAusgabe(TtyCodeZiUm);
-	BaudotMode_SetZiffern(BaudotMode);
-
+	TODO anpassen!
+	
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("dial: "));
+#else
+	LokalTextAusgabeP(PSTR("waehlen: "));
+#endif
+	
 	// AutoWahlZiffern vorweg in den Wählpuffer schreiben
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
@@ -678,12 +719,9 @@ static bool WahlMitTastatur()
 		{
 		FernschrIO();
 		
-		SeriellUmsetzung(MeldungMark, &BefehlMark);
-
-		if (SerUmEmpfBitNr == SerUmEmpfFertig)
+		if (!PufferLeer(&SerInBuf))
 			{
-			c = CodeZuZeichen(SerUmEmpfDaten, &BaudotMode);
-			SerUmEmpfBitNr = SerUmEmpfWarte;
+			c = SerEmpfZ(true);
 			if (c >= '0' && c <= '9')
 				{
 				GeWaehlen(c - '0');
@@ -719,9 +757,10 @@ static bool WahlMitTastatur()
 			return false;
 			}
 
-		if (!MeldungEingeschaltet || KoAusschalten())
+		if (KoAusschalten())
 			{
 			// FernschrAusschalten() macht die aufrufende Routine
+			LokalTextAusgabeP(PSTR("\r\nAbort"));
 			return false;
 			}
 			
@@ -755,16 +794,9 @@ static void VerbindungGehend()
 
 	bool Verbunden = false;
 	
-	if (MitWaehlscheibe)
-		{
-		Verbunden = WahlMitWaehlscheibe();
-		if (Verbunden)
-			FernschrEinschalten(true);
-		}
-	else // ohne Waehlscheibe
-		{
-		Verbunden = WahlMitTastatur();
-		}
+	Verbunden = WahlMitTastatur();
+	if (Verbunden)
+		FernschrEinschalten(true);
 
 	if (!Verbunden)
 		{
@@ -790,7 +822,7 @@ static void VerbindungGehend()
 	else // Verbunden = true
 		{ 
 		if (GeEinschaltQuittung())  // endgültige Einschaltung bestätigen
-			VerbindungSteht(!MitWaehlscheibe); // wenn keine Wählscheibe, dann automatische Kennungsgeber-Abfrage
+			VerbindungSteht(true); 
 		else
 			{ // Fehler
 			GeAusschalten(true);
@@ -812,7 +844,7 @@ static void VerbindungGehend()
 //! abgerufen werden soll. Abfrage wird solange wiederholt, bis eine lesbare Antwort 
 //! eintrifft.
 
-static void VerbindungSteht(bool AutoKennungAbfrage)
+static void VerbindungSteht(bool AutoKennungAbfrage) 
 	{
 	TMsTimer KennungAbfrageTimer;
 	bool ErsteKennungAbfrage;
@@ -830,36 +862,8 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		FernschrIO();
 		TastePruefen();
 
-		if (!MeldungEingeschaltet)
-			{
-			GeAusschalten(false);
-			FernschrAusschalten();
-			while (!KoAusschalten())
-				FernschrIO();
-			return;
-			}
-
-		if (KoAusschalten())
-			{
-			FernschrAusschalten();
-			GeAusschalten(false); // da braucht auf nichts mehr gewartet zu werden
-			return;
-			}
-
-		BefehlMark = KoEmpfMark();
-	
-		if (SerUmSendBitNr <= SerUmSendStart) // Start oder Warten...
-			GeSendeMark(MeldungMark); // Nur Fs-Pegel direkt auf Bus, wenn nicht seriell gesendet wird...
-			
-		// Der Empfangspuffer wird im Regelbetrieb nicht benutzt, da die Bitwechsel direkt an das Endgeraet
-		// gesendet werden. Die empfangenen Zeichen werden daher nur ausgewertet, ob die Gegenstelle schon
-		// 'sinnvolle' Zeichen gesendet hat. Falls ja, braucht der Kennungsgeber nicht mehr abgefragt zu werden.
-		while (!PufferLeer(&EmpfPuffer))
-			{
-			if (PufferAusg(&EmpfPuffer) != TtyCodeBuUm)
-				AutoKennungAbfrage = false;
-			}
-
+		// TODO nochmal passende stelle suchen:
+		
 		// Kennungsgeber alle 5 Sekunden abfragen, bis Gegenantwort kam...
 		if (AutoKennungAbfrage 
 			&& TimerVal(&KennungAbfrageTimer) >= (ErsteKennungAbfrage ? 500 : 5000))
@@ -873,14 +877,82 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			
 		// falls selber geschrieben wird, auch automatische Kennungsgeber-Abfrage
 		// löschen
-		if (TimerVal(&KennungAbfrageTimer) > 1000 && !MeldungMark)
-			AutoKennungAbfrage = false;
+		
+		
+		// if (TimerVal(&KennungAbfrageTimer) > 1000 && !MeldungMark)
+		//	AutoKennungAbfrage = false;
 			
-		// Test:
-		// bset_LEDROT(AutoKennungAbfrage);
+
+
+		char c;
+		if (KoEmpfZeichen(&c))
+			{
+			if (c == CodeChrWerDa) // TODO and Kennung nicht leer
+				{
+				// Kennungsausgabe();  TODO
+				}
+			else
+				{
+				LokalZeichenAusgabe(c);
+				}
+			}
+
+		if (KoAusschalten())
+			{
+#ifdef SPRACHE_EN				
+			LokalTextAusgabeP(PSTR("\r\nDisconnected\r\n"));
+#else
+			LokalTextAusgabeP(PSTR("\r\nGetrennt\r\n"));
+#endif			
+			GeAusschalten(true);
+
+			return;
+			}
+
+		if (!PufferLeer(&SerInBuf) && GeSendePufferLeer())
+			{
+			char c;
+			c = SerEmpfZ(true);
+			
+			if (c == CTRL('i') || c == CTRL('f'))
+				// Eigene Kennung ausgeben
+				{ // TODO außer Kennung ist leer.
+				GeSendeText(Kennung);
+				}
+				
+			else if (c == CTRL('s'))
+				// Abbruch durch Bediener
+				{
+
+				GeAusschalten(false);
+				while (!KoAusschalten())
+					{
+					DoSwTwi();
+					LEDAktualisieren();
+					FernschrIO(); 
+					}
+				
+#ifdef SPRACHE_EN					
+				LokalTextAusgabeP(PSTR("\r\nDisconnected\r\n"));
+#else
+				LokalTextAusgabeP(PSTR("\r\nBeendet\r\n"));
+#endif					
+				return;
+				}
+				
+			else if (c == CTRL('w') || c == CTRL('e'))
+				ZeichenSenden(CodeChrWerDa);
+				
+			else // kein besonderer CTRL-Code
+				ZeichenSenden(c);
+
+			} // if !PufferLeer(&SerInBuf)
+
+		DoSwTwi();
+		LEDAktualisieren();
 		}
 
-	}
+	} // VerbindungSteht()
 
 
 /////////////////////////////////////////////////////////////
@@ -940,6 +1012,19 @@ static void Konfiguration()
 	bool Abbruch;
 	bool NoExpertSettings;
 	
+/* für später mit externer Konfiguration bei Nur-Schreib-Geräten (Tempf39)
+	if (!WarteKonfig)
+		{
+		WarteKonfig = true; //! \todo dies hat noch gar keine Auswirkung...
+		LED_EIN(ROT);
+		}
+	else
+		{
+		WarteKonfig = false;
+		LED_AUS(ROT);
+		}
+*/
+
 	SeriellUmsetzInit();
 	Aktivieren(false);
 	set_LEDROT();
@@ -974,45 +1059,6 @@ static void Konfiguration()
 	if (Abbruch) 
 		return;
 	
-	// Wählscheibe vorhanden?
-	// ----------------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n has rotary dial? current: ")); 
-#else	
-	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden? aktuell: ")); 
-#endif //def SPRACHE_EN
-
-	LokalBoolAusgabe(MitWaehlscheibe);
-	LokalTextAusgabeP(NeuStrP);
-
-	if (LokalBoolEingabe(&MitWaehlscheibe) == 0)
-		return;
-
-	LokalTextAusgabeP(OkStrP);
-
-	if (MitWaehlscheibe)
-		{
-		// Länge Wahlaufforderungsimpuls?
-#ifdef SPRACHE_EN
-		LokalTextAusgabeP(PSTR("\r\n duration dial proceed pulse: cur. "));
-		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
-		LokalTextAusgabeP(PSTR("/100 sec, "));
-#else
-		LokalTextAusgabeP(PSTR("\r\n laenge wahlauff-imp.: akt. "));
-		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
-		LokalTextAusgabeP(PSTR("/100 sek, "));
-#endif //def SPRACHE_EN
-		LokalTextAusgabeP(NeuStrP);
-
-		if (LokalZahlEingabe(&WahlauffordImpulsLaenge, 0) < 0)
-			return;
-
-		if (WahlauffordImpulsLaenge < 1)
-			WahlauffordImpulsLaenge = 1;
-
-		LokalTextAusgabeP(OkStrP);
-		}
-
 	// jetzt bei einfacher Konfiguration abbrechen
 	// -------------------------------------------
 	if (NoExpertSettings)
@@ -1251,10 +1297,6 @@ static void KonfigurationEnde()
 	
 	KonfigSchreibeByte(EEAdr_UmleitungAbweisen, UmleitungAbweisen);
 
-	KonfigSchreibeBool(EEAdr_MitWaehlscheibe, MitWaehlscheibe);
-
-	KonfigSchreibeByte(EEAdr_WahlauffordImpulsLaenge, WahlauffordImpulsLaenge);
-
 	KonfigSchreibeByte(EEAdr_KommendSperreWahl, KommendSperreWahl);
 
 	KonfigSchreibeByte(EEAdr_LokalbetriebWahl, LokalbetriebWahl);
@@ -1397,40 +1439,42 @@ static void Deaktivieren()
 	} // Deaktivieren
 
 
-/////////////////////////////////////////////////////////////
-
-//! Das Hauptprogramm der TW39-Fernschreiber-Schnittstelle.
+//! Das Hauptprogramm 
 //---------------------------------------------------------
-
 int main()
 	{
+	// WD ein
 #ifndef NOWATCHDOG
 	wdt_enable(WDTO_2S);
 #endif //NOWATCHDOG
 
-	// Ports initialisieren
+	// nur für den Simulator:
+	PINB = 0xFF;
+	PINC = 0xFF;
+	PIND = 0xFF;
+
+	// PORTS initialisieren (Ausgabepins)
+	PORTB = 0;
+	PORTC = 0;
+	PORTD = 0;
+	DDRB = 0;
+	DDRC = 0;
+	DDRD = 0;
+
 	init_LEDROT();
 	init_LEDGELB();
 	init_LEDGRUEN();
 	init_LEDBLAU();
-	init_FS_AUSG();
-	init_FS_AKTIV();
-	init_FS_EING(); 
-#ifdef PARALLELAUSGABE
-	init_FS2_AUSG();
-	init_FS2_AKTIV();
-	init_FS2_EING(); 
-#endif //def PARALLELAUSGABE
 	init_TASTE();
+
 	init_SV_EIN();
 	init_TASTEEXT();
 	
-	//init_TASTE2();
-
 	set_LEDROT();
 
 	KonfigSpeicherInit();
 	
+	// Timer initialisieren
 	MsTimerInit();
 
 	SperrzeitInit();
@@ -1441,8 +1485,6 @@ int main()
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
 	
-	MitWaehlscheibe = KonfigLeseBool(EEAdr_MitWaehlscheibe, true);
-	WahlauffordImpulsLaenge = KonfigLeseByteBegrenzt(EEAdr_WahlauffordImpulsLaenge, 20, 1, 100);
 
 	UmleitungAbweisen = KonfigLeseBool(EEAdr_UmleitungAbweisen, false);
 
@@ -1462,20 +1504,18 @@ int main()
 	
 	AnrufAbbruchZeit = KonfigLeseByteBegrenzt(EEAdr_AnrufAbbruchZeit, AnrufAbbruchZeit_Std, 3, 25);
 		
-	BefehlEinschalten = false;
-	BefehlMark = true;
-	MeldungEingeschaltet = false;
-	MeldungMark = true;
 
+	// TODO eeprom_read_string(Kennung, Kennung_EE);
+
+	SerIOInit();
+	
 	KommInit();
 
-	
 	TMsTimer Timer;
 	StartTimer(&Timer);
 
 	sei();
-	FernschrIO();
-	
+
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 250)
 		;
@@ -1524,44 +1564,12 @@ int main()
 
 	if (SelbsttestAusfuehen)
 		{
-		BefehlEinschalten = false;
-		MeldungEingeschaltet = false;
-		BefehlMark = false;
-		MeldungMark = false;
-
-		StartTimer(&Timer);
-		while (1)
-			{
-			if (get_TASTE())
-				{ // gedrückt
-				BefehlMark = false;
-				}
-			else
-				{ // nicht gedrückt
-				BefehlMark = true;
-				StartTimer(&Timer);
-				}
-			FernschrIO();
-
-			bset_LEDROT(BefehlEinschalten);
-			bset_LEDGELB(MeldungEingeschaltet);
-			bset_LEDGRUEN(BefehlMark);
-			bset_LEDBLAU(MeldungMark);
-
-			if (TimerVal(&Timer) > 1000)
-				{
-				BefehlEinschalten = !BefehlEinschalten;
-				StartTimer(&Timer);
-				}
-
-			}
 		} // if SelbsttestAusfuehren
 
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
 
-	BefehlEinschalten = false;
-	BefehlMark = true;
-
+	WarteKonfig = false;
+	
 	StartTimer(&NachlaufTimer);
 	
 	while (true)
@@ -1593,26 +1601,6 @@ int main()
 		if (Tastendruck == Kurz)
 			{
 			Tastendruck = NichtGedr;
-			
-/*/HACK:
-			uint8_t MsgBuf[25];
-			uint8_t MsgLen;
-			MsgLen = LokalUhrBaudotAusgabe(MsgBuf);
-
-			Aktivieren(false);
-			if (FernschrEinschalten())
-				{
-				LokalCodeAusgabe(TtyCodeWR);
-				LokalCodeAusgabe(TtyCodeZL);
-				for (uint8_t i = 0 ; i < MsgLen ; i++)
-					LokalCodeAusgabe(MsgBuf[i]);
-				LokalCodeAusgabe(TtyCodeWR);
-				LokalCodeAusgabe(TtyCodeZL);
-				FernschrAusschalten();
-				}
-			Aktivieren(true);
-//:HACK */			
-
 			switch (TasteFunktion)
 				{
 				case DemoBetriebStarten:
