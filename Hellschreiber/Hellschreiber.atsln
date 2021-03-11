@@ -10,12 +10,22 @@ EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		PlatVer21|AVR = PlatVer21|AVR
+		SerialDebugging|AVR = SerialDebugging|AVR
+		Simulator|AVR = Simulator|AVR
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.PlatVer21|AVR.ActiveCfg = PlatVer21|AVR
 		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.PlatVer21|AVR.Build.0 = PlatVer21|AVR
-		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.PlatVer21|AVR.ActiveCfg = default|AVR
-		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.PlatVer21|AVR.Build.0 = default|AVR
+		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.SerialDebugging|AVR.ActiveCfg = TestSer21|AVR
+		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.SerialDebugging|AVR.Build.0 = TestSer21|AVR
+		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.Simulator|AVR.ActiveCfg = Simulator|AVR
+		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.Simulator|AVR.Build.0 = Simulator|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.PlatVer21|AVR.ActiveCfg = TestSer|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.PlatVer21|AVR.Build.0 = TestSer|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.SerialDebugging|AVR.ActiveCfg = TestSer|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.SerialDebugging|AVR.Build.0 = TestSer|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.Simulator|AVR.ActiveCfg = Simulator|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.Simulator|AVR.Build.0 = Simulator|AVR
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,4 +1,4 @@
-// Port-Definitionen für Serielle Schnittstelle im i-Telex-System
+// Port-Definitionen für Hellschreiber-Schnittstelle im i-Telex-System, Teil Kommunikationsprozessor.
 
 #ifndef __PORTS_H__
 
@@ -29,7 +29,7 @@ DEFPORTINPULLAL	(TASTE,		C, 3)	//			26
 DEFPORTOUT		(LEDROT,    C, 0)
 DEFPORTOUT		(LEDGELB, 	C, 1)
 DEFPORTOUT		(LEDGRUEN,  C, 2)
-DEFPORTOUT		(LEDBLAU,   D, 4)
+DEFPORTTRI		(LEDBLAU,   D, 4) // Da auch ein Ausgang vom Signalprozessor angeschlossen ist
 
 DEFPORTOUT		(SV_EIN,	B, 5) // Ausgang für Zusatzschaltung zur Stromversorgung des Fernschreibers
 DEFPORTINPULLAL	(TASTEEXT,	B, 4) // Eingang für externe Taste zur Aktivierung
@@ -50,7 +50,7 @@ DEFPORTINPULLAL	(TASTE,		D, 2)
 DEFPORTOUT		(LEDROT,    C, 2)
 DEFPORTOUT		(LEDGELB, 	C, 3)
 DEFPORTOUT		(LEDGRUEN,  D, 3)
-DEFPORTOUT		(LEDBLAU,   D, 4)
+DEFPORTTRI		(LEDBLAU,   D, 4)
 
 DEFPORTOUT		(SV_EIN,	B, 5) // Ausgang für Zusatzschaltung zur Stromversorgung des Fernschreibers
 DEFPORTINPULLAL	(TASTEEXT,	B, 4) // Eingang für externe Taste zur Aktivierung
@@ -68,7 +68,7 @@ DEFPORTINPULLAL	(TASTE,		C, 0)
 DEFPORTOUT		(LEDROT,    B, 2)
 DEFPORTOUT		(LEDGELB, 	C, 1)
 DEFPORTOUT		(LEDGRUEN,  C, 2)
-DEFPORTOUT		(LEDBLAU,   C, 3)
+DEFPORTTRI		(LEDBLAU,   C, 3)
 
 DEFPORTOUT		(SV_EIN,	B, 5) // Ausgang für Zusatzschaltung zur Stromversorgung des Fernschreibers
 DEFPORTINPULLAL	(TASTEEXT,	B, 4) // Eingang für externe Taste zur Aktivierung

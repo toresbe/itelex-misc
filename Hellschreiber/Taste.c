@@ -7,7 +7,7 @@
 
 #include "MsTimer.h"
 
-#include "Ports.h"
+#include "PortsKomm.h"
 
 
 //! Speichert den letzten Zustand der Taste.

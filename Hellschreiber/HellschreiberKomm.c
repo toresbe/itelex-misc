@@ -4,10 +4,6 @@
 // Teil Kommunikation
 //================================================================
 //				
-//  
-//================================================================
-// verwendete Pins siehe Ports.h
-//================================================================
 
 #include <avr/io.h>
 #include <avr/pgmspace.h>
@@ -24,8 +20,6 @@
 #include "MsTimer.h"
 #include "BusKomm.h"
 #include "TxP2-Endgeraet.h"
-#include "Taste.h"
-#include "Ports.h"
 #include "SeriellUmsetz.h"
 #include "BaudotCode.h"
 #include "KonfigDialog.h"
@@ -34,9 +28,11 @@
 #include "LokalUhr.h"
 #include "Zeitsperre.h"
 
+#include "PortsKomm.h"
+#include "Taste.h"
 #include "SwTwi.h"
-
 #include "HellCodes.h" // Steuerzeichen auf der Schnittstelle zwischen Kommunikations-Prozessor und Signalprozessor.
+
 
 #include "../SvnVersion.h"
 
@@ -136,7 +132,7 @@ enum {
 // Typen
 // -----
 
-typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrund;
+typedef enum { SperreTaste, SperreStoerungHell, SperreStoerungIntern, SperreZeit, SperreWahl } TSperreGrund;
 
 typedef char TKennung[KENNUNG_MAXLEN];
 
@@ -175,7 +171,23 @@ bool WarteKonfig; // TODO noch nicht implementiert
 TPuffer SerInBuf; //!< Empfangspuffer für die serielle Schnittstelle. Nicht identisch mit Puffer für Baudot-Ein/-Ausgabe.
 TPuffer SerOutBuf; //!< Sendepuffer für die serielle Schnittstelle. Nicht identisch mit Puffer für Baudot-Ein/-Ausgabe.
 
+uint8_t HellStatus; //!< Aktuelle Zustandsmeldung des Hellschreibers
+
 enum { Aus, Ein, KdoEin, MeldEin, KdoAus, MeldAus } HellBetrieb;
+
+TMsTimer HellSignalStoerung; // steuert die Rote LED entsprechend des Bits HellStatBitEmpfStoer
+// TODO auf Rote LED schalten...
+
+
+#ifndef TESTSER
+
+T_SwTwiTransferdaten SignalTwiDat;
+
+uint8_t SignalTwiFehlerzaehler;
+
+enum { SignalTwiFehlerzaehlerMax = 50 };
+
+#endif //ndef TESTSER
 	
 
 // Schnittstellen-Spezifische Funktionen
@@ -186,10 +198,42 @@ enum { Aus, Ein, KdoEin, MeldEin, KdoAus, MeldAus } HellBetrieb;
 //! Hier ist es nur das Schreiben und Lesen auf der Seriellen Schnittstelle
 
 
+static void HellschreiberMeldetLaeuft()
+	{
+	switch (HellBetrieb)
+		{
+		case Aus:
+			HellBetrieb = MeldEin;
+			break;
+		case KdoEin:
+		case MeldAus:
+			HellBetrieb = Ein;
+			break;
+		default:
+			break;
+		}
+	}
+
+
+static void HellschreiberMeldetSteht()
+	{
+	switch (HellBetrieb)
+		{
+		case Ein:
+			HellBetrieb = MeldAus;
+			break;
+		case KdoAus:
+		case MeldEin:
+			HellBetrieb = Aus;
+			break;
+		default:
+			break;
+		}
+	}
+
+
 static void FernschrIO()
 	{
-	static TMsTimer KdoTimer;
-	
 /* TODO LED Anzeigen
 	if (BefehlEinschalten)
 		bset_LEDBLAU(!BefehlMark);
@@ -201,39 +245,20 @@ static void FernschrIO()
 */
 
 	// Empfang von Codes und Zeichen vom Signalprozessor verarbeiten:	
+
+#ifdef TESTSER
+
+	static TMsTimer KdoTimer;
+
 	if (BIT_IS_SET(UCSR0A, RXC0))
 		{ // Zeichen empfangen
 		char c = UDR0;
 		if (c == HellEinschaltMeldung)
-			{
-			switch (HellBetrieb)
-				{
-				case Aus:
-					HellBetrieb = MeldEin;
-					break;
-				case KdoAus:
-				case MeldAus:
-					HellBetrieb = Ein;
-					break;
-				default:
-					break;
-				}
-			}
+			HellschreiberMeldetLaeuft();
+
 		else if (c == HellAusschaltMeldung)
-			{
-			switch (HellBetrieb)
-				{
-				case Ein:
-					HellBetrieb = MeldAus;
-					break;
-				case KdoEin:
-				case MeldEin:
-					HellBetrieb = Aus;
-					break;
-				default:
-					break;
-				}
-			}
+			HellschreiberMeldetSteht();
+			
 		else // normales Zeichen -> Puffern
 			{
 			if (PufferAnzahl(&SerInBuf) < MaxPuffer - 2)
@@ -255,7 +280,7 @@ static void FernschrIO()
 				break;
 				
 			case KdoEin:
-				if (TimerVal(&KdoTimer) >= 500)
+				if (TimerVal(&KdoTimer) >= 800)
 					{
 					UDR0 = HellEinschaltBefehl;
 					StartTimer(&KdoTimer);
@@ -263,7 +288,7 @@ static void FernschrIO()
 				break;
 
 			case KdoAus:
-				if (TimerVal(&KdoTimer) >= 500)
+				if (TimerVal(&KdoTimer) >= 800)
 					{
 					UDR0 = HellAusschaltBefehl;
 					StartTimer(&KdoTimer);
@@ -271,15 +296,77 @@ static void FernschrIO()
 				break;
 
 			case Ein:
-			case MeldAus:
-				if (!PufferLeer(&SerOutBuf))
-					UDR0 = PufferAusg(&SerOutBuf);
 				break;
 
 			default:
 				break; 
 			} // switch (HellBetrieb)
+
+		if (BIT_IS_SET(UCSR0A, UDRE0) && !PufferLeer(&SerOutBuf)) // TODO hier eigentlich nicht korrekt, da nur bei eingeschaltetem Gerät Zeichen drucken möglich ist.
+			UDR0 = PufferAusg(&SerOutBuf);
+
 		} // if Schnittstelle bereit für Daten
+
+#else //not def TESTSER
+
+	static uint8_t TwiPuffer;
+
+	SwTwiAktion(&SignalTwiDat);
+
+	if (SignalTwiDat.Phase == 0)
+		{ // Bereit für einen neuen Transfer
+		if (PufferLeer(&SerOutBuf)) // TODO ggf Prio auf Lesen setzten
+			{ // Auf TWI schreiben
+			SignalTwiDat.Adresse = HellTwiAdresse << 1;
+			SignalTwiDat.Puffer = &TwiPuffer;
+			TwiPuffer = PufferAusg(&SerOutBuf);
+			SignalTwiDat.AnzDaten = 1;
+			}
+		else if (PufferLeer(&SerInBuf)) // nur lesen, wenn auch Platz ist
+			{ // von TWI lesen
+			SignalTwiDat.Adresse = (HellTwiAdresse << 1) + 1;
+			SignalTwiDat.Puffer = &TwiPuffer;
+			SignalTwiDat.AnzDaten = 1;
+			}
+		}
+
+	else if (SignalTwiDat.Phase == 255)
+		{ // Transfer ist abgeschlossen, jetzt auswerten
+		if (SignalTwiDat.Ergebnis != 2) // Fehler
+			{
+			if (SignalTwiFehlerzaehler < SignalTwiFehlerzaehlerMax)
+				SignalTwiFehlerzaehler++;
+			}
+		else
+			{
+			if (SignalTwiFehlerzaehler > 0)
+				SignalTwiFehlerzaehler--;
+
+			if (!BIT_IS_SET(SignalTwiDat.Adresse, 0)) 
+				{ // Lesevorgang
+				if (!BIT_IS_SET(TwiPuffer, 7))
+					PufferSpeich(&SerInBuf, TwiPuffer);
+				else
+					{ // Status-Meldung...
+					HellStatus = TwiPuffer & 0x7F; // Bit 7 löschen
+
+					if (BIT_IS_SET(HellStatus, HellStatBitLaeuft))
+						HellschreiberMeldetLaeuft();
+					else
+						HellschreiberMeldetSteht();
+
+					if (BIT_IS_SET(HellStatus, HellStatBitEmpfStoer))
+						StartTimer(&HellSignalStoerung);
+					}
+				}
+			// else: es war ein Schreibvorgang, da gibt es nichts auszuwerten, außer Fehlermeldungen (siehe oben)
+			}
+
+		SignalTwiDat.AnzDaten = 0;
+		SignalTwiDat.Phase = 0;
+		}
+	
+#endif //ndef TESTSER
 
 	} // FernschrIO
 
@@ -314,7 +401,6 @@ char LokalZeichenLesen()
 		{
 		FernschrIO();
 		TastePruefen();
-		DoSwTwi();
 		if (Tastendruck != NichtGedr)
 			{
 			Tastendruck = NichtGedr;
@@ -343,9 +429,7 @@ void LokalZeichenAusgabe(char c)
 	while (PufferVoll(&SerOutBuf) && HellBetrieb == Ein)
 		{
 		FernschrIO();
-		DoSwTwi();
 		TastePruefen();
-		PufferAusg(&SerOutBuf); // wird verworfen um Platz zu schaffen.
 		}
 
 	PufferSpeich(&SerOutBuf, c); 
@@ -353,7 +437,9 @@ void LokalZeichenAusgabe(char c)
 	}
 
 	
-//! Initialisiert serielle Schnittstelle und Puffer dazu.
+#ifdef TESTSER
+
+//! Initialisiert serielle Schnittstelle.
 static void SerIOInit()
 	{
 	// PORTS initialisieren (Ausgabepins)
@@ -384,6 +470,8 @@ static void SerIOInit()
 
 	}
 
+#endif //def TESTSER
+
 
 //////////////////////////////////////////////////////////////////
 
@@ -406,8 +494,10 @@ static bool FernschrEinschalten(bool WarteQuittVerz)
 	while (HellBetrieb != Ein)
 		{
 		FernschrIO();
-		if (HellBetrieb == MeldAus)
+		if (HellBetrieb == MeldAus || HellBetrieb == Aus) // letzteres passiert nur, wenn die Einschaltung vom Anrufer zurückgenommen wird.
 			return false;
+
+		// TODO Timeout
 		}
 
 	// TODO irgendwas zu WarteQuittVerz
@@ -427,7 +517,7 @@ static void FernschrAusschalten()
 	else if (HellBetrieb == Ein || HellBetrieb == KdoEin || HellBetrieb == MeldEin)
 		HellBetrieb = KdoAus;
 
-	while (HellBetrieb != Aus)
+	while (HellBetrieb != Aus) // TODO ggf. schon vorher zurückkehren, damit Wiedereinschaltung auch in der Ausschaltphase funktioniert.
 		{
 		FernschrIO();
 		if (HellBetrieb == MeldEin)
@@ -436,7 +526,6 @@ static void FernschrAusschalten()
 
 	}
 		
-
 
 //! Schaltet LED entspechend der Status-Bits an.
 static void LEDAktualisieren()
@@ -500,6 +589,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	// 8: unerlaubte Einschaltung
 	// 9: unerlaubte Wahl
 	// 10: unerlaubte Aktivierung / Deaktivierung
+	// 11: Fehler auf dem internen TWI-Bus
 	{
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWEN) | (0<<TWIE);
 
@@ -517,16 +607,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 			{ // alle 400 ms:
 			StartTimer(&TasteTimer);
 
-			UDR0 = HellAusschaltBefehl; // sicherheitshalber Ausschaltbefehle an den Signalprozessor
-
-			if (get_TASTE())
-				{ // Taste gedrückt
-				if (TasteZ < 5)
-					TasteZ++;
-				else
-					TasteWirk = true;
-				}
-			else
+			if (!get_TASTE())
 				{ // Taste nicht gedrückt
 				if (TasteZ > 0)
 					{
@@ -540,20 +621,30 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 						}
 					}
 				} // Taste nicht gedrückt
+			else
+				{ // Taste gedrückt
+				if (TasteZ < 5)
+					TasteZ++;
+				else
+					TasteWirk = true;
+				}
 			}
 		else if (!TasteWirk && TimerVal(&TasteTimer) > 200)
 		    {
 		    bset_LEDROT(BIT_IS_SET(Nummer, 0));
 			bset_LEDGELB(BIT_IS_SET(Nummer, 1));
 		    bset_LEDGRUEN(BIT_IS_SET(Nummer, 2));
-		    bset_LEDBLAU(BIT_IS_SET(Nummer, 3));
+		    if (BIT_IS_SET(Nummer, 3))
+				seto_LEDBLAU();
+			else
+				inp_LEDBLAU();
 			}
 		else
 			{
 			clr_LEDROT();
 			clr_LEDGELB();
 			clr_LEDGRUEN();
-			clr_LEDBLAU();
+			inp_LEDBLAU();
 			}
 		}
 	}	
@@ -564,7 +655,6 @@ static void ZeichenSenden(char c)
 	{
 	while (!GeSendePufferLeer())
 		{
-		DoSwTwi();
 		FernschrIO();
 		if (KoAusschalten())
 			return;
@@ -608,12 +698,14 @@ static void VerbindungKommend()
 
 	set_LEDGRUEN();
 	set_LEDROT();
-	
+
+	// HellBetrieb wird durch FernschrEinschalten gesetzt
+			
 	if (!FernschrEinschalten(true))
 		{ // Timeout...
 		clr_LEDGRUEN();
 		GeAusschalten(true);
-		KommendSperren(SperreStoerung);
+		KommendSperren(SperreStoerungHell);
 		clr_LEDROT();		
 		return;
 		}
@@ -621,13 +713,13 @@ static void VerbindungKommend()
 	clr_LEDROT();
 	
 	if (!GeEinschaltQuittung())
-		{
 		GeAusschalten(true);
-		FernschrAusschalten();
-		}
 	else
 		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
-		
+
+	FernschrAusschalten();
+	clr_LEDGRUEN();
+	
 	}
 	
 
@@ -694,7 +786,7 @@ static bool WahlMitTastatur()
 	bool EsWurdeGewaehlt;
 	int Falschziffern;
 	
-	TODO anpassen!
+	// TODO anpassen!
 	
 #ifdef SPRACHE_EN
 	LokalTextAusgabeP(PSTR("dial: "));
@@ -703,6 +795,7 @@ static bool WahlMitTastatur()
 #endif
 	
 	// AutoWahlZiffern vorweg in den Wählpuffer schreiben
+/* TODO wieder einbauen.
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
 		// c wird als Index missbraucht
@@ -710,6 +803,7 @@ static bool WahlMitTastatur()
 			GeWaehlen(AutoWahlZiffern[i]);
 		else
 			break;
+*/
 
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
@@ -794,9 +888,9 @@ static void VerbindungGehend()
 
 	bool Verbunden = false;
 	
+	HellBetrieb = Ein;
+
 	Verbunden = WahlMitTastatur();
-	if (Verbunden)
-		FernschrEinschalten(true);
 
 	if (!Verbunden)
 		{
@@ -806,29 +900,27 @@ static void VerbindungGehend()
 			{
 			clr_LEDGELB();
 			FernschrAusschalten();
-			KommendSperren(SperreWahl);
+			KommendSperren(SperreWahl); // kehrt erst zurück, wenn Sperre aufgehoben wird.
+			return; // damit am Ende nicht FernschrAusschalten() aufgerufen wird, da ein neuer gehender Anruf bereits eingeleitet sein könnte.
 			}
 			
 		else if ((LokalbetriebWahl != 0 && LetzteInterneWahl() == LokalbetriebWahl)
 			|| LetzteInterneWahl() == (BusEigenAdresse >> 1))
 			{
 			LokalbetriebSimulieren();
-				// macht auch am Ende FernschrAusschalten()
 			}
-			
-		else
-			FernschrAusschalten();
 		}
+
 	else // Verbunden = true
 		{ 
 		if (GeEinschaltQuittung())  // endgültige Einschaltung bestätigen
 			VerbindungSteht(true); 
 		else
-			{ // Fehler
 			GeAusschalten(true);
-			FernschrAusschalten();
-			}
 		}
+
+	FernschrAusschalten();
+		// doppelter Aufruf ist unschädlich.
 		
 	SperrzeitAussetzen();
 	
@@ -854,16 +946,11 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 	GeSendeMark(true); 
 
-	SendeUmsetzModus = UmsetzFern;
-	EmpfUmsetzModus = UmsetzFern; 
-
 	while (true)
 		{
 		FernschrIO();
 		TastePruefen();
 
-		// TODO nochmal passende stelle suchen:
-		
 		// Kennungsgeber alle 5 Sekunden abfragen, bis Gegenantwort kam...
 		if (AutoKennungAbfrage 
 			&& TimerVal(&KennungAbfrageTimer) >= (ErsteKennungAbfrage ? 500 : 5000))
@@ -875,15 +962,6 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			ErsteKennungAbfrage = false;
 			}
 			
-		// falls selber geschrieben wird, auch automatische Kennungsgeber-Abfrage
-		// löschen
-		
-		
-		// if (TimerVal(&KennungAbfrageTimer) > 1000 && !MeldungMark)
-		//	AutoKennungAbfrage = false;
-			
-
-
 		char c;
 		if (KoEmpfZeichen(&c))
 			{
@@ -893,6 +971,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 				}
 			else
 				{
+				AutoKennungAbfrage = false;
 				LokalZeichenAusgabe(c);
 				}
 			}
@@ -906,6 +985,8 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 #endif			
 			GeAusschalten(true);
 
+			HellBetrieb = KdoAus;
+
 			return;
 			}
 
@@ -914,30 +995,10 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			char c;
 			c = SerEmpfZ(true);
 			
-			if (c == CTRL('i') || c == CTRL('f'))
+			if (c == CTRL('i') || c == CTRL('f')) // TODO durch richtige Zeichen ersetzen
 				// Eigene Kennung ausgeben
 				{ // TODO außer Kennung ist leer.
 				GeSendeText(Kennung);
-				}
-				
-			else if (c == CTRL('s'))
-				// Abbruch durch Bediener
-				{
-
-				GeAusschalten(false);
-				while (!KoAusschalten())
-					{
-					DoSwTwi();
-					LEDAktualisieren();
-					FernschrIO(); 
-					}
-				
-#ifdef SPRACHE_EN					
-				LokalTextAusgabeP(PSTR("\r\nDisconnected\r\n"));
-#else
-				LokalTextAusgabeP(PSTR("\r\nBeendet\r\n"));
-#endif					
-				return;
 				}
 				
 			else if (c == CTRL('w') || c == CTRL('e'))
@@ -946,9 +1007,24 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			else // kein besonderer CTRL-Code
 				ZeichenSenden(c);
 
+			AutoKennungAbfrage = false;
 			} // if !PufferLeer(&SerInBuf)
 
-		DoSwTwi();
+		if (HellBetrieb == MeldAus)
+			// Abbruch durch Bediener
+			{
+			HellBetrieb = Aus;
+
+			GeAusschalten(false);
+			while (!KoAusschalten())
+				{
+				LEDAktualisieren();
+				FernschrIO();
+				}
+
+			return;
+			}
+
 		LEDAktualisieren();
 		}
 
@@ -976,7 +1052,7 @@ static void DemoBetrieb()
 	if (!FernschrEinschalten(true))
 		return;
 	
-	set_LEDBLAU();
+	seto_LEDBLAU();
 	
 	p = DemoText;
 	
@@ -988,14 +1064,14 @@ static void DemoBetrieb()
 		TastePruefen();
 		if (Tastendruck != NichtGedr)
 			break;
-		if (!MeldungEingeschaltet)
+		if (HellBetrieb != Ein)
 			break;
 		}
 
 	Tastendruck = NichtGedr;
 	FernschrAusschalten();
 	Aktivieren(true);
-	clr_LEDBLAU();
+	inp_LEDBLAU();
 	
 	}
 
@@ -1025,19 +1101,16 @@ static void Konfiguration()
 		}
 */
 
-	SeriellUmsetzInit();
 	Aktivieren(false);
 	set_LEDROT();
 	
 	if (!FernschrEinschalten(true))
 		return;
 	
-	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
-	
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n configuration tw39plus version " SVNVERSION " date " __DATE__));
+	LokalTextAusgabeP(PSTR("\r\n configuration hellschreiber version " SVNVERSION " date " __DATE__));
 #else
-	LokalTextAusgabeP(PSTR("\r\n konfiguration tw39plus version " SVNVERSION " datum " __DATE__));
+	LokalTextAusgabeP(PSTR("\r\n konfiguration hellschreiber version " SVNVERSION " datum " __DATE__));
 #endif //def SPRACHE_EN
 
 	// Vorab die Frage nach "Expertenfunktionen"
@@ -1058,7 +1131,19 @@ static void Konfiguration()
 	Abbruch = !KonfigurationAllgemein(); 
 	if (Abbruch) 
 		return;
-	
+		
+#ifdef SPRACHE_EN	
+	LokalTextAusgabeP(PSTR("  answerback: "));
+#else
+	LokalTextAusgabeP(PSTR("  Kennung: "));
+#endif	
+	Kennung[0] = '\r';
+	Kennung[1] = '\n';
+	LokalTextAusgabe(Kennung + 2); // CR + LF weglassen
+	LokalTextAusgabeP(NeuStrP);
+	if (LokalTextEingabe(Kennung + 2, KENNUNG_MAXLEN - 3) == 0) // erste 2 Zeichen für CRLF reserviert
+		return;
+
 	// jetzt bei einfacher Konfiguration abbrechen
 	// -------------------------------------------
 	if (NoExpertSettings)
@@ -1295,7 +1380,7 @@ static void KonfigurationEnde()
 	
 	KonfigSchreibeByte(EEAdr_BusEigenAdresse, BusEigenAdresse);
 	
-	KonfigSchreibeByte(EEAdr_UmleitungAbweisen, UmleitungAbweisen);
+	KonfigSchreibeBool(EEAdr_UmleitungAbweisen, UmleitungAbweisen);
 
 	KonfigSchreibeByte(EEAdr_KommendSperreWahl, KommendSperreWahl);
 
@@ -1313,6 +1398,8 @@ static void KonfigurationEnde()
 	
 	SperrzeitSpeicherEeprom(EEAdr_Sperrzeit);
 
+	KonfigSchreibeString(EEAdr_Kennung, Kennung, sizeof(Kennung));
+
 	Aktivieren(true);
 
 	clr_LEDROT();
@@ -1325,14 +1412,11 @@ static void KonfigurationEnde()
 
 static void FehlermeldungDrucken()
 	{
-	SeriellUmsetzInit();
 	Aktivieren(false);
 	set_LEDROT();
 	
 	if (!FernschrEinschalten(true))
 		return;
-	
-	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
 	
 	KonfigSpeicherFehlerAusgeben();
 	
@@ -1378,16 +1462,14 @@ static void KommendSperren(TSperreGrund Grund)
 			}
 			
 		FernschrIO();
-		if (MeldungEingeschaltet)
+		if (HellBetrieb != Aus)
 			break;
+
+#ifndef TESTSER
+		if (Grund == SperreStoerungIntern && SignalTwiFehlerzaehler == 0)
+			break;
+#endif //ndef TESTSER
 			
-		if (TimerVal(&BlinkTimer) > 500 * BlinkTaktFaktor)
-			StartTimer(&BlinkTimer);
-		else if (TimerVal(&BlinkTimer) > 300 * BlinkTaktFaktor)
-			set_LEDBLAU();
-		else
-			clr_LEDBLAU();
-		
 		if (RundsendAnzDaten > 0)
 			{
 			if (LokalUhrPruefeRundsendung(RundsendDaten, RundsendAnzDaten))
@@ -1404,10 +1486,17 @@ static void KommendSperren(TSperreGrund Grund)
 			
 			RundsendAnzDaten = 0;
 			}
+
+		if (TimerVal(&BlinkTimer) > 500 * BlinkTaktFaktor)
+			StartTimer(&BlinkTimer);
+		else if (TimerVal(&BlinkTimer) > 300 * BlinkTaktFaktor)
+			seto_LEDBLAU();
+		else
+			inp_LEDBLAU();
 		
 		}
 		
-	clr_LEDBLAU();
+	inp_LEDBLAU();
 	Aktivieren(true);
 		
 	}
@@ -1423,7 +1512,10 @@ static void KommendSperren(TSperreGrund Grund)
 static void Deaktivieren()
 // wird nach kurzem Tastendruck aufgerufen
 	{
-	set_LEDBLAU();
+	clr_LEDROT();
+	clr_LEDGELB();
+	clr_LEDGRUEN();
+	seto_LEDBLAU();
 	Aktivieren(false);
 
 	while (Tastendruck == NichtGedr)
@@ -1431,7 +1523,7 @@ static void Deaktivieren()
 	Tastendruck = NichtGedr;
 
 	Aktivieren(true);
-	clr_LEDBLAU();
+	inp_LEDBLAU();
 	clr_LEDROT();
 
 	KommendSperren(SperreTaste);
@@ -1484,7 +1576,6 @@ int main()
 	BusEigenAdresse = KonfigLeseByteBegrenzt(EEAdr_BusEigenAdresse, 11 << 1/*Standardwert*/, BusAdrMin, BusAdrMax) & 0xFE; // Bit 0 löschen
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
-	
 
 	UmleitungAbweisen = KonfigLeseBool(EEAdr_UmleitungAbweisen, false);
 
@@ -1503,11 +1594,12 @@ int main()
 		AutoWahlZiffern[i] = KonfigLeseByte(EEAdr_AutoWahlZiffern + i, 255); // nicht begrenzt, da alles über 9 das Endezeichen ist.
 	
 	AnrufAbbruchZeit = KonfigLeseByteBegrenzt(EEAdr_AnrufAbbruchZeit, AnrufAbbruchZeit_Std, 3, 25);
-		
 
 	// TODO eeprom_read_string(Kennung, Kennung_EE);
 
+#ifdef TESTSER
 	SerIOInit();
+#endif //def TESTSER
 	
 	KommInit();
 
@@ -1549,7 +1641,7 @@ int main()
 		;
 
 	clr_LEDGRUEN();
-	set_LEDBLAU();
+	seto_LEDBLAU();
 
 	// TWI nochmal resetten
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (1<<TWSTO) | (0<<TWEN) | (0<<TWIE);
@@ -1584,7 +1676,7 @@ int main()
 
 		clr_LEDGELB();
 		clr_LEDGRUEN();
-		clr_LEDBLAU();
+		inp_LEDBLAU();
 
 		TastePruefen();
 		
@@ -1619,7 +1711,7 @@ int main()
 				
 			} // if (Tastendruck == Kurz)
 
-		if (MeldungEingeschaltet)
+		if (HellBetrieb == MeldEin)
 			{
 			VerbindungGehend();
 			}
@@ -1655,6 +1747,11 @@ int main()
 		if (TimerVal(&NachlaufTimer) > 60000)
 			clr_SV_EIN();
 		
+#ifndef TESTSER
+		if (SignalTwiFehlerzaehler >= SignalTwiFehlerzaehlerMax)
+			KommendSperren(SperreStoerungIntern);	
+#endif //ndef TESTSER
+
 		} // while (true)
 	} // main()
 
