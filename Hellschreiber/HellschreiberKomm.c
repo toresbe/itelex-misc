@@ -1689,6 +1689,8 @@ int main()
 	
 	StartTimer(&NachlaufTimer);
 	
+	inp_LEDBLAU();
+	
 	while (true)
 		{
 		// aktueller Zustand: Ausgeschaltet

@@ -38,7 +38,7 @@
 
 #define HELL_TON 3000UL // 3 kHz Sendefrequenz
 
-#define HELL_ANRUF_FREQ 50 // 50 Hz (andere Werte mal testen)
+#define HELL_ANRUF_FREQ 25 // 50 Hz (andere Werte mal testen)
 
 #define HELL_TON_SCHWELLE 4 // 4 Messungen der halben Periodendauer müssen zur Sollfrequenz passen
 
@@ -123,12 +123,13 @@ const PROGMEM char Identifier[] = "___itlx_HellschrSignal___" __DATE__ "___" __T
 // Für PWM-Ausgabe für den Hell-Ton: Soll-Frequenz = HELL_TON = 3 kHz
 // -> Takt < 256 * 3 kHz = 768 kHz
 // -> Vorteiler > 14745,6 kHz / 768 kHz
-// -> Vorteiler > 2 -> Vorteiler = 8
-// -> Tatsächlicher Messtakt 57,6 kHz bzw. 17,3 µs
+// -> Vorteiler > 19.2 -> Vorteiler = 64
+// -> TOP fuer PWM = 14745,6 kHz / 64 / 3 kHz = 77
+// -> Tatsächliche Frequenz = 2992 Hz
 
-#define TIMER0_VORTEILER_TONAUSG 8UL
-#define TIMER0_CS_TONAUSG TCCR_DIV(0, 8)
-#define TIMER0_FREQ_TONAUSG (F_CPU / TIMER0_VORTEILER_MESS)
+#define TIMER0_VORTEILER_TONAUSG 64UL
+#define TIMER0_CS_TONAUSG TCCR_DIV(0, 64)
+#define TIMER0_FREQ_TONAUSG (F_CPU / TIMER0_VORTEILER_TONAUSG)
 
 #define TIMER0_TOP_TONAUSG (TIMER0_FREQ_TONAUSG / HELL_TON + 1)
 
@@ -439,8 +440,6 @@ void MessungSimulieren(char Zeichen, int Stoergrad)
 // Schnittstelle zur Anwendung
 // =================================================================
 
-bool HellKommandoEinschalten; // wird gesetzt, wenn ein entsprechender Code über TWI empfangen wird.
-
 
 #ifdef TESTSER
 
@@ -526,7 +525,7 @@ void SerAusgPStr(const char *s)
 
 void PollTwi()
 	{
-	uint8_t NewStat, RecData;
+	uint8_t NewStat;
 
 	set_DiagC();
 
@@ -576,21 +575,9 @@ void PollTwi()
 
         case TwiEv_SR_DataACK		:
         case TwiEv_SR_DataNACK		:
-			RecData = TWDR;
-			if (RecData == HellAusschaltBefehl)
-				{
-				PufferInit(&HellAusgZeichenPuffer);
-				CLR_BIT(HellStatus, HellStatBitPufferVoll);
-				HellKommandoEinschalten = false;
-				}
-			else
-				{
-				HellKommandoEinschalten = true;
-				if (RecData != HellEinschaltBefehl)
-					PufferSpeich(&HellAusgZeichenPuffer, TWDR);
-				if (PufferVoll(&HellAusgZeichenPuffer))
-					SET_BIT(HellStatus, HellStatBitPufferVoll);
-				}
+			PufferSpeich(&HellAusgZeichenPuffer, TWDR);
+			if (PufferVoll(&HellAusgZeichenPuffer))
+				SET_BIT(HellStatus, HellStatBitPufferVoll);
 			CLR_BIT(NewStat, TWEA); // damit weiter NACK gesendet wird  TODO prüfen ob es auch ohne geht.
 			break;
 
@@ -721,24 +708,27 @@ static void Initalisierungen()
 
 static void WarteAufEinschaltungKommendOderGehend()
 	{
+#ifdef TESTSER
+	SerAusgPStr(PSTR("\r\nWarteAufEinschaltungKommendOderGehend\r\n"));
+#endif //def TESTSER
 	while (true)
 		{
 		PollTwi();
 
-		// TODO ggf seriell
-
 		if (IstHellschreiberBereit())
 			{ // eingeschaltet, entweder selbst oder durch Anruf.
 			SET_BIT(HellStatus, HellStatBitLaeuft);
-			HellKommandoEinschalten = true; // damit dies als 'gewollte' Einschaltung erkennbar bleibt.
 			break;
 			}
 
-		if (!PufferLeer(&H)) // es gibt etwas zu drucken
+		if (!PufferLeer(&HellAusgZeichenPuffer)) // es gibt etwas zu drucken
 			{ // bis zur Einschaltung immer 1 Sekunde Rufsignal und 10 Sekunden auf Einschaltung warten 
 			TMsTimer KlingelTimer;
 			TMsTimer KlingelFreqTimer;
 
+#ifdef TESTSER
+			SerAusgPStr(PSTR("\r\nRufsignal EIN\r\n"));
+#endif //def TESTSER
 			StartTimer(&KlingelTimer);
 			StartTimer(&KlingelFreqTimer);
 			SET_BIT(HellStatus, HellStatBitSendeAnruf);
@@ -753,6 +743,9 @@ static void WarteAufEinschaltungKommendOderGehend()
 					StartTimer(&KlingelFreqTimer);
 				}
 			clr_HellAnrufPulse();
+#ifdef TESTSER
+			SerAusgPStr(PSTR("\r\nRufsignal AUS\r\n"));
+#endif //def TESTSER
 			StartTimer(&KlingelTimer);
 			CLR_BIT(HellStatus, HellStatBitSendeAnruf);
 			while (!IstHellschreiberBereit() && TimerVal(&KlingelTimer) < 10000)
@@ -935,8 +928,14 @@ static void HellZeichenEmpfangAuswerten()
 
 static void BestehendeVerbindungBearbeiten()
 	{
+	char DruckZeichen = '\0';
+
+#ifdef TESTSER
+	SerAusgPStr(PSTR("\r\nBestehendeVerbindungBearbeiten\r\n"));
+#endif //def TESTSER
+	
 	HellTonEmpfEinschalten();
-	while (true)
+	while (DruckZeichen != HellAusschaltBefehl)
 		{
 		PollTwi();
 
@@ -951,16 +950,15 @@ static void BestehendeVerbindungBearbeiten()
 			HellTonEmpfAusschalten();
 			while (!PufferLeer(&HellAusgZeichenPuffer))
 				{
-				char c = PufferAusg(&HellAusgZeichenPuffer);
-				if (c == HellAusschaltBefehl)
-					auch Hauptschleife verlassen
-				HellZeichenSenden(c);
+				DruckZeichen = PufferAusg(&HellAusgZeichenPuffer);
+				if (DruckZeichen != HellAusschaltBefehl)
+					HellZeichenSenden(DruckZeichen);
 				}
 			CLR_BIT(HellStatus, HellStatBitPufferVoll);
 			HellTonEmpfEinschalten();
 			}
 
-		} // while (true)
+		} // while (DruckZeichen != HellAusschaltBefehl)
 
 	HellTonEmpfAusschalten();
 
@@ -969,12 +967,21 @@ static void BestehendeVerbindungBearbeiten()
 
 static void GrundstellungHerstellen()
 	{
+#ifdef TESTSER
+	SerAusgPStr(PSTR("\r\nGrundstellungHerstellen\r\n"));
+#endif //def TESTSER	
 	if (IstHellschreiberBereit())
 		{
+#ifdef TESTSER
+		SerAusgPStr(PSTR("\r\nAusschaltsignal EIN\r\n"));
+#endif //def TESTSER
 		HellTonAusgabeEinschalten(); // Dauerton bis zur Ausschaltung
 		while (IstHellschreiberBereit())
 			PollTwi();
 		HellTonAusgabeAusschalten();
+#ifdef TESTSER
+		SerAusgPStr(PSTR("\r\nAusschaltsignal AUS\r\n"));
+#endif //def TESTSER
 		}
 	} // GrundstellungHerstellen()
 
@@ -990,8 +997,5 @@ int main(void)
 		BestehendeVerbindungBearbeiten();
 		}
 	}
-
-
-
 
 
