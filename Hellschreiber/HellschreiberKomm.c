@@ -85,6 +85,9 @@ PROGMEM const char Identifier[] = "___itlx_HellschrKomm___" __DATE__ "___" __TIM
 #endif // PLATINE_VERSION
 
 
+#define LED_BLAU_INAKTIV
+
+
 // Konstanten
 // ----------
 
@@ -183,6 +186,8 @@ TMsTimer HellSignalStoerung; // steuert die Rote LED entsprechend des Bits HellS
 
 T_SwTwiTransferdaten SignalTwiDat;
 
+uint8_t TwiPuffer;
+
 uint8_t SignalTwiFehlerzaehler;
 
 enum { SignalTwiFehlerzaehlerMax = 50 };
@@ -253,10 +258,10 @@ static void FernschrIO()
 	if (BIT_IS_SET(UCSR0A, RXC0))
 		{ // Zeichen empfangen
 		char c = UDR0;
-		if (c == HellEinschaltMeldung)
+		if (c == HellEinschaltBefehl) // eigentlich Meldungen, ist mir aber jetzt egal
 			HellschreiberMeldetLaeuft();
 
-		else if (c == HellAusschaltMeldung)
+		else if (c == HellAusschaltBefehl) // eigentlich Meldungen, ist mir aber jetzt egal
 			HellschreiberMeldetSteht();
 			
 		else // normales Zeichen -> Puffern
@@ -309,17 +314,15 @@ static void FernschrIO()
 
 #else //not def TESTSER
 
-	static uint8_t TwiPuffer;
-
 	SwTwiAktion(&SignalTwiDat);
 
 	if (SignalTwiDat.Phase == 0)
 		{ // Bereit für einen neuen Transfer
 		if (PufferLeer(&SerOutBuf)) // TODO ggf Prio auf Lesen setzten
 			{ // Auf TWI schreiben
+			TwiPuffer = PufferAusg(&SerOutBuf);
 			SignalTwiDat.Adresse = HellTwiAdresse << 1;
 			SignalTwiDat.Puffer = &TwiPuffer;
-			TwiPuffer = PufferAusg(&SerOutBuf);
 			SignalTwiDat.AnzDaten = 1;
 			}
 		else if (PufferLeer(&SerInBuf)) // nur lesen, wenn auch Platz ist
@@ -357,6 +360,11 @@ static void FernschrIO()
 
 					if (BIT_IS_SET(HellStatus, HellStatBitEmpfStoer))
 						StartTimer(&HellSignalStoerung);
+
+					// HACK:
+					bset_LEDROT(BIT_IS_SET(HellStatus, HellStatBitEmpfStoer));
+					bset_LEDGELB(BIT_IS_SET(HellStatus, HellStatBitLaeuft));
+					bset_LEDGRUEN(BIT_IS_SET(HellStatus, HellStatBitSendeTon) || BIT_IS_SET(HellStatus, HellStatBitEmpfTon));
 					}
 				}
 			// else: es war ein Schreibvorgang, da gibt es nichts auszuwerten, außer Fehlermeldungen (siehe oben)
@@ -634,17 +642,21 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 		    bset_LEDROT(BIT_IS_SET(Nummer, 0));
 			bset_LEDGELB(BIT_IS_SET(Nummer, 1));
 		    bset_LEDGRUEN(BIT_IS_SET(Nummer, 2));
+#ifndef LED_BLAU_INAKTIV
 		    if (BIT_IS_SET(Nummer, 3))
 				seto_LEDBLAU();
 			else
 				inp_LEDBLAU();
+#endif
 			}
 		else
 			{
 			clr_LEDROT();
 			clr_LEDGELB();
 			clr_LEDGRUEN();
+#ifndef LED_BLAU_INAKTIV
 			inp_LEDBLAU();
+#endif //ndef LED_BLAU_INAKTIV
 			}
 		}
 	}	
@@ -785,14 +797,10 @@ static bool WahlMitTastatur()
 	TMsTimer WahlendeTimer;
 	bool EsWurdeGewaehlt;
 	int Falschziffern;
-	
-	// TODO anpassen!
-	
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("dial: "));
-#else
-	LokalTextAusgabeP(PSTR("waehlen: "));
-#endif
+
+	LokalZeichenAusgabe(HELLC_PFEIL);
+	LokalZeichenAusgabe(HELLC_PFEIL);
+	LokalZeichenAusgabe(' ');
 	
 	// AutoWahlZiffern vorweg in den Wählpuffer schreiben
 /* TODO wieder einbauen.
@@ -854,7 +862,9 @@ static bool WahlMitTastatur()
 		if (KoAusschalten())
 			{
 			// FernschrAusschalten() macht die aufrufende Routine
-			LokalTextAusgabeP(PSTR("\r\nAbort"));
+			LokalZeichenAusgabe(' ');
+			LokalZeichenAusgabe(HELLC_ENDE);
+			LokalZeichenAusgabe(' ');
 			return false;
 			}
 			
@@ -978,11 +988,9 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 		if (KoAusschalten())
 			{
-#ifdef SPRACHE_EN				
-			LokalTextAusgabeP(PSTR("\r\nDisconnected\r\n"));
-#else
-			LokalTextAusgabeP(PSTR("\r\nGetrennt\r\n"));
-#endif			
+			LokalZeichenAusgabe(' ');
+			LokalZeichenAusgabe(HELLC_ENDE);
+			LokalZeichenAusgabe(' ');
 			GeAusschalten(true);
 
 			HellBetrieb = KdoAus;
@@ -1052,7 +1060,9 @@ static void DemoBetrieb()
 	if (!FernschrEinschalten(true))
 		return;
 	
+#ifndef LED_BLAU_INAKTIV
 	seto_LEDBLAU();
+#endif //ndef LED_BLAU_INAKTIV
 	
 	p = DemoText;
 	
@@ -1071,7 +1081,9 @@ static void DemoBetrieb()
 	Tastendruck = NichtGedr;
 	FernschrAusschalten();
 	Aktivieren(true);
+#ifndef LED_BLAU_INAKTIV
 	inp_LEDBLAU();
+#endif //ndef LED_BLAU_INAKTIV
 	
 	}
 
@@ -1108,17 +1120,17 @@ static void Konfiguration()
 		return;
 	
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n configuration hellschreiber version " SVNVERSION " date " __DATE__));
+	LokalTextAusgabeP(PSTR(" configuration hellschreiber version " SVNVERSION " date " __DATE__));
 #else
-	LokalTextAusgabeP(PSTR("\r\n konfiguration hellschreiber version " SVNVERSION " datum " __DATE__));
+	LokalTextAusgabeP(PSTR(" konfiguration hellschreiber version " SVNVERSION " datum " __DATE__));
 #endif //def SPRACHE_EN
 
 	// Vorab die Frage nach "Expertenfunktionen"
 	// -----------------------------------------
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n simple configuration?    ")); 
+	LokalTextAusgabeP(PSTR(" \025 simple configuration?    "));  // 025 oktal = 021 dezimal = Raute
 #else	
-	LokalTextAusgabeP(PSTR("\r\n einfache konfiguration?    ")); 
+	LokalTextAusgabeP(PSTR(" \025 einfache konfiguration?    ")); 
 #endif //def SPRACHE_EN
 
 	if (LokalBoolEingabe(&NoExpertSettings) == 0)
@@ -1133,9 +1145,9 @@ static void Konfiguration()
 		return;
 		
 #ifdef SPRACHE_EN	
-	LokalTextAusgabeP(PSTR("  answerback: "));
+	LokalTextAusgabeP(PSTR(" \025 answerback: "));
 #else
-	LokalTextAusgabeP(PSTR("  Kennung: "));
+	LokalTextAusgabeP(PSTR(" \025 kennung: "));
 #endif	
 	Kennung[0] = '\r';
 	Kennung[1] = '\n';
@@ -1155,16 +1167,18 @@ static void Konfiguration()
 		SperrzeitInit();
 		TasteFunktion = 0;
 		AutoWahlZiffern[0] = 255; // Ende-Kennzeichen
-		LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
+		LokalTextAusgabeP(PSTR(" +++ "));
+		LokalZeichenAusgabe(HELLC_ENDE);
+		LokalZeichenAusgabe(' ');
 		return;
 		}
 
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
 	// -----------------------------------------------------------
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n block incoming calls by: (cur. "));
+	LokalTextAusgabeP(PSTR(" \025 block incoming calls by: (cur. "));
 #else
-	LokalTextAusgabeP(PSTR("\r\n kommende anrufe sperren mit: (akt. "));
+	LokalTextAusgabeP(PSTR(" \025 kommende anrufe sperren mit: (akt. "));
 #endif //def SPRACHE_EN
 
 	if (KommendSperreWahl != 0)
@@ -1177,9 +1191,9 @@ static void Konfiguration()
 #endif //def SPRACHE_EN
 
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(") new (0 = off):     "));
+	LokalTextAusgabeP(PSTR(") new (0 = off): "));
 #else
-	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
+	LokalTextAusgabeP(PSTR(") neu (0 = aus): "));
 #endif //def SPRACHE_EN
 
 	if (LokalZahlEingabe(&KommendSperreWahl, 2) < 0)
@@ -1190,9 +1204,9 @@ static void Konfiguration()
 	// Lokalbetrieb durch Wahl von...
 	// ------------------------------
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n local operation by number: (cur. "));
+	LokalTextAusgabeP(PSTR(" \025 local operation by number: (cur. "));
 #else
-	LokalTextAusgabeP(PSTR("\r\n lokalbetrieb waehlen mit: (akt. "));
+	LokalTextAusgabeP(PSTR(" \025 lokalbetrieb waehlen mit: (akt. "));
 #endif //def SPRACHE_EN
 
 	if (LokalbetriebWahl != 0)
@@ -1205,9 +1219,9 @@ static void Konfiguration()
 #endif //def SPRACHE_EN
 
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(") new (0 = off):     "));
+	LokalTextAusgabeP(PSTR(") new (0 = off): "));
 #else
-	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
+	LokalTextAusgabeP(PSTR(") neu (0 = aus): "));
 #endif //def SPRACHE_EN
 
 	if (LokalZahlEingabe(&LokalbetriebWahl, 2) < 0)
@@ -1223,9 +1237,9 @@ static void Konfiguration()
 	// Feste Verbindung
 	// ----------------
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n activate automated prefix dialing? current:   ")); 
+	LokalTextAusgabeP(PSTR(" \025 activate automated prefix dialing? current: ")); 
 #else	
-	LokalTextAusgabeP(PSTR("\r\n automatische vorwahl aktivieren? aktuell:   ")); 
+	LokalTextAusgabeP(PSTR(" \025 automatische vorwahl aktivieren? aktuell: ")); 
 #endif //def SPRACHE_EN
 
 	bool AutoWahlJa = AutoWahlZiffern[0] <= 9;
@@ -1241,9 +1255,9 @@ static void Konfiguration()
 	if (AutoWahlJa)
 		{
 #ifdef SPRACHE_EN
-		LokalTextAusgabeP(PSTR("\r\n enter dialing digits, finish with + (cur.: "));
+		LokalTextAusgabeP(PSTR(" \025 enter dialing digits, finish with + (cur.: "));
 #else		
-		LokalTextAusgabeP(PSTR("\r\n wahlziffern eingeben, ende mit + (akt.: "));
+		LokalTextAusgabeP(PSTR(" \025 wahlziffern eingeben, ende mit + (akt.: "));
 #endif //def SPRACHE_EN
 		uint8_t i;
 		
@@ -1253,7 +1267,7 @@ static void Konfiguration()
 			else
 				break;
 			
-		LokalTextAusgabeP(PSTR("+)\r\n  "));
+		LokalTextAusgabeP(PSTR("+)"));
 		LokalTextAusgabeP(NeuStrP);
 
 		i = 0;
@@ -1293,17 +1307,17 @@ static void Konfiguration()
 	// Timeout beim Anruf
 	// ------------------
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n timeout for incoming calls in seconds (3-25, cur. "));
+	LokalTextAusgabeP(PSTR(" \025 timeout for incoming calls in seconds (3-25, cur. "));
 #else
-	LokalTextAusgabeP(PSTR("\r\n maximale hochlauf-zeit in sekunden (3-25, akt. "));
+	LokalTextAusgabeP(PSTR(" \025 maximale hochlauf-zeit in sekunden (3-25, akt. "));
 #endif //def SPRACHE_EN
 
 	LokalZahlAusgabe(AnrufAbbruchZeit, 0);
 
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(") new:     "));
+	LokalTextAusgabeP(PSTR(") new:  "));
 #else
-	LokalTextAusgabeP(PSTR(") neu:     "));
+	LokalTextAusgabeP(PSTR(") neu:  "));
 #endif //def SPRACHE_EN
 
 	if (LokalZahlEingabe(&AnrufAbbruchZeit, 0) < 0)
@@ -1318,17 +1332,17 @@ static void Konfiguration()
 	// Verzögerung der Rückmeldung des Starts des Fernschreibers
 	// ---------------------------------------------------------
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n delay confirmation of startup in /10 seconds\r\n (3-200, cur. "));
+	LokalTextAusgabeP(PSTR(" \025 delay confirmation of startup in /10 seconds\r\n (3-200, cur. "));
 #else
-	LokalTextAusgabeP(PSTR("\r\n verzoegerung rueckmeldung fs-anlauf in /10 sekunden\r\n (3-200, akt. "));
+	LokalTextAusgabeP(PSTR(" \025 verzoegerung rueckmeldung fs-anlauf in /10 sekunden\r\n (3-200, akt. "));
 #endif //def SPRACHE_EN
 
 	LokalZahlAusgabe(StartQuittVerzoegerung, 0);
 
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(") new:     "));
+	LokalTextAusgabeP(PSTR(") new:  "));
 #else
-	LokalTextAusgabeP(PSTR(") neu:     "));
+	LokalTextAusgabeP(PSTR(") neu:  "));
 #endif //def SPRACHE_EN
 
 	if (LokalZahlEingabe(&StartQuittVerzoegerung, 0) < 0)
@@ -1343,17 +1357,17 @@ static void Konfiguration()
 	// Modus für Tastendruck
 	// ---------------------
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n module button function (cur. "));
+	LokalTextAusgabeP(PSTR(" \025 module button function (cur. "));
 #else
-	LokalTextAusgabeP(PSTR("\r\n funktion taste am modul (akt. "));
+	LokalTextAusgabeP(PSTR(" \025 funktion taste am modul (akt. "));
 #endif //def SPRACHE_EN
 
 	LokalZahlAusgabe(TasteFunktion, 0);
 
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(") new:     "));
+	LokalTextAusgabeP(PSTR(") new:  "));
 #else
-	LokalTextAusgabeP(PSTR(") neu:     "));
+	LokalTextAusgabeP(PSTR(") neu:  "));
 #endif //def SPRACHE_EN
 
 	if (LokalZahlEingabe(&TasteFunktion, 0) < 0)
@@ -1364,7 +1378,9 @@ static void Konfiguration()
 	// weitere Eingaben
 	// ----------------
 
-	LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
+	LokalTextAusgabeP(PSTR(" +++ "));
+	LokalZeichenAusgabe(HELLC_ENDE);
+	LokalZeichenAusgabe(' ');
 	}
 
 
@@ -1449,7 +1465,10 @@ static void KommendSperren(TSperreGrund Grund)
 	else if (Grund == SperreZeit)
 		BlinkTaktFaktor = 4;
 	else
+		{
 		BlinkTaktFaktor = 1;
+		set_LEDROT();
+		}
 	
 	while (true)
 		{
@@ -1487,16 +1506,22 @@ static void KommendSperren(TSperreGrund Grund)
 			RundsendAnzDaten = 0;
 			}
 
+#ifndef LED_BLAU_INAKTIV
 		if (TimerVal(&BlinkTimer) > 500 * BlinkTaktFaktor)
 			StartTimer(&BlinkTimer);
 		else if (TimerVal(&BlinkTimer) > 300 * BlinkTaktFaktor)
 			seto_LEDBLAU();
 		else
 			inp_LEDBLAU();
+#endif //ndef LED_BLAU_INAKTIV
 		
 		}
 		
+#ifndef LED_BLAU_INAKTIV
 	inp_LEDBLAU();
+#endif //ndef LED_BLAU_INAKTIV
+
+	clr_LEDROT();
 	Aktivieren(true);
 		
 	}
@@ -1667,6 +1692,7 @@ int main()
 	while (true)
 		{
 		// aktueller Zustand: Ausgeschaltet
+		/* So lange LEDROT die Störung anzeigen soll...
 		if (TimerVal(&Timer) <= 1200)
 			clr_LEDROT();
 		else if (TimerVal(&Timer) <= 1400)
@@ -1677,6 +1703,7 @@ int main()
 		clr_LEDGELB();
 		clr_LEDGRUEN();
 		inp_LEDBLAU();
+		*/
 
 		TastePruefen();
 		

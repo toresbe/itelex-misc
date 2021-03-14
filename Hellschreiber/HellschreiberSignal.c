@@ -14,7 +14,6 @@
 #include "bits.h"
 #include "TwiEvents.h"
 
-// TODO Puffergrößen
 #include "FifoPuffer.h"
 #include "MsTimer.h"
 
@@ -81,7 +80,11 @@ uint8_t HellAuswertIndex;
 
 TPuffer SerOutBuf; //!< Sendepuffer für die serielle Schnittstelle. 
 TPuffer TwiOutBuf; //!< Sendepuffer für die TWI Schnittstelle. 
-TPuffer SerInBuf; //!< Puffer für empfangene Zeichen / Befehle. Wird auch von TWI benutzt.
+TPuffer HellAusgZeichenPuffer; //!< Puffer für empfangene Zeichen / Befehle. Wird auch von TWI benutzt.
+
+
+uint8_t HellStatus;
+	// Bitmaske, siehe Bit-Definitionen HellStatBit... in HellCodes.h
 
 
 // TODO Timeout bei Kommunikationsunterbrechung
@@ -179,15 +182,32 @@ ISR(ANALOG_COMP_vect)
 				HellMessPhase = 1;
 				HellMessBit = HELL_START_OFFSET; 
 				HellTonEmpfEin = true;
+				SET_BIT(HellStatus, HellStatBitEmpfTon);
+				set_DiagB();
 				}
 			else if (!HellTonEmpfEin)
 				{ // gerade eingeschaltet.
-				HellTonEmpfEin = true;
 				if (TCNT1 >= HellMessPeriode / 2)
+					{
+					if ((TCNT1 - HellMessPeriode / 2) > HellMessPeriode / 8)
+						{
+						SET_BIT(HellStatus, HellStatBitEmpfStoer);
+						// TODO Fehlerart speichern
+						}
 					HellMessPeriode++;
+					}
 				else
+					{
+					if ((HellMessPeriode / 2 - TCNT1) > HellMessPeriode / 8)
+						{
+						SET_BIT(HellStatus, HellStatBitEmpfStoer);
+						// TODO Fehlerart speichern
+						}
 					HellMessPeriode--;
+					}
 				OCR1A = HellMessPeriode;
+				HellTonEmpfEin = true;
+				SET_BIT(HellStatus, HellStatBitEmpfTon);
 				}
 			}
 		}
@@ -206,6 +226,7 @@ ISR(TIMER0_COMPA_vect)
 	HellTonEmpfEin = false;
 	HellTonEPZaehl = 0;
 	inp_LEDblau();
+	CLR_BIT(HellStatus, HellStatBitEmpfTon);
 	}	
 
 
@@ -218,8 +239,12 @@ ISR(TIMER1_COMPA_vect)
 		{ // in Start-Bits
 		HellMessBit--;
 		if (HellMessBit > HELL_START_OFFSET / 2 && !HellTonEmpfEin)
+			{
 			HellMessPhase = 0; // Startbit-Phase zu kurz
-			// TODO Diagnose
+			SET_BIT(HellStatus, HellStatBitEmpfStoer);
+			// TODO noch Fehlerart Speichern
+			clr_DiagB();
+			}
 		else if (HellMessBit == 0)
 			{ // Startbits beendet
 			HellMessPhase = 2;
@@ -247,7 +272,7 @@ ISR(TIMER1_COMPA_vect)
 				HellMessSchreibIndex++;
 				if (HellMessSchreibIndex >= MESSBYTES_PRO_ZEICHEN * MESSUNG_ANZAHL_ZEICHEN)
 					HellMessSchreibIndex = 0; // Ringpuffer
-				// set_LEDgruen();
+				clr_DiagB();
 				}
 			} // if HellMessBit == 0
 		} // else in Zeichen-Bits
@@ -278,6 +303,7 @@ void HellTonEmpfEinschalten()
 void HellTonEmpfAusschalten()
 	{
 	ACSR = (0 << ACD) | (0 << ACBG) | (0 << ACIE) | (0 << ACIC) | (0 << ACIS1) | (0 << ACIS0);
+	SET_BIT(ACSR, ACI); // clear interrupt flag in any case.
 	CLR_BIT(TIMSK1, OCIE1A);
 	CLR_BIT(TIMSK0, OCIE0A);
 	}
@@ -413,8 +439,6 @@ void MessungSimulieren(char Zeichen, int Stoergrad)
 // Schnittstelle zur Anwendung
 // =================================================================
 
-uint8_t HellStatus;
-
 bool HellKommandoEinschalten; // wird gesetzt, wenn ein entsprechender Code über TWI empfangen wird.
 
 
@@ -504,6 +528,8 @@ void PollTwi()
 	{
 	uint8_t NewStat, RecData;
 
+	set_DiagC();
+
 #ifdef TESTSER
 	// nebenbei wird auch Serielle Ein/Ausgabe bearbeitet
 	if (!PufferLeer(&SerOutBuf) && BIT_IS_SET(UCSR0A, UDRE0))
@@ -515,16 +541,21 @@ void PollTwi()
 		{
 		uint8_t c;
 		c = UDR0;
-		//PufferSpeich(&SerInBuf, c);
+		PufferSpeich(&HellAusgZeichenPuffer, c);
 		PufferSpeich(&SerOutBuf, c); // falls Echo gewünscht
-		//PufferSpeich(&TwiOutBuf, c);
+		PufferSpeich(&TwiOutBuf, c);
 		}
 
 #endif //def TESTSER
 
 	if (!BIT_IS_SET(TWCR, TWINT))
+		{
+		clr_DiagC();
 		return;
-		
+		}
+
+	set_DiagD();
+
 	NewStat = (0<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (1<<TWEN) | (0<<TWIE);
 		// TWEA standardmäßig gesetzt, muss ggf. wieder gelöscht werden.
 
@@ -548,14 +579,17 @@ void PollTwi()
 			RecData = TWDR;
 			if (RecData == HellAusschaltBefehl)
 				{
-				PufferInit(&SerInBuf);
+				PufferInit(&HellAusgZeichenPuffer);
+				CLR_BIT(HellStatus, HellStatBitPufferVoll);
 				HellKommandoEinschalten = false;
 				}
 			else
 				{
 				HellKommandoEinschalten = true;
 				if (RecData != HellEinschaltBefehl)
-					PufferSpeich(&SerInBuf, TWDR);
+					PufferSpeich(&HellAusgZeichenPuffer, TWDR);
+				if (PufferVoll(&HellAusgZeichenPuffer))
+					SET_BIT(HellStatus, HellStatBitPufferVoll);
 				}
 			CLR_BIT(NewStat, TWEA); // damit weiter NACK gesendet wird  TODO prüfen ob es auch ohne geht.
 			break;
@@ -569,7 +603,10 @@ void PollTwi()
         case TwiEv_ST_DataACK		:
 			wdt_reset();
 			if (PufferLeer(&TwiOutBuf))
+				{
 				TWDR = HellStatus;
+				CLR_BIT(HellStatus, HellStatBitEmpfStoer);
+				}
 			else
 				TWDR = PufferAusg(&TwiOutBuf);
 			break;
@@ -580,6 +617,8 @@ void PollTwi()
 		}
 		
 	TWCR = NewStat | (1<<TWINT);
+	clr_DiagC();
+	clr_DiagD();
 	}
 	
 
@@ -594,7 +633,7 @@ static void TwiInit()
 
 static bool IstHellschreiberBereit()
 	{
-	static bool SchleifeZustand = false;
+	static bool SchleifeZustand = true; // worst case von eingeschaltetem Gerät ausgehen.
 	static TMsTimer PrellVerzoegerung;
 
 	if (get_HellSchleife())
@@ -609,6 +648,7 @@ static bool IstHellschreiberBereit()
 			if (TimerVal(&PrellVerzoegerung) >= 500)
 				{
 				SchleifeZustand = true;
+				SET_BIT(HellStatus, HellStatBitLaeuft);
 				return true;
 				}
 			else // abwarten
@@ -627,6 +667,7 @@ static bool IstHellschreiberBereit()
 			if (TimerVal(&PrellVerzoegerung) >= 500)
 				{
 				SchleifeZustand = false;
+				CLR_BIT(HellStatus, HellStatBitLaeuft);
 				return false;
 				}
 			else // abwarten
@@ -649,6 +690,10 @@ static void Initalisierungen()
 	init_DiagA();
 	init_DiagB();
 	init_DiagC();
+	init_DiagD();
+	init_DiagE();
+
+	DIDR1 = (1 << AIN1D) | (1 << AIN0D); // disables the digital input filtering of AIN0 and AIN1
 
 	#ifdef TESTSER
 	SerIOInit();
@@ -661,6 +706,10 @@ static void Initalisierungen()
 	HellMessPeriode = TIMER1_MESS_OV_NENNW;
 	
 	HellAuswertIndex = 0;
+
+	PufferInit(&SerOutBuf);
+	PufferInit(&TwiOutBuf);
+	PufferInit(&HellAusgZeichenPuffer);
 	
 	sei();
 
@@ -685,7 +734,7 @@ static void WarteAufEinschaltungKommendOderGehend()
 			break;
 			}
 
-		if (HellKommandoEinschalten) // es gibt etwas zu drucken
+		if (!PufferLeer(&H)) // es gibt etwas zu drucken
 			{ // bis zur Einschaltung immer 1 Sekunde Rufsignal und 10 Sekunden auf Einschaltung warten 
 			TMsTimer KlingelTimer;
 			TMsTimer KlingelFreqTimer;
@@ -722,6 +771,7 @@ static void HellTonAusgabeEinschalten()
 	TCCR0A = (0 << COM0A0) | (1 << COM0B1) | (0 << COM0B0) | (1 << WGM01) | (1 << WGM00);
 	TCCR0B = (1 << WGM02) | TIMER0_CS_TONAUSG;
 	seto_HellTonAusg();
+	SET_BIT(HellStatus, HellStatBitSendeTon);
 	} // HellTonAusgabeEinschalten()
 
 
@@ -730,6 +780,7 @@ static void HellTonAusgabeAusschalten()
 	inp_HellTonAusg(); 
 	TCCR0A = 0; // alles ausschalten
 	TCCR0B = 0; // alles ausschalten
+	CLR_BIT(HellStatus, HellStatBitSendeTon);
 	} // HellTonAusgabeAusschalten()
 
 
@@ -781,10 +832,10 @@ static void HellZeichenSenden(uint8_t zeichen)
 				if (!BIT_IS_SET(TIFR1, OCF1B))
 					PollTwi(); // kurz vor dem Eintritt des Interrupts nicht mehr pollen, damit der Zeitpunkt besser getroffen wird.
 				else
-					set_DiagC(); // HACK
+					set_DiagA(); 
 
 			TIFR1 = (1 << OCF1A) | (1 << OCF1B); // BIT setzen loescht es eigentlich
-			clr_DiagC(); // HACK
+			clr_DiagA(); 
 
 			SendeMuster <<= 1;
 			}
@@ -802,7 +853,8 @@ static void HellZeichenSenden(uint8_t zeichen)
 
 static void HellZeichenEmpfangAuswerten()
 	{
-	#define RL 4
+	#define RL 4 // Anzahl Elemente in "Rangliste".
+
 	char Zeichensatz[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ?+-/.,=:'()\032\033\034\035\036\037";
 	int i2, ri;
 	char VZeichen[RL];
@@ -853,20 +905,12 @@ static void HellZeichenEmpfangAuswerten()
 				BestSchieb = MessungVergleichSchieb;
 			}
 
-		// Serielle Schnittstelle bedienen
-		if (!PufferLeer(&SerOutBuf)	&& BIT_IS_SET(UCSR0A, UDRE0))
-			{
-			UDR0 = PufferAusg(&SerOutBuf);
-			}
-				
 		PollTwi();
 		}
 
 	HellAuswertIndex += MESSBYTES_PRO_ZEICHEN;
 	if (HellAuswertIndex >= MESSBYTES_PRO_ZEICHEN * MESSUNG_ANZAHL_ZEICHEN)
 		HellAuswertIndex = 0;
-
-	// clr_LEDgelb();
 			
 #ifdef TESTSER
 	for (ri = 0; ri < RL; ri++)
@@ -884,13 +928,15 @@ static void HellZeichenEmpfangAuswerten()
 	SerAusgPStr(PSTR("\r\n"));
 #endif //def TESTSER
 
+	PufferSpeich(&TwiOutBuf, VZeichen[0]); // TODO ggf von Punktzahl abhängig machen.
+
 	} // HellZeichenEmpfangAuswerten()
 
 
 static void BestehendeVerbindungBearbeiten()
 	{
 	HellTonEmpfEinschalten();
-	while (HellKommandoEinschalten)
+	while (true)
 		{
 		PollTwi();
 
@@ -900,15 +946,21 @@ static void BestehendeVerbindungBearbeiten()
 		if (HellMessSchreibIndex >= HellAuswertIndex + MESSBYTES_PRO_ZEICHEN || HellMessSchreibIndex < HellAuswertIndex)
 			HellZeichenEmpfangAuswerten();
 
-		if (!PufferLeer(&SerInBuf)) 
+		if (!PufferLeer(&HellAusgZeichenPuffer)) 
 			{
 			HellTonEmpfAusschalten();
-			while (!PufferLeer(&SerInBuf))
-				HellZeichenSenden(PufferAusg(&SerInBuf));
+			while (!PufferLeer(&HellAusgZeichenPuffer))
+				{
+				char c = PufferAusg(&HellAusgZeichenPuffer);
+				if (c == HellAusschaltBefehl)
+					auch Hauptschleife verlassen
+				HellZeichenSenden(c);
+				}
+			CLR_BIT(HellStatus, HellStatBitPufferVoll);
 			HellTonEmpfEinschalten();
 			}
 
-		} // while (HellKommandoEinschalten)
+		} // while (true)
 
 	HellTonEmpfAusschalten();
 
@@ -917,7 +969,6 @@ static void BestehendeVerbindungBearbeiten()
 
 static void GrundstellungHerstellen()
 	{
-	HellKommandoEinschalten = false;
 	if (IstHellschreiberBereit())
 		{
 		HellTonAusgabeEinschalten(); // Dauerton bis zur Ausschaltung
@@ -934,9 +985,9 @@ int main(void)
 
 	while (true)
 		{ // Endlosschleife 
+		GrundstellungHerstellen();
 		WarteAufEinschaltungKommendOderGehend();
 		BestehendeVerbindungBearbeiten();
-		GrundstellungHerstellen();
 		}
 	}
 

@@ -23,9 +23,11 @@
 // #if (PLATINE_VERSION < 13)
 
 DEFPORTOUT		(HellAnrufPulse,				B, 0) 
-DEFPORTOUT		(DiagA,							B, 3) // = MOSI
-DEFPORTOUT		(DiagB,							B, 4) // = MISO
-DEFPORTOUT		(DiagC,							B, 5) // = SCK
+DEFPORTOUT		(DiagD,							B, 1) //        = Pin 15 Prozessor (ungenutzt)   Funktion: TWI-Datenverkehr
+DEFPORTOUT		(DiagE,							B, 2) //        = Pin 16 Prozessor (ungenutzt)   Funktion:
+DEFPORTOUT		(DiagA,							B, 3) // = MOSI = Pin 6 Programmierstecker       Funktion: Hell-Ton-Sendung: Pixel-Ende-Takt
+DEFPORTOUT		(DiagB,							B, 4) // = MISO = Pin 5 Programmierstecker       Funktion: Hell-Ton-Empfang: gesamtes Zeichen
+DEFPORTOUT		(DiagC,							B, 5) // = SCK  = Pin 4 Programmierstecker       Funktion: Wirkdauer von PollTwi
 
 DEFPORTTRI		(LEDblau,   					C, 0) // Da auch ein Ausgang vom Signalprozessor angeschlossen ist
 // belegt durch TWI Schnittstelle				C, 4) // = SDA

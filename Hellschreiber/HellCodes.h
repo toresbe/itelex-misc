@@ -36,9 +36,6 @@
 
 #define HellEinschaltBefehl '^' // schaltet den Hellschreiber ein, ohne dass ein Zeichen gedruckt wird.
 #define HellAusschaltBefehl '~' // schaltet den Hellschreiber aus und löscht den Empfangspuffer
-#define HellEinschaltMeldung 'E' 
-#define HellAusschaltMeldung 'A'
-
 
 const PROGMEM uint16_t HellFontTab[] = {
 	#include "HellFont.h"
