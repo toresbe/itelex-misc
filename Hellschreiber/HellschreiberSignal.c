@@ -556,6 +556,7 @@ void PollTwi()
 		}
 
 	set_DiagD();
+	clr_DiagE();
 
 	NewStat = (0<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (1<<TWEN) | (0<<TWIE);
 		// TWEA standardmäßig gesetzt, muss ggf. wieder gelöscht werden.
@@ -594,7 +595,10 @@ void PollTwi()
 		// --------------
         case TwiEv_ST_AddrACK		:
         case TwiEv_ST_DataACK		:
+        //case TwiEv_ST_DataNACK		:
+        //case TwiEv_ST_DataLast		:
 			wdt_reset();
+			set_DiagE();
 			if (PufferLeer(&TwiOutBuf))
 				{
 				TWDR = HellStatus;
@@ -641,7 +645,6 @@ static bool IstHellschreiberBereit()
 			if (TimerVal(&PrellVerzoegerung) >= 500)
 				{
 				SchleifeZustand = true;
-				SET_BIT(HellStatus, HellStatBitLaeuft);
 				return true;
 				}
 			else // abwarten
@@ -660,7 +663,6 @@ static bool IstHellschreiberBereit()
 			if (TimerVal(&PrellVerzoegerung) >= 500)
 				{
 				SchleifeZustand = false;
-				CLR_BIT(HellStatus, HellStatBitLaeuft);
 				return false;
 				}
 			else // abwarten
@@ -733,10 +735,8 @@ static void WarteAufEinschaltungKommendOderGehend()
 			}
 
 		if (IstHellschreiberBereit())
-			{ // eingeschaltet, entweder selbst oder durch Anruf.
-			SET_BIT(HellStatus, HellStatBitLaeuft);
+			// eingeschaltet, entweder selbst oder durch Anruf.
 			break;
-			}
 
 		if (!PufferLeer(&HellAusgZeichenPuffer)) // es gibt etwas zu drucken
 			{ // bis zur Einschaltung immer 1 Sekunde Rufsignal und 10 Sekunden auf Einschaltung warten 
@@ -745,7 +745,7 @@ static void WarteAufEinschaltungKommendOderGehend()
 
 			if (PufferZeig(&HellAusgZeichenPuffer) == HellAusschaltBefehl)
 				{
-				PufferAusg(&HellAusgZeichenPuffer); // zeichen ignorieren
+				PufferAusg(&HellAusgZeichenPuffer); // Zeichen ignorieren
 				continue;
 				}
 #ifdef TESTSER
@@ -775,6 +775,7 @@ static void WarteAufEinschaltungKommendOderGehend()
 			} // Wiederholung des Rufsignals macht die Hauptschleife dieser Funktion.
 		}
 
+	SET_BIT(HellStatus, HellStatBitLaeuft);
 	}
 
 
@@ -962,7 +963,10 @@ static void BestehendeVerbindungBearbeiten()
 		PollTwi();
 
 		if (!IstHellschreiberBereit()) // Am Hellschreiber wurde Ausschalttaste gedrückt.
+			{
+			CLR_BIT(HellStatus, HellStatBitLaeuft);
 			break;
+			}
 
 		if (HellMessSchreibIndex >= HellAuswertIndex + MESSBYTES_PRO_ZEICHEN || HellMessSchreibIndex < HellAuswertIndex)
 			HellZeichenEmpfangAuswerten();
@@ -1005,6 +1009,7 @@ static void GrundstellungHerstellen()
 		SerAusgPStr(PSTR("\r\nAusschaltsignal AUS\r\n"));
 #endif //def TESTSER
 		}
+	CLR_BIT(HellStatus, HellStatBitLaeuft);
 	} // GrundstellungHerstellen()
 
 

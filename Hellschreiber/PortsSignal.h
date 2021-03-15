@@ -24,7 +24,7 @@
 
 DEFPORTOUT		(HellAnrufPulse,				B, 0) 
 DEFPORTOUT		(DiagD,							B, 1) //        = Pin 15 Prozessor (ungenutzt)   Funktion: TWI-Datenverkehr
-DEFPORTOUT		(DiagE,							B, 2) //        = Pin 16 Prozessor (ungenutzt)   Funktion:
+DEFPORTOUT		(DiagE,							B, 2) //        = Pin 16 Prozessor (ungenutzt)   Funktion: Letzter TWI-Zugriff war lesend
 DEFPORTOUT		(DiagA,							B, 3) // = MOSI = Pin 6 Programmierstecker       Funktion: Hell-Ton-Sendung: Pixel-Ende-Takt
 DEFPORTOUT		(DiagB,							B, 4) // = MISO = Pin 5 Programmierstecker       Funktion: Hell-Ton-Empfang: gesamtes Zeichen
 DEFPORTOUT		(DiagC,							B, 5) // = SCK  = Pin 4 Programmierstecker       Funktion: Wirkdauer von PollTwi

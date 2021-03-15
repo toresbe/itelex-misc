@@ -10,7 +10,7 @@
 #include <avr/interrupt.h>
 #include <avr/wdt.h>
 #include <inttypes.h>
-
+#include <string.h>
 
 #include "TwiEvents.h"
 #include "Bits.h"
@@ -251,9 +251,30 @@ static void FernschrIO()
 
 	// Empfang von Codes und Zeichen vom Signalprozessor verarbeiten:	
 
-#ifdef TESTSER
-
 	static TMsTimer KdoTimer;
+
+	if (PufferLeer(&SerOutBuf) && TimerVal(&KdoTimer) >= 800)
+		{
+		switch (HellBetrieb)
+			{
+			case KdoEin:
+				PufferSpeich(&SerOutBuf, HellEinschaltBefehl);
+				StartTimer(&KdoTimer);
+				break;
+
+			case KdoAus:
+				PufferSpeich(&SerOutBuf, HellAusschaltBefehl);
+				StartTimer(&KdoTimer);
+				break;
+
+			default:
+				break;
+
+			} // switch (HellBetrieb)
+		}
+
+
+#ifdef TESTSER
 
 	if (BIT_IS_SET(UCSR0A, RXC0))
 		{ // Zeichen empfangen
@@ -276,41 +297,8 @@ static void FernschrIO()
 			
 		} // Serielles Zeichen empfangen
 
-	if (BIT_IS_SET(UCSR0A, UDRE0)) // Schnittstelle bereit für Daten
-		{
-		switch (HellBetrieb)
-			{
-			case Aus: 
-				// nix, ggf. Puffer leeren
-				break;
-				
-			case KdoEin:
-				if (TimerVal(&KdoTimer) >= 800)
-					{
-					UDR0 = HellEinschaltBefehl;
-					StartTimer(&KdoTimer);
-					}
-				break;
-
-			case KdoAus:
-				if (TimerVal(&KdoTimer) >= 800)
-					{
-					UDR0 = HellAusschaltBefehl;
-					StartTimer(&KdoTimer);
-					}
-				break;
-
-			case Ein:
-				break;
-
-			default:
-				break; 
-			} // switch (HellBetrieb)
-
-		if (BIT_IS_SET(UCSR0A, UDRE0) && !PufferLeer(&SerOutBuf)) // TODO hier eigentlich nicht korrekt, da nur bei eingeschaltetem Gerät Zeichen drucken möglich ist.
-			UDR0 = PufferAusg(&SerOutBuf);
-
-		} // if Schnittstelle bereit für Daten
+	if (BIT_IS_SET(UCSR0A, UDRE0) && !PufferLeer(&SerOutBuf))
+		UDR0 = PufferAusg(&SerOutBuf);
 
 #else //not def TESTSER
 
@@ -335,18 +323,29 @@ static void FernschrIO()
 
 	else if (SignalTwiDat.Phase == 255)
 		{ // Transfer ist abgeschlossen, jetzt auswerten
-		if (SignalTwiDat.Ergebnis != 2) // Fehler
+		if (SignalTwiDat.Ergebnis != SignalTwiDat.AnzDaten + 1) // Fehler
 			{
 			if (SignalTwiFehlerzaehler < SignalTwiFehlerzaehlerMax)
 				SignalTwiFehlerzaehler++;
+
+			SignalTwiDat.Phase = SwTwiRecoverPhase; // Versuch einen Slave im falschen Zustand zurückzusetzen.
+			SignalTwiDat.AnzDaten = 0;
+
+			set_DiagC();
+			clr_DiagA();
+			clr_DiagB();
 			}
-		else
+		else // letzter TWI Zugriff erfolgreich
 			{
+			clr_DiagA();
+			clr_DiagB();
+			clr_DiagC();
+
 			if (SignalTwiFehlerzaehler > 0)
 				SignalTwiFehlerzaehler--;
 
-			if (!BIT_IS_SET(SignalTwiDat.Adresse, 0)) 
-				{ // Lesevorgang
+			if (SignalTwiDat.Adresse == (HellTwiAdresse << 1) + 1) 
+				{ // das war ein Lesevorgang
 				if (!BIT_IS_SET(TwiPuffer, 7))
 					PufferSpeich(&SerInBuf, TwiPuffer);
 				else
@@ -365,13 +364,18 @@ static void FernschrIO()
 					bset_LEDROT(BIT_IS_SET(HellStatus, HellStatBitEmpfStoer));
 					bset_LEDGELB(BIT_IS_SET(HellStatus, HellStatBitLaeuft));
 					bset_LEDGRUEN(BIT_IS_SET(HellStatus, HellStatBitSendeTon) || BIT_IS_SET(HellStatus, HellStatBitEmpfTon));
-					}
-				}
-			// else: es war ein Schreibvorgang, da gibt es nichts auszuwerten, außer Fehlermeldungen (siehe oben)
-			}
 
-		SignalTwiDat.AnzDaten = 0;
-		SignalTwiDat.Phase = 0;
+					}
+				set_DiagA();
+				}
+			else
+				{ // es war ein Schreibvorgang, da gibt es nichts auszuwerten, außer Fehlermeldungen (siehe oben)
+				set_DiagB();
+				}
+			SignalTwiDat.AnzDaten = 0;
+			SignalTwiDat.Phase = 0;
+			} // letzter TWI Zugriff erfolgreich
+
 		}
 	
 #endif //ndef TESTSER
@@ -663,6 +667,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 
 
 //! Sendet ein Zeichen an die Gegenstelle, wartet aber bei vollem Puffer
+/*
 static void ZeichenSenden(char c)
 	{
 	while (!GeSendePufferLeer())
@@ -675,7 +680,7 @@ static void ZeichenSenden(char c)
 	while (!GeSendeZeichen(c))
 		; // kann eigentlich nicht lange dauern
 	}
-
+*/
 
 static void GeSendeText(char* s)
 	{
@@ -950,9 +955,15 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 	{
 	TMsTimer KennungAbfrageTimer;
 	bool ErsteKennungAbfrage;
+	bool EscapeMode; // Wird durch die Dauertaste gesetzt.
+	bool AutoNewline; // kompensiert das fehlende WR / ZL
+	uint8_t ZeilePosition;
 	
 	StartTimer(&KennungAbfrageTimer);
 	ErsteKennungAbfrage = true;
+	EscapeMode = false;
+	AutoNewline = true;
+	ZeilePosition = 0;
 
 	GeSendeMark(true); 
 
@@ -977,12 +988,19 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			{
 			if (c == CodeChrWerDa) // TODO and Kennung nicht leer
 				{
-				// Kennungsausgabe();  TODO
+				GeSendeText(Kennung);
+				LokalZeichenAusgabe(HELLC_WERDA);
+				LokalTextAusgabe(Kennung + 2); // WR+ZL überspringen
+				ZeilePosition = strlen(Kennung);
 				}
 			else
 				{
 				AutoKennungAbfrage = false;
 				LokalZeichenAusgabe(c);
+				if (c == '\r')
+					ZeilePosition = 0;
+				else
+					ZeilePosition++;
 				}
 			}
 
@@ -1003,17 +1021,80 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			char c;
 			c = SerEmpfZ(true);
 			
-			if (c == CTRL('i') || c == CTRL('f')) // TODO durch richtige Zeichen ersetzen
-				// Eigene Kennung ausgeben
-				{ // TODO außer Kennung ist leer.
-				GeSendeText(Kennung);
+			if (EscapeMode)
+				{
+				EscapeMode = false; // vorbereitend
+				switch (c)
+					{
+					case HELLC_BREAK1 ... HELLC_BREAK6:
+					case ' ':
+						EscapeMode = true; // weiterhin
+						break;
+
+					case 'n':
+						GeSendeCode(TtyCodeWR);
+						GeSendeCode(TtyCodeZL);
+						ZeilePosition = 0;
+						break;
+
+					case 'h': // hier ist
+						GeSendeText(Kennung);
+						LokalZeichenAusgabe(HELLC_RAUTE); // TODO ggf. anderes Symbol
+						LokalTextAusgabe(Kennung + 2); // WR+ZL überspringen
+						ZeilePosition = strlen(Kennung);
+						break;
+
+					case 'w':
+						GeSendeZeichen(CodeChrWerDa);
+						LokalZeichenAusgabe(HELLC_WERDA); // TODO ggf. anderes Symbol
+						break;
+
+					case 'k':
+						GeSendeZeichen(CodeChrKlingel);
+						LokalZeichenAusgabe(HELLC_KLINGEL);
+						ZeilePosition++;
+						break;
+
+					case 's': // wie Streifenschreiber
+						AutoNewline = false; 
+						break;
+
+					case 'b': // wie Blattschreiber
+						AutoNewline = true;
+						break;
+
+					default:
+						// nix
+						break;
+					} // switch c
 				}
-				
-			else if (c == CTRL('w') || c == CTRL('e'))
-				ZeichenSenden(CodeChrWerDa);
-				
-			else // kein besonderer CTRL-Code
-				ZeichenSenden(c);
+			else // !EscapeMode
+				{
+				bool JetztNeueZeile = false;
+
+				if (AutoNewline)
+					{
+					if (c == ' ' && ZeilePosition >= 55)
+						JetztNeueZeile = true, c = '\0'; // unterdrückt das Senden des ursprünglichen Zeichens
+					else if (c == '-' && ZeilePosition >= 55)
+						JetztNeueZeile = true;
+					else if (ZeilePosition >= 68)
+						JetztNeueZeile = true;
+					}
+
+				if (JetztNeueZeile)
+					{
+					GeSendeCode(TtyCodeWR);
+					GeSendeCode(TtyCodeZL);
+					ZeilePosition = 0;
+					}
+
+				if (c != '\0')
+					{
+					GeSendeZeichen(c);
+					ZeilePosition++;
+					}
+				} // else !EscapeMode
 
 			AutoKennungAbfrage = false;
 			} // if !PufferLeer(&SerInBuf)
@@ -1587,6 +1668,10 @@ int main()
 	init_SV_EIN();
 	init_TASTEEXT();
 	
+	init_DiagA();
+	init_DiagB();
+	init_DiagC();
+
 	set_LEDROT();
 
 	KonfigSpeicherInit();
@@ -1620,7 +1705,7 @@ int main()
 	
 	AnrufAbbruchZeit = KonfigLeseByteBegrenzt(EEAdr_AnrufAbbruchZeit, AnrufAbbruchZeit_Std, 3, 25);
 
-	// TODO eeprom_read_string(Kennung, Kennung_EE);
+	KonfigLeseString(EEAdr_Kennung, Kennung, KENNUNG_MAXLEN, "\r\n555555 hell d");
 
 #ifdef TESTSER
 	SerIOInit();

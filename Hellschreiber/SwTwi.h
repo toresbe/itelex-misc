@@ -31,6 +31,8 @@ typedef struct
 // 1-254		x		Transfer läuft
 //	255			x		Transfer abgeschlossen
 
+enum { SwTwiRecoverPhase = 60 };
+	//!< Element Phase auf diesen Wert setzen um einen hängen gebliebenen Bus möglichst wieder frei zu bekommen.
 
 extern void SwTwiAktion(T_SwTwiTransferdaten *p);
 

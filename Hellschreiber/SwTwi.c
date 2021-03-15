@@ -29,13 +29,13 @@
 // Ausgabe-Funktionen für's Debuggen
 // =================================
 
+/*
 extern void LokalZahlAusgabe16(uint16_t i, int8_t minzif);
 extern void LokalZahlAusgabe(uint8_t i, int8_t minzif);
 extern void LokalZeichenAusgabe(char c);
 extern void LokalHexAusgabe(uint8_t i);
 extern void SerSendFlush();
-
-extern void FehlerStop(uint8_t Code); // aus SeriellUndSpeicher.c
+*/
 
 
 // ####################################################################################
@@ -88,6 +88,8 @@ void SwTwiAktion(T_SwTwiTransferdaten *p)
 	{
 	switch (p->Phase)
 		{
+		// Start-Condition
+		// ---------------
 		case 0: // Bei Start: SDA auf 0
 			if (p->AnzDaten == 0)
 				break; // nix zu tun
@@ -97,19 +99,24 @@ void SwTwiAktion(T_SwTwiTransferdaten *p)
 			SDA_0;
 			p->Phase = 1;
 			break;
+
 		case 1: // Start 1: SDA 0 überprüfen
 			if (!SDA_in)
 				p->Phase = 2;
 			break;
+
 		case 2: // Start 2: SCL auf 0
 			SCL_0;
 			p->Phase = 3;
 			break;
+
 		case 3: // Start 3: SCL 0 überprüfen
 			if (!SCL_in)
 				p->Phase = 10;
 			break;
 
+		// Adresse oder Daten ausgeben
+		// ---------------------------
 		case 10: // Datenbit Ausgabe 1: SDA setzen
 			if (p->AktByte & (1<<p->BitNr))
 				{
@@ -161,6 +168,8 @@ void SwTwiAktion(T_SwTwiTransferdaten *p)
 				}
 			break;
 			
+		// ACK prüfen
+		// ---------------
 		case 20: // ACK Empfang 1: SDA und SCL auf 1
 			SDA_1;
 			SCL_1;
@@ -202,6 +211,8 @@ void SwTwiAktion(T_SwTwiTransferdaten *p)
 					p->Phase = 30;
 			break;
 
+		// Daten lesen
+		// -----------
 		case 30: // Datenbit Empfang 1: SCL auf 1
 			if (p->BitNr == 7)
 				p->AktByte = 0;
@@ -243,8 +254,11 @@ void SwTwiAktion(T_SwTwiTransferdaten *p)
 				}
 			break;
 			
+		// ACK-Ausgabe beim Lesen
+		// ----------------------
 		case 40: // ACK Ausgabe 1: SDA auf 0, außer bei letztem Byte
-			p->Puffer[p->ByteNr - 1] = p->AktByte; // Byte-Nr steht auf 1 beim ersten Byte
+			// Empfangene Daten speichern: (Byte-Nr steht auf 1 beim ersten Byte)
+			p->Puffer[p->ByteNr - 1] = p->AktByte; 
 			if (p->ByteNr < p->AnzDaten) 
 				{
 				SDA_0;
@@ -298,6 +312,8 @@ void SwTwiAktion(T_SwTwiTransferdaten *p)
 				}
 			break;
 		
+		// Stop-Condition
+		// --------------
 		case 50: // Stop 1: SDA auf 0
 			SDA_0;
 			p->Phase = 51;
@@ -326,13 +342,71 @@ void SwTwiAktion(T_SwTwiTransferdaten *p)
 		case 55: // Stop 6: SDA 1 prüfen
 			if (SDA_in)
 				{
-				// void StopSwTwi();
-
 				p->Phase = 255;
-				// StopSwTwi();
 				}
 			break;
-			
+
+		// -----------------------------------------
+		// Rücksetz-Prozedur: 20 Bits mit SDA = 1 senden. Damit sollte jeder Slave den Bus wieder freigeben.
+		case 60: // Rücksetz-Prozedur Start 1: SDA auf 0
+			p->BitNr = 20;
+			SDA_0;
+			p->Phase = 61;
+			break;
+		
+		case 61: // Rücksetz-Prozedur Start 2: SDA 0 überprüfen
+			if (!SDA_in)
+				p->Phase = 62;
+			break;
+		
+		case 62: // Rücksetz-Prozedur Start 3: SCL auf 0
+			SCL_0;
+			p->Phase = 63;
+			break;
+
+		case 63: // Rücksetz-Prozedur Start 4: SCL 0 überprüfen
+			if (!SCL_in)
+				p->Phase = 64;
+			break;
+
+		case 64: // Rücksetz-Prozedur Start 5: SDA auf 1
+			SDA_1;
+			p->Phase = 65;
+			break;
+
+		case 65: // Rücksetz-Prozedur Ausgabe 1: SCL auf 1
+			SCL_1;
+			p->Phase = 66;
+			break;
+
+		case 66: // Rücksetz-Prozedur Ausgabe 2: SCL 1 überprüfen
+			if (SCL_in)
+				p->Phase = 67;
+			break;
+
+		case 67: // Rücksetz-Prozedur Ausgabe 3: SCL auf 0
+			SCL_0;
+			p->Phase = 68;
+			break;
+
+		case 68: // Rücksetz-Prozedur Ausgabe 4: SCL 0 überprüfen
+			if (!SCL_in)
+				{
+				if (p->BitNr > 0)
+					{
+					p->BitNr--;
+					p->Phase = 65;
+					}
+				else
+					{
+					p->ByteNr = 0;
+					p->AnzDaten = 0;
+					p->Ergebnis = 1;
+					p->Phase = 50; // Stop-Condition
+					}
+				}
+			break;
+					
 		}
 	}
 

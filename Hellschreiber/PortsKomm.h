@@ -79,6 +79,10 @@ DEFPORTTRI		(SWTWI_SCL,	D, 7)
 DEFPORTOUT		(SER_RTS,	D, 2)
 DEFPORTIN		(SER_CTS,	D, 3)
 
+DEFPORTOUT		(DiagA,		B, 3) // = MOSI / X11 - Letzter SwTwi Zugriff Lesend OK
+DEFPORTOUT		(DiagB,		D, 5) // =        XC1 - Letzter SwTwi Zugriff Schreibend OK
+DEFPORTOUT		(DiagC,		D, 6) // =        XC2 - Letzter SwTwi Zugriff Fehler
+
 #endif 
 
 #endif //ndef __PORTS_H__
