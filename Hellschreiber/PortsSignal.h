@@ -30,8 +30,8 @@ DEFPORTOUT		(DiagB,							B, 4) // = MISO = Pin 5 Programmierstecker       Funkt
 DEFPORTOUT		(DiagC,							B, 5) // = SCK  = Pin 4 Programmierstecker       Funktion: Wirkdauer von PollTwi
 
 DEFPORTTRI		(LEDblau,   					C, 0) // Da auch ein Ausgang vom Signalprozessor angeschlossen ist
-// belegt durch TWI Schnittstelle				C, 4) // = SDA
-// belegt durch TWI Schnittstelle				C, 5) // = SCL
+DEFPORTINAL		(SDA,							C, 4) 
+DEFPORTINAL		(SCL,							C, 5)
 
 // belegt durch Serielle Schnittstelle			D, 0)
 // belegt durch Serielle Schnittstelle			D, 1)

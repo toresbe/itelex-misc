@@ -87,7 +87,7 @@ uint8_t HellStatus;
 	// Bitmaske, siehe Bit-Definitionen HellStatBit... in HellCodes.h
 
 
-// TODO Timeout bei Kommunikationsunterbrechung
+bool WatchdogAktiv;
 
 
 #ifdef PROGIDZUSATZ
@@ -542,7 +542,9 @@ void PollTwi()
 		c = UDR0;
 		PufferSpeich(&HellAusgZeichenPuffer, c);
 		PufferSpeich(&SerOutBuf, c); // falls Echo gewünscht
-		PufferSpeich(&TwiOutBuf, c);
+		// PufferSpeich(&TwiOutBuf, c);
+		WatchdogAktiv = false;
+		wdt_disable();
 		}
 
 #endif //def TESTSER
@@ -578,6 +580,10 @@ void PollTwi()
 			PufferSpeich(&HellAusgZeichenPuffer, TWDR);
 			if (PufferVoll(&HellAusgZeichenPuffer))
 				SET_BIT(HellStatus, HellStatBitPufferVoll);
+#ifdef TESTSER
+			PufferSpeich(&SerOutBuf, '>');
+			PufferSpeich(&SerOutBuf, TWDR);
+#endif //def TESTSER
 			CLR_BIT(NewStat, TWEA); // damit weiter NACK gesendet wird  TODO prüfen ob es auch ohne geht.
 			break;
 
@@ -672,6 +678,8 @@ static void Initalisierungen()
 	init_HellAnrufPulse();
 	init_HellSchleife();
 	init_HellTonAusg();
+	init_SDA(); // aktiviert Pull-Up fuer unbelegten Eingang
+	init_SCL(); // aktiviert Pull-Up fuer unbelegten Eingang
 
 	init_LEDblau();
 	init_DiagA();
@@ -680,6 +688,9 @@ static void Initalisierungen()
 	init_DiagD();
 	init_DiagE();
 
+	WatchdogAktiv = false;
+	wdt_disable();
+	
 	DIDR1 = (1 << AIN1D) | (1 << AIN0D); // disables the digital input filtering of AIN0 and AIN1
 
 	#ifdef TESTSER
@@ -714,6 +725,12 @@ static void WarteAufEinschaltungKommendOderGehend()
 	while (true)
 		{
 		PollTwi();
+		
+		if (!WatchdogAktiv && get_SCL())
+			{
+			WatchdogAktiv = true;
+			wdt_enable(WDTO_1S);
+			}
 
 		if (IstHellschreiberBereit())
 			{ // eingeschaltet, entweder selbst oder durch Anruf.
@@ -726,6 +743,11 @@ static void WarteAufEinschaltungKommendOderGehend()
 			TMsTimer KlingelTimer;
 			TMsTimer KlingelFreqTimer;
 
+			if (PufferZeig(&HellAusgZeichenPuffer) == HellAusschaltBefehl)
+				{
+				PufferAusg(&HellAusgZeichenPuffer); // zeichen ignorieren
+				continue;
+				}
 #ifdef TESTSER
 			SerAusgPStr(PSTR("\r\nRufsignal EIN\r\n"));
 #endif //def TESTSER
