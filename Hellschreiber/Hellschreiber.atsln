@@ -9,21 +9,31 @@ Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "HellschreiberSignal", "Hell
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		PlatVer21|AVR = PlatVer21|AVR
-		SerialDebugging|AVR = SerialDebugging|AVR
+		DebugKommProz|AVR = DebugKommProz|AVR
+		DebugSignalProz|AVR = DebugSignalProz|AVR
+		KommUeberSeriell|AVR = KommUeberSeriell|AVR
+		PlatVer21-Release|AVR = PlatVer21-Release|AVR
 		Simulator|AVR = Simulator|AVR
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.PlatVer21|AVR.ActiveCfg = PlatVer21|AVR
-		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.PlatVer21|AVR.Build.0 = PlatVer21|AVR
-		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.SerialDebugging|AVR.ActiveCfg = TestSer21|AVR
-		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.SerialDebugging|AVR.Build.0 = TestSer21|AVR
+		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.DebugKommProz|AVR.ActiveCfg = DebugSeriell21|AVR
+		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.DebugKommProz|AVR.Build.0 = DebugSeriell21|AVR
+		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.DebugSignalProz|AVR.ActiveCfg = DebugSeriell21|AVR
+		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.DebugSignalProz|AVR.Build.0 = DebugSeriell21|AVR
+		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.KommUeberSeriell|AVR.ActiveCfg = KommSimSeriell21|AVR
+		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.KommUeberSeriell|AVR.Build.0 = KommSimSeriell21|AVR
+		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.PlatVer21-Release|AVR.ActiveCfg = ReleaseVer21|AVR
+		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.PlatVer21-Release|AVR.Build.0 = ReleaseVer21|AVR
 		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.Simulator|AVR.ActiveCfg = Simulator|AVR
 		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.Simulator|AVR.Build.0 = Simulator|AVR
-		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.PlatVer21|AVR.ActiveCfg = TestSer|AVR
-		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.PlatVer21|AVR.Build.0 = TestSer|AVR
-		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.SerialDebugging|AVR.ActiveCfg = TestSer|AVR
-		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.SerialDebugging|AVR.Build.0 = TestSer|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.DebugKommProz|AVR.ActiveCfg = Release|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.DebugKommProz|AVR.Build.0 = Release|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.DebugSignalProz|AVR.ActiveCfg = Release|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.DebugSignalProz|AVR.Build.0 = Release|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.KommUeberSeriell|AVR.ActiveCfg = Release|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.KommUeberSeriell|AVR.Build.0 = Release|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.PlatVer21-Release|AVR.ActiveCfg = Release|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.PlatVer21-Release|AVR.Build.0 = Release|AVR
 		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.Simulator|AVR.ActiveCfg = Simulator|AVR
 		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.Simulator|AVR.Build.0 = Simulator|AVR
 	EndGlobalSection

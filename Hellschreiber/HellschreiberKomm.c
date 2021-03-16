@@ -182,7 +182,7 @@ TMsTimer HellSignalStoerung; // steuert die Rote LED entsprechend des Bits HellS
 // TODO auf Rote LED schalten...
 
 
-#ifndef TESTSER
+#ifndef KOMMSER
 
 T_SwTwiTransferdaten SignalTwiDat;
 
@@ -192,7 +192,7 @@ uint8_t SignalTwiFehlerzaehler;
 
 enum { SignalTwiFehlerzaehlerMax = 50 };
 
-#endif //ndef TESTSER
+#endif //ndef KOMMSER
 	
 
 // Schnittstellen-Spezifische Funktionen
@@ -274,7 +274,7 @@ static void FernschrIO()
 		}
 
 
-#ifdef TESTSER
+#ifdef KOMMSER
 
 	if (BIT_IS_SET(UCSR0A, RXC0))
 		{ // Zeichen empfangen
@@ -300,7 +300,7 @@ static void FernschrIO()
 	if (BIT_IS_SET(UCSR0A, UDRE0) && !PufferLeer(&SerOutBuf))
 		UDR0 = PufferAusg(&SerOutBuf);
 
-#else //not def TESTSER
+#else //not def KOMMSER
 
 	SwTwiAktion(&SignalTwiDat);
 
@@ -378,7 +378,7 @@ static void FernschrIO()
 
 		}
 	
-#endif //ndef TESTSER
+#endif //ndef KOMMSER
 
 	} // FernschrIO
 
@@ -449,7 +449,7 @@ void LokalZeichenAusgabe(char c)
 	}
 
 	
-#ifdef TESTSER
+#if defined(KOMMSER) || defined(DEBUGSER)
 
 //! Initialisiert serielle Schnittstelle.
 static void SerIOInit()
@@ -482,7 +482,7 @@ static void SerIOInit()
 
 	}
 
-#endif //def TESTSER
+#endif //def KOMMSER / DEBUGSER
 
 
 //////////////////////////////////////////////////////////////////
@@ -1565,10 +1565,10 @@ static void KommendSperren(TSperreGrund Grund)
 		if (HellBetrieb != Aus)
 			break;
 
-#ifndef TESTSER
+#ifndef KOMMSER
 		if (Grund == SperreStoerungIntern && SignalTwiFehlerzaehler == 0)
 			break;
-#endif //ndef TESTSER
+#endif //ndef KOMMSER
 			
 		if (RundsendAnzDaten > 0)
 			{
@@ -1707,9 +1707,9 @@ int main()
 
 	KonfigLeseString(EEAdr_Kennung, Kennung, KENNUNG_MAXLEN, "\r\n555555 hell d");
 
-#ifdef TESTSER
+#if defined(KOMMSER) || defined(DEBUGSER)
 	SerIOInit();
-#endif //def TESTSER
+#endif 
 	
 	KommInit();
 
@@ -1861,10 +1861,10 @@ int main()
 		if (TimerVal(&NachlaufTimer) > 60000)
 			clr_SV_EIN();
 		
-#ifndef TESTSER
+#ifndef KOMMSER
 		if (SignalTwiFehlerzaehler >= SignalTwiFehlerzaehlerMax)
 			KommendSperren(SperreStoerungIntern);	
-#endif //ndef TESTSER
+#endif //ndef KOMMSER
 
 		} // while (true)
 	} // main()
