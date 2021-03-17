@@ -182,28 +182,36 @@ void SwTwiAktion(volatile T_SwTwiTransferdaten *p)
 	{
 	switch (p->Phase)
 		{
+		// Start-Condition
+		// ---------------
 		case 0: // Bei Start: SDA auf 0
 			if (p->AnzDaten == 0)
 				break; // nix zu tun
 			p->ByteNr = 0;
 			p->BitNr = 7;
 			p->AktByte = p->Adresse;
+			p->Ergebnis = 0;
 			SDA_0;
 			p->Phase = 1;
 			break;
+
 		case 1: // Start 1: SDA 0 überprüfen
 			if (!SDA_in)
 				p->Phase = 2;
 			break;
+
 		case 2: // Start 2: SCL auf 0
 			SCL_0;
 			p->Phase = 3;
 			break;
+
 		case 3: // Start 3: SCL 0 überprüfen
 			if (!SCL_in)
 				p->Phase = 10;
 			break;
 
+		// Adresse oder Daten ausgeben
+		// ---------------------------
 		case 10: // Datenbit Ausgabe 1: SDA setzen
 			if (p->AktByte & (1<<p->BitNr))
 				{
@@ -255,6 +263,8 @@ void SwTwiAktion(volatile T_SwTwiTransferdaten *p)
 				}
 			break;
 			
+		// ACK prüfen
+		// ---------------
 		case 20: // ACK Empfang 1: SDA und SCL auf 1
 			SDA_1;
 			SCL_1;
@@ -296,6 +306,8 @@ void SwTwiAktion(volatile T_SwTwiTransferdaten *p)
 					p->Phase = 30;
 			break;
 
+		// Daten lesen
+		// -----------
 		case 30: // Datenbit Empfang 1: SCL auf 1
 			if (p->BitNr == 7)
 				p->AktByte = 0;
@@ -337,8 +349,11 @@ void SwTwiAktion(volatile T_SwTwiTransferdaten *p)
 				}
 			break;
 			
+		// ACK-Ausgabe beim Lesen
+		// ----------------------
 		case 40: // ACK Ausgabe 1: SDA auf 0, außer bei letztem Byte
-			p->Puffer[p->ByteNr - 1] = p->AktByte; // Byte-Nr steht auf 1 beim ersten Byte
+			// Empfangene Daten speichern: (Byte-Nr steht auf 1 beim ersten Byte)
+			p->Puffer[p->ByteNr - 1] = p->AktByte; 
 			if (p->ByteNr < p->AnzDaten) 
 				{
 				SDA_0;
@@ -392,6 +407,8 @@ void SwTwiAktion(volatile T_SwTwiTransferdaten *p)
 				}
 			break;
 		
+		// Stop-Condition
+		// --------------
 		case 50: // Stop 1: SDA auf 0
 			SDA_0;
 			p->Phase = 51;
