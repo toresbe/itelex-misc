@@ -31,7 +31,8 @@
 #define HellStatBitLaeuft 3 // schreib- und druckbereit
 #define HellStatBitSendeAnruf 4
 #define HellStatBitPufferVoll 5
-// Bit 7 ist bei Statusmeldungen immer gesetzt!
+#define HellStatBitStatFlag 7 // wird immer gesetzt, wenn es eine Statusmeldung ist
+
 
 
 #define HellEinschaltBefehl '^' // schaltet den Hellschreiber ein, ohne dass ein Zeichen gedruckt wird.

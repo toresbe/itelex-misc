@@ -164,15 +164,14 @@ TKennung Kennung; //!< Eigene Kennungen, da kein echter Fernschreiber angeschlos
 TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalter
 
 
-
 // Arbeits-Variablen 
 // =======================
 
 // Einstell-Modus
 bool WarteKonfig; // TODO noch nicht implementiert
 
-TPuffer SerInBuf; //!< Empfangspuffer für die serielle Schnittstelle. Nicht identisch mit Puffer für Baudot-Ein/-Ausgabe.
-TPuffer SerOutBuf; //!< Sendepuffer für die serielle Schnittstelle. Nicht identisch mit Puffer für Baudot-Ein/-Ausgabe.
+TPuffer KommInBuf; //!< Empfangspuffer für die serielle Schnittstelle. Nicht identisch mit Puffer für Baudot-Ein/-Ausgabe.
+TPuffer KommOutBuf; //!< Sendepuffer für die serielle Schnittstelle. Nicht identisch mit Puffer für Baudot-Ein/-Ausgabe.
 
 uint8_t HellStatus; //!< Aktuelle Zustandsmeldung des Hellschreibers
 
@@ -194,6 +193,14 @@ enum { SignalTwiFehlerzaehlerMax = 50 };
 
 #endif //ndef KOMMSER
 	
+#ifdef DEBUGSER
+
+TPuffer DebugOutBuf;
+
+bool DebugKommProt = false; // wird true, wenn alle TWI-IO-Aktionen protokolliert werden sollen.
+
+#endif //def DEBUGSER
+
 
 // Schnittstellen-Spezifische Funktionen
 // =====================================
@@ -201,6 +208,83 @@ enum { SignalTwiFehlerzaehlerMax = 50 };
 //! bedient Hardware-IO entsprechend der aktuellen Zustände.
 
 //! Hier ist es nur das Schreiben und Lesen auf der Seriellen Schnittstelle
+
+
+#if defined(KOMMSER) || defined(DEBUGSER)
+
+//! Initialisiert serielle Schnittstelle.
+static void SerIOInit()
+	{
+	// PORTS initialisieren (Ausgabepins)
+	// Serielle Schnittstelle initialisieren
+	#ifndef SERBAUD
+	#define BAUD 9600
+	#else
+	#define BAUD SERBAUD
+	#endif //ndef SERBAUD
+
+	#include <util/setbaud.h>
+	UBRR0H = UBRRH_VALUE;
+	UBRR0L = UBRRL_VALUE;
+
+	#if USE_2X
+	UCSR0A = (1 << U2X0);
+	#else
+	UCSR0A = (0 << U2X0);
+	#endif
+
+	UCSR0B = (1<<TXEN0)+(1<<RXEN0)+(0<<RXCIE0)+(0<<UCSZ02);
+
+	#ifdef SER7BIT
+	UCSR0C = (0<<UMSEL01)+(0<<UMSEL00)+(0<<UPM00)+(0<<UPM01)+(1<<USBS0)+(1<<UCSZ01)+(0<<UCSZ00);
+	#else
+	UCSR0C = (0<<UMSEL01)+(0<<UMSEL00)+(0<<UPM00)+(0<<UPM01)+(0<<USBS0)+(1<<UCSZ01)+(1<<UCSZ00);
+	#endif
+
+	}
+
+#endif //def KOMMSER / DEBUGSER
+
+#ifdef DEBUGSER
+
+void DebugAusg(char c)
+	{
+	PufferSpeich(&DebugOutBuf, c);
+	}
+
+
+void DebugAusgZahl(int i)
+	{
+	if (i < 0)
+		{
+		DebugAusg('-');
+		DebugAusgZahl(-i);
+		}
+	else
+		{
+		if (i >= 10)
+			{
+			int z = i / 10;
+			DebugAusgZahl(z);
+			i -= 10 * z;
+			}
+		DebugAusg('0' + i);
+		}
+	}
+
+
+void DebugAusgPStr(const char *s)
+	{
+	char c;
+	while ((c = pgm_read_byte(s)) != '\0')
+		{
+		DebugAusg(c);
+		s++;
+		}
+	}
+
+
+#endif //def DEBUGSER
 
 
 static void HellschreiberMeldetLaeuft()
@@ -253,17 +337,17 @@ static void FernschrIO()
 
 	static TMsTimer KdoTimer;
 
-	if (PufferLeer(&SerOutBuf) && TimerVal(&KdoTimer) >= 800)
+	if (PufferLeer(&KommOutBuf) && TimerVal(&KdoTimer) >= 800)
 		{
 		switch (HellBetrieb)
 			{
 			case KdoEin:
-				PufferSpeich(&SerOutBuf, HellEinschaltBefehl);
+				PufferSpeich(&KommOutBuf, HellEinschaltBefehl);
 				StartTimer(&KdoTimer);
 				break;
 
 			case KdoAus:
-				PufferSpeich(&SerOutBuf, HellAusschaltBefehl);
+				PufferSpeich(&KommOutBuf, HellAusschaltBefehl);
 				StartTimer(&KdoTimer);
 				break;
 
@@ -287,18 +371,19 @@ static void FernschrIO()
 			
 		else // normales Zeichen -> Puffern
 			{
-			if (PufferAnzahl(&SerInBuf) < MaxPuffer - 2)
+			if (PufferAnzahl(&KommInBuf) < MaxPuffer - 2)
 				{
 				if (c == '%')
 					c = CodeChrKlingel;
-				PufferSpeich(&SerInBuf, c); 
+				PufferSpeich(&KommInBuf, c); 
 				}
-			} // PufferAnzahl(&SerInBuf) < MaxPuffer - 2
+			} // PufferAnzahl(&KommInBuf) < MaxPuffer - 2
 			
 		} // Serielles Zeichen empfangen
 
-	if (BIT_IS_SET(UCSR0A, UDRE0) && !PufferLeer(&SerOutBuf))
-		UDR0 = PufferAusg(&SerOutBuf);
+	// Zeichen senden wenn Schnittstelle bereit.
+	if (BIT_IS_SET(UCSR0A, UDRE0) && !PufferLeer(&KommOutBuf))
+		UDR0 = PufferAusg(&KommOutBuf);
 
 #else //not def KOMMSER
 
@@ -306,14 +391,19 @@ static void FernschrIO()
 
 	if (SignalTwiDat.Phase == 0)
 		{ // Bereit für einen neuen Transfer
-		if (PufferLeer(&SerOutBuf)) // TODO ggf Prio auf Lesen setzten
+		if (!PufferLeer(&KommOutBuf) && !BIT_IS_SET(HellStatus, HellStatBitPufferVoll)) 
 			{ // Auf TWI schreiben
-			TwiPuffer = PufferAusg(&SerOutBuf);
+			TwiPuffer = PufferAusg(&KommOutBuf);
 			SignalTwiDat.Adresse = HellTwiAdresse << 1;
 			SignalTwiDat.Puffer = &TwiPuffer;
 			SignalTwiDat.AnzDaten = 1;
+			if (DebugKommProt)
+				{
+				DebugAusg('>');
+				DebugAusg(TwiPuffer);
+				}
 			}
-		else if (PufferLeer(&SerInBuf)) // nur lesen, wenn auch Platz ist
+		else if (!PufferVoll(&KommInBuf)) // nur lesen, wenn auch Platz ist
 			{ // von TWI lesen
 			SignalTwiDat.Adresse = (HellTwiAdresse << 1) + 1;
 			SignalTwiDat.Puffer = &TwiPuffer;
@@ -323,13 +413,20 @@ static void FernschrIO()
 
 	else if (SignalTwiDat.Phase == 255)
 		{ // Transfer ist abgeschlossen, jetzt auswerten
-		if (SignalTwiDat.Ergebnis != SignalTwiDat.AnzDaten + 1) // Fehler
-			{
+		if (SignalTwiDat.Ergebnis != SignalTwiDat.AnzDaten + 1) 
+			{ // Fehler
 			if (SignalTwiFehlerzaehler < SignalTwiFehlerzaehlerMax)
 				SignalTwiFehlerzaehler++;
+			else
+				{
+				HellStatus = 0; // ausgeschalteten Zustand im Fehlerfall annehmen.
+				if (HellBetrieb != Aus)
+					HellBetrieb = MeldAus;
+				}
 
 			SignalTwiDat.Phase = SwTwiRecoverPhase; // Versuch einen Slave im falschen Zustand zurückzusetzen.
 			SignalTwiDat.AnzDaten = 0;
+			SignalTwiDat.Adresse = 0;
 
 			set_DiagC();
 			clr_DiagA();
@@ -346,11 +443,18 @@ static void FernschrIO()
 
 			if (SignalTwiDat.Adresse == (HellTwiAdresse << 1) + 1) 
 				{ // das war ein Lesevorgang
-				if (!BIT_IS_SET(TwiPuffer, 7))
-					PufferSpeich(&SerInBuf, TwiPuffer);
+				if (!BIT_IS_SET(TwiPuffer, HellStatBitStatFlag))
+					{
+					PufferSpeich(&KommInBuf, TwiPuffer);
+					if (DebugKommProt)
+						{
+						DebugAusg('<');
+						DebugAusg(TwiPuffer);
+						}
+					}
 				else
 					{ // Status-Meldung...
-					HellStatus = TwiPuffer & 0x7F; // Bit 7 löschen
+					HellStatus = TwiPuffer & ~(1 << HellStatBitStatFlag); // Bit 7 löschen
 
 					if (BIT_IS_SET(HellStatus, HellStatBitLaeuft))
 						HellschreiberMeldetLaeuft();
@@ -360,25 +464,107 @@ static void FernschrIO()
 					if (BIT_IS_SET(HellStatus, HellStatBitEmpfStoer))
 						StartTimer(&HellSignalStoerung);
 
-					// HACK:
-					bset_LEDROT(BIT_IS_SET(HellStatus, HellStatBitEmpfStoer));
-					bset_LEDGELB(BIT_IS_SET(HellStatus, HellStatBitLaeuft));
-					bset_LEDGRUEN(BIT_IS_SET(HellStatus, HellStatBitSendeTon) || BIT_IS_SET(HellStatus, HellStatBitEmpfTon));
+					if (DebugKommProt && PufferLeer(&DebugOutBuf))
+						{
+						DebugAusg(':');
+						DebugAusgZahl(HellStatus);
+						}
 
 					}
 				set_DiagA();
+				SignalTwiDat.AnzDaten = 0;
+				SignalTwiDat.Phase = 0;
 				}
-			else
+			else 
 				{ // es war ein Schreibvorgang, da gibt es nichts auszuwerten, außer Fehlermeldungen (siehe oben)
 				set_DiagB();
+				// aber als nächstes unbedingt einen Lesevorgang einschieben
+				if (!PufferVoll(&KommInBuf)) // allerdings nur, wenn auch Platz ist
+					{ // von TWI lesen
+					SignalTwiDat.Adresse = (HellTwiAdresse << 1) + 1;
+					SignalTwiDat.Puffer = &TwiPuffer;
+					SignalTwiDat.AnzDaten = 1;
+					}
+				else
+					{
+					SignalTwiDat.AnzDaten = 0;
+					SignalTwiDat.Phase = 0;
+					}
 				}
-			SignalTwiDat.AnzDaten = 0;
-			SignalTwiDat.Phase = 0;
 			} // letzter TWI Zugriff erfolgreich
+
+		// HACK:
+		bset_LEDROT(BIT_IS_SET(HellStatus, HellStatBitEmpfStoer));
+		bset_LEDGELB(BIT_IS_SET(HellStatus, HellStatBitLaeuft));
+		bset_LEDGRUEN(BIT_IS_SET(HellStatus, HellStatBitSendeTon) || BIT_IS_SET(HellStatus, HellStatBitEmpfTon));
 
 		}
 	
 #endif //ndef KOMMSER
+
+#ifdef DEBUGSER
+
+	if (BIT_IS_SET(UCSR0A, RXC0))
+		{ // Zeichen empfangen
+		DebugKommProt = false;
+		uint8_t c = UDR0;
+		switch (c)
+			{
+			case 's':
+				DebugAusgPStr(PSTR("HellStatus: "));
+				DebugAusgZahl(HellStatus);
+				break;
+			
+			case 'b':
+				DebugAusgPStr(PSTR("HellBetrieb: "));
+				DebugAusgZahl(HellBetrieb);
+				break;
+			
+			case 't':
+				DebugAusgPStr(PSTR("SignalTwiDat: Phase="));
+				DebugAusgZahl(SignalTwiDat.Phase);
+				DebugAusgPStr(PSTR("  Adresse="));
+				DebugAusgZahl(SignalTwiDat.Adresse);
+				DebugAusgPStr(PSTR("  AnzDaten="));
+				DebugAusgZahl(SignalTwiDat.AnzDaten);
+				DebugAusgPStr(PSTR("  Ergebnis="));
+				DebugAusgZahl(SignalTwiDat.Ergebnis);
+				DebugAusgPStr(PSTR("  Fehlerz="));
+				DebugAusgZahl(SignalTwiFehlerzaehler);
+				break;
+			
+			case 'p':
+				DebugKommProt = true;
+				DebugAusgPStr(PSTR("Protokoll EIN"));
+				break;
+			
+			case 'i':
+				DebugAusgPStr(PSTR("Buffer In Content:"));
+				for (uint8_t i = KommInBuf.AusgP ; i != KommInBuf.SpeichP && i - MaxPuffer != KommInBuf.SpeichP ; i++)
+					{
+					if (i >= MaxPuffer)
+						i -= MaxPuffer;
+					DebugAusg(' ');
+					DebugAusgZahl(KommInBuf.Puffer[i]);
+					}
+				break;
+				
+			default:
+				DebugAusgPStr(PSTR("unbekannt: "));
+				DebugAusgZahl(c);
+				DebugAusg(' ');
+				DebugAusg(c);
+				break;
+				
+			}
+		DebugAusgPStr(PSTR("\r\n"));
+		} // Serielles Zeichen empfangen
+
+	// Zeichen senden wenn Schnittstelle bereit.
+	if (BIT_IS_SET(UCSR0A, UDRE0) && !PufferLeer(&DebugOutBuf))
+		UDR0 = PufferAusg(&DebugOutBuf);
+		
+#endif //def DEBUGSER
 
 	} // FernschrIO
 
@@ -394,9 +580,9 @@ static char SerEmpfZ(bool Loesch)
 	{
 	char Res;
 	if (Loesch)
-		Res = PufferAusg(&SerInBuf);
+		Res = PufferAusg(&KommInBuf);
 	else
-		Res = PufferZeig(&SerInBuf);
+		Res = PufferZeig(&KommInBuf);
 	return Res;
 	}
 
@@ -409,7 +595,7 @@ static char SerEmpfZ(bool Loesch)
 //! \returns Das nächste Zeichen.
 char LokalZeichenLesen()
 	{
-	while (PufferLeer(&SerInBuf))
+	while (PufferLeer(&KommInBuf))
 		{
 		FernschrIO();
 		TastePruefen();
@@ -438,53 +624,17 @@ char LokalZeichenLesen()
 
 void LokalZeichenAusgabe(char c)
 	{
-	while (PufferVoll(&SerOutBuf) && HellBetrieb == Ein)
+	while (PufferVoll(&KommOutBuf) && HellBetrieb == Ein)
 		{
 		FernschrIO();
 		TastePruefen();
 		}
 
-	PufferSpeich(&SerOutBuf, c); 
+	PufferSpeich(&KommOutBuf, c); 
 	// SET_BIT(UCSR0B, UDRIE0);
 	}
 
 	
-#if defined(KOMMSER) || defined(DEBUGSER)
-
-//! Initialisiert serielle Schnittstelle.
-static void SerIOInit()
-	{
-	// PORTS initialisieren (Ausgabepins)
-	// Serielle Schnittstelle initialisieren
-	#ifndef SERBAUD
-	#define BAUD 9600
-	#else
-	#define BAUD SERBAUD
-	#endif //ndef SERBAUD
-
-	#include <util/setbaud.h>
-	UBRR0H = UBRRH_VALUE;
-	UBRR0L = UBRRL_VALUE;
-
-	#if USE_2X
-	UCSR0A = (1 << U2X0);
-	#else
-	UCSR0A = (0 << U2X0);
-	#endif
-
-	UCSR0B = (1<<TXEN0)+(1<<RXEN0)+(0<<RXCIE0)+(0<<UCSZ02);
-
-	#ifdef SER7BIT
-	UCSR0C = (0<<UMSEL01)+(0<<UMSEL00)+(0<<UPM00)+(0<<UPM01)+(1<<USBS0)+(1<<UCSZ01)+(0<<UCSZ00);
-	#else
-	UCSR0C = (0<<UMSEL01)+(0<<UMSEL00)+(0<<UPM00)+(0<<UPM01)+(0<<USBS0)+(1<<UCSZ01)+(1<<UCSZ00);
-	#endif
-
-	}
-
-#endif //def KOMMSER / DEBUGSER
-
-
 //////////////////////////////////////////////////////////////////
 
 // Allgemeine Funktionen
@@ -500,8 +650,8 @@ static bool FernschrEinschalten(bool WarteQuittVerz)
 	if (HellBetrieb == Aus || HellBetrieb == KdoAus || HellBetrieb == MeldAus)
 		HellBetrieb = KdoEin;
 
-	PufferInit(&SerInBuf);
-	PufferInit(&SerOutBuf);
+	PufferInit(&KommInBuf);
+	PufferInit(&KommOutBuf);
 
 	while (HellBetrieb != Ein)
 		{
@@ -586,7 +736,7 @@ void LangePause() // = 2 sek
 		
 	
 
-/////////////////////////////////////////////////////////////////////////////////////////7
+//////////////////////////////////////////////////////////////////////////////////////////
 
 //! Modul / Schnittstelle irreversibel stoppen.
 //---------------------------------------------
@@ -826,7 +976,7 @@ static bool WahlMitTastatur()
 		{
 		FernschrIO();
 		
-		if (!PufferLeer(&SerInBuf))
+		if (!PufferLeer(&KommInBuf))
 			{
 			c = SerEmpfZ(true);
 			if (c >= '0' && c <= '9')
@@ -986,7 +1136,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		char c;
 		if (KoEmpfZeichen(&c))
 			{
-			if (c == CodeChrWerDa) // TODO and Kennung nicht leer
+			if (c == CodeChrWerDa)
 				{
 				GeSendeText(Kennung);
 				LokalZeichenAusgabe(HELLC_WERDA);
@@ -996,7 +1146,10 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			else
 				{
 				AutoKennungAbfrage = false;
-				LokalZeichenAusgabe(c);
+				if (c == CodeChrKlingel)
+					c = HELLC_KLINGEL;
+				if (!PufferVoll(&KommOutBuf))
+					LokalZeichenAusgabe(c);
 				if (c == '\r')
 					ZeilePosition = 0;
 				else
@@ -1016,7 +1169,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			return;
 			}
 
-		if (!PufferLeer(&SerInBuf) && GeSendePufferLeer())
+		if (!PufferLeer(&KommInBuf) && GeSendePufferLeer())
 			{
 			char c;
 			c = SerEmpfZ(true);
@@ -1026,9 +1179,9 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 				EscapeMode = false; // vorbereitend
 				switch (c)
 					{
-					case HELLC_BREAK1 ... HELLC_BREAK6:
+					case HELLC_BREAK1 ... HELLC_BREAK6: // weiterhin ein
 					case ' ':
-						EscapeMode = true; // weiterhin
+						EscapeMode = true; 
 						break;
 
 					case 'n':
@@ -1067,6 +1220,19 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 						// nix
 						break;
 					} // switch c
+					
+#ifdef DEBUGSER
+				if (!EscapeMode)
+					DebugAusgPStr(PSTR("Escape aus\r\n"));
+#endif //def DEBUGSER
+					
+				}
+			else if (c >= HELLC_BREAK1 && c <= HELLC_BREAK6)
+				{
+#ifdef DEBUGSER
+				DebugAusgPStr(PSTR("Escape ein\r\n"));
+#endif //def DEBUGSER
+				EscapeMode = true;
 				}
 			else // !EscapeMode
 				{
@@ -1084,6 +1250,9 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 				if (JetztNeueZeile)
 					{
+#ifdef DEBUGSER
+					DebugAusgPStr(PSTR("Auto WR ZL\r\n"));
+#endif //def DEBUGSER
 					GeSendeCode(TtyCodeWR);
 					GeSendeCode(TtyCodeZL);
 					ZeilePosition = 0;
@@ -1097,7 +1266,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 				} // else !EscapeMode
 
 			AutoKennungAbfrage = false;
-			} // if !PufferLeer(&SerInBuf)
+			} // if !PufferLeer(&KommInBuf)
 
 		if (HellBetrieb == MeldAus)
 			// Abbruch durch Bediener
@@ -1680,7 +1849,7 @@ int main()
 	MsTimerInit();
 
 	SperrzeitInit();
-
+	
 	pgm_read_byte(Identifier); // Dummy read to force the identifier to be placed in the FLASH.
 
 	BusEigenAdresse = KonfigLeseByteBegrenzt(EEAdr_BusEigenAdresse, 11 << 1/*Standardwert*/, BusAdrMin, BusAdrMax) & 0xFE; // Bit 0 löschen
@@ -1713,6 +1882,13 @@ int main()
 	
 	KommInit();
 
+	PufferInit(&KommInBuf);
+	PufferInit(&KommOutBuf);
+	
+#ifdef DEBUGSER
+	PufferInit(&DebugOutBuf);
+#endif //def DEBUGSER
+
 	TMsTimer Timer;
 	StartTimer(&Timer);
 
@@ -1738,6 +1914,10 @@ int main()
 	set_LEDGELB();
 
 	TwiInit();
+
+// Pull-Up-Widerstände für TWI einschalten:
+	SET_BIT(PORTC, 4); // SDA
+	SET_BIT(PORTC, 5); // SCL
 
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 500)
@@ -1773,6 +1953,18 @@ int main()
 	WarteKonfig = false;
 	
 	StartTimer(&NachlaufTimer);
+	
+#ifdef DEBUGSER
+	DebugAusgPStr(PSTR("HellschrKomm Adresse "));
+	DebugAusgZahl(BusEigenAdresse >> 1);
+	DebugAusgPStr(PSTR("\r\n"));
+#endif //def DEBUGSER
+
+#ifdef KOMMSER
+	LokalTextAusgabeP(PSTR("HellschrKomm Ser-Test Adresse "));
+	LokalZahlAusgabe(BusEigenAdresse >> 1, 0);
+	LokalTextAusgabeP(PSTR("\r\n"));
+#endif //def KOMMSER
 	
 	inp_LEDBLAU();
 	
@@ -1834,6 +2026,9 @@ int main()
 			{
 			VerbindungKommend();
 			}
+
+		if (HellBetrieb == Aus && !PufferLeer(&KommInBuf))
+			PufferAusg(&KommInBuf); // verwerfen
 
 		if (KonfigSpeicherFehlercode(false) != KonfigSpeicherOK)
 			FehlermeldungDrucken();

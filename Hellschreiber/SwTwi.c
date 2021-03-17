@@ -96,6 +96,7 @@ void SwTwiAktion(T_SwTwiTransferdaten *p)
 			p->ByteNr = 0;
 			p->BitNr = 7;
 			p->AktByte = p->Adresse;
+			p->Ergebnis = 0;
 			SDA_0;
 			p->Phase = 1;
 			break;

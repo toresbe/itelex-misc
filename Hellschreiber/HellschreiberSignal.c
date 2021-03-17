@@ -573,7 +573,7 @@ void PollTwi()
 		// -------------
 		case TwiEv_SR_AddrACK		:
 			wdt_reset();
-			CLR_BIT(NewStat, TWEA); // damit nach erstem Datenbyte NACK gesendet wird   TODO prüfen ob es auch ohne geht.
+			// CLR_BIT(NewStat, TWEA); // damit nach erstem Datenbyte NACK gesendet wird   TODO prüfen ob es auch ohne geht.
 			break;
 
         case TwiEv_SR_DataACK		:
@@ -585,7 +585,7 @@ void PollTwi()
 			PufferSpeich(&SerOutBuf, '>');
 			PufferSpeich(&SerOutBuf, TWDR);
 #endif //def TESTSER
-			CLR_BIT(NewStat, TWEA); // damit weiter NACK gesendet wird  TODO prüfen ob es auch ohne geht.
+			// CLR_BIT(NewStat, TWEA); // damit weiter NACK gesendet wird  TODO prüfen ob es auch ohne geht.
 			break;
 
         case TwiEv_SR_Stop			: // dies wird auch beim GeneralCall aufgerufen
@@ -601,7 +601,7 @@ void PollTwi()
 			set_DiagE();
 			if (PufferLeer(&TwiOutBuf))
 				{
-				TWDR = HellStatus;
+				TWDR = HellStatus | (1 << HellStatBitStatFlag);
 				CLR_BIT(HellStatus, HellStatBitEmpfStoer);
 				}
 			else
