@@ -189,6 +189,8 @@ uint8_t TwiPuffer;
 
 uint8_t SignalTwiFehlerzaehler;
 
+uint16_t GesamtTwiFehlerzaehler; // wird nie zurückgesetzt
+
 enum { SignalTwiFehlerzaehlerMax = 50 };
 
 #endif //ndef KOMMSER
@@ -393,15 +395,17 @@ static void FernschrIO()
 		{ // Bereit für einen neuen Transfer
 		if (!PufferLeer(&KommOutBuf) && !BIT_IS_SET(HellStatus, HellStatBitPufferVoll)) 
 			{ // Auf TWI schreiben
-			TwiPuffer = PufferAusg(&KommOutBuf);
+			TwiPuffer = PufferZeig(&KommOutBuf); // erst löschen, wenn Übertragung erfolgreich war
 			SignalTwiDat.Adresse = HellTwiAdresse << 1;
 			SignalTwiDat.Puffer = &TwiPuffer;
 			SignalTwiDat.AnzDaten = 1;
+#ifdef DEBUGSER
 			if (DebugKommProt)
 				{
 				DebugAusg('>');
 				DebugAusg(TwiPuffer);
 				}
+#endif //def DEBUGSER
 			}
 		else if (!PufferVoll(&KommInBuf)) // nur lesen, wenn auch Platz ist
 			{ // von TWI lesen
@@ -424,14 +428,27 @@ static void FernschrIO()
 					HellBetrieb = MeldAus;
 				}
 
-			SignalTwiDat.Phase = SwTwiRecoverPhase; // Versuch einen Slave im falschen Zustand zurückzusetzen.
+			GesamtTwiFehlerzaehler++;
+			
+#ifdef DEBUGSER
+			if (DebugKommProt)
+				{
+				DebugAusg('#');
+				DebugAusgZahl(SignalTwiDat.Adresse);
+				DebugAusg(':');
+				DebugAusgZahl(SignalTwiDat.Ergebnis);
+				DebugAusg(' ');
+				}
+#endif //def DEBUGSER
+
 			SignalTwiDat.AnzDaten = 0;
 			SignalTwiDat.Adresse = 0;
+			SignalTwiDat.Phase = SwTwiRecoverPhase; // Versuch einen Slave im falschen Zustand zurückzusetzen.
 
 			set_DiagC();
 			clr_DiagA();
 			clr_DiagB();
-			}
+			} // TWI Fehler
 		else // letzter TWI Zugriff erfolgreich
 			{
 			clr_DiagA();
@@ -446,15 +463,30 @@ static void FernschrIO()
 				if (!BIT_IS_SET(TwiPuffer, HellStatBitStatFlag))
 					{
 					PufferSpeich(&KommInBuf, TwiPuffer);
+#ifdef DEBUGSER
 					if (DebugKommProt)
 						{
 						DebugAusg('<');
 						DebugAusg(TwiPuffer);
 						}
+#endif //def DEBUGSER
 					}
 				else
 					{ // Status-Meldung...
 					HellStatus = TwiPuffer & ~(1 << HellStatBitStatFlag); // Bit 7 löschen
+
+#ifdef DEBUGSER
+					if (DebugKommProt && PufferAnzahl(&DebugOutBuf) < MaxPuffer - 20)
+						{
+						static uint8_t DebugLetztMeldStatus = 0;
+						if (HellStatus != DebugLetztMeldStatus)
+							{
+							DebugAusg(':');
+							DebugAusgZahl(HellStatus);
+							DebugLetztMeldStatus = HellStatus;
+							}
+						}
+#endif //def DEBUGSER
 
 					if (BIT_IS_SET(HellStatus, HellStatBitLaeuft))
 						HellschreiberMeldetLaeuft();
@@ -464,20 +496,17 @@ static void FernschrIO()
 					if (BIT_IS_SET(HellStatus, HellStatBitEmpfStoer))
 						StartTimer(&HellSignalStoerung);
 
-					if (DebugKommProt && PufferLeer(&DebugOutBuf))
-						{
-						DebugAusg(':');
-						DebugAusgZahl(HellStatus);
-						}
-
-					}
+					} // if Statusmeldung (also Bit 7 gesetzt)
 				set_DiagA();
 				SignalTwiDat.AnzDaten = 0;
-				SignalTwiDat.Phase = 0;
-				}
+				} // if Lesevorgang
 			else 
-				{ // es war ein Schreibvorgang, da gibt es nichts auszuwerten, außer Fehlermeldungen (siehe oben)
+				{ // es war ein Schreibvorgang oder ein Fehler-Rücksetz-Vorgang, da gibt es nichts auszuwerten, außer Fehlermeldungen (siehe oben)
 				set_DiagB();
+				
+				if (SignalTwiDat.Adresse == (HellTwiAdresse << 1))
+					PufferAusg(&KommOutBuf); // erfolgreich gesendetes Zeichen aus dem Puffer löschen.
+									
 				// aber als nächstes unbedingt einen Lesevorgang einschieben
 				if (!PufferVoll(&KommInBuf)) // allerdings nur, wenn auch Platz ist
 					{ // von TWI lesen
@@ -486,11 +515,11 @@ static void FernschrIO()
 					SignalTwiDat.AnzDaten = 1;
 					}
 				else
-					{
+					{ // erstmal alles erledigt.
 					SignalTwiDat.AnzDaten = 0;
-					SignalTwiDat.Phase = 0;
 					}
 				}
+			SignalTwiDat.Phase = 0;
 			} // letzter TWI Zugriff erfolgreich
 
 		// HACK:
@@ -498,7 +527,7 @@ static void FernschrIO()
 		bset_LEDGELB(BIT_IS_SET(HellStatus, HellStatBitLaeuft));
 		bset_LEDGRUEN(BIT_IS_SET(HellStatus, HellStatBitSendeTon) || BIT_IS_SET(HellStatus, HellStatBitEmpfTon));
 
-		}
+		} // if (SignalTwiDat.Phase == 255)
 	
 #endif //ndef KOMMSER
 
@@ -531,6 +560,8 @@ static void FernschrIO()
 				DebugAusgZahl(SignalTwiDat.Ergebnis);
 				DebugAusgPStr(PSTR("  Fehlerz="));
 				DebugAusgZahl(SignalTwiFehlerzaehler);
+				DebugAusgPStr(PSTR("  Gesamtf="));
+				DebugAusgZahl(GesamtTwiFehlerzaehler);
 				break;
 			
 			case 'p':
@@ -539,7 +570,7 @@ static void FernschrIO()
 				break;
 			
 			case 'i':
-				DebugAusgPStr(PSTR("Buffer In Content:"));
+				DebugAusgPStr(PSTR("BufferIn Content:"));
 				for (uint8_t i = KommInBuf.AusgP ; i != KommInBuf.SpeichP && i - MaxPuffer != KommInBuf.SpeichP ; i++)
 					{
 					if (i >= MaxPuffer)
@@ -979,12 +1010,22 @@ static bool WahlMitTastatur()
 		if (!PufferLeer(&KommInBuf))
 			{
 			c = SerEmpfZ(true);
+			// Korrekturen aufgrund potenzieller Zeichenverfälschung
+			switch (c)
+				{
+				case 'O': c = '0'; break;
+				case 'I': c = '1'; break;
+				case 'S': c = '5'; break;
+				case 'G': c = '6'; break;
+				case 'B': c = '8'; break;
+				}
+			
 			if (c >= '0' && c <= '9')
 				{
 				GeWaehlen(c - '0');
 				EsWurdeGewaehlt = true;
 				}
-			else if (c == 'l' && !EsWurdeGewaehlt)
+			else if (c == 'L' && !EsWurdeGewaehlt)
 				{ 
 				LokalbetriebSimulieren();
 				return false;
@@ -1184,35 +1225,36 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 						EscapeMode = true; 
 						break;
 
-					case 'n':
+					case 'N':
 						GeSendeCode(TtyCodeWR);
 						GeSendeCode(TtyCodeZL);
 						ZeilePosition = 0;
 						break;
 
-					case 'h': // hier ist
+					case 'H': // hier ist
+					case 'I': // ich bin
 						GeSendeText(Kennung);
 						LokalZeichenAusgabe(HELLC_RAUTE); // TODO ggf. anderes Symbol
 						LokalTextAusgabe(Kennung + 2); // WR+ZL überspringen
 						ZeilePosition = strlen(Kennung);
 						break;
 
-					case 'w':
+					case 'W':
 						GeSendeZeichen(CodeChrWerDa);
 						LokalZeichenAusgabe(HELLC_WERDA); // TODO ggf. anderes Symbol
 						break;
 
-					case 'k':
+					case 'K':
 						GeSendeZeichen(CodeChrKlingel);
 						LokalZeichenAusgabe(HELLC_KLINGEL);
 						ZeilePosition++;
 						break;
 
-					case 's': // wie Streifenschreiber
+					case 'S': // wie Streifenschreiber
 						AutoNewline = false; 
 						break;
 
-					case 'b': // wie Blattschreiber
+					case 'B': // wie Blattschreiber
 						AutoNewline = true;
 						break;
 

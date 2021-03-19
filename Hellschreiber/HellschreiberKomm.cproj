@@ -157,8 +157,8 @@ copy /Y  "$(MSBuildProjectDirectory)\..\FuseMuster\Mega168_Quarz.txt" "$(MSBuild
     </ToolchainSettings>
     <BuildTarget>all</BuildTarget>
     <CleanTarget>clean</CleanTarget>
-    <PostBuildEvent>
-    </PostBuildEvent>
+    <PostBuildEvent>"$(AVRSTUDIO_EXE_PATH)\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objcopy.exe" -I ihex -O binary "$(MSBuildProjectDirectory)\$(Configuration)\$(OutputFileName).hex" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_HellschrKomm2.bin"
+copy /Y  "$(MSBuildProjectDirectory)\..\FuseMuster\Mega168_Quarz.txt" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_HellschrKomm2.txt"</PostBuildEvent>
     <OutputFileName>HellschrKomm</OutputFileName>
     <OutputFileExtension>.elf</OutputFileExtension>
   </PropertyGroup>

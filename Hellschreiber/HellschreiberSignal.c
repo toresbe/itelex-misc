@@ -175,7 +175,7 @@ ISR(ANALOG_COMP_vect)
 			HellTonEPZaehl++;
 		else
 			{
-			seto_LEDblau();
+			// seto_LEDblau();
 			if (HellMessPhase == 0)
 				{
 				TCNT1 = HellMessPeriode / 2; 
@@ -226,7 +226,7 @@ ISR(TIMER0_COMPA_vect)
 	{
 	HellTonEmpfEin = false;
 	HellTonEPZaehl = 0;
-	inp_LEDblau();
+	// inp_LEDblau();
 	CLR_BIT(HellStatus, HellStatBitEmpfTon);
 	}	
 
@@ -683,7 +683,7 @@ static void Initalisierungen()
 	init_SDA(); // aktiviert Pull-Up fuer unbelegten Eingang
 	init_SCL(); // aktiviert Pull-Up fuer unbelegten Eingang
 
-	init_LEDblau();
+	// init_LEDblau();
 	init_DiagA();
 	init_DiagB();
 	init_DiagC();
@@ -787,6 +787,7 @@ static void HellTonAusgabeEinschalten()
 	TCCR0A = (0 << COM0A0) | (1 << COM0B1) | (0 << COM0B0) | (1 << WGM01) | (1 << WGM00);
 	TCCR0B = (1 << WGM02) | TIMER0_CS_TONAUSG;
 	seto_HellTonAusg();
+	// seto_LEDblau();
 	SET_BIT(HellStatus, HellStatBitSendeTon);
 	} // HellTonAusgabeEinschalten()
 
@@ -794,6 +795,7 @@ static void HellTonAusgabeEinschalten()
 static void HellTonAusgabeAusschalten()
 	{
 	inp_HellTonAusg(); 
+	// inp_LEDblau();
 	TCCR0A = 0; // alles ausschalten
 	TCCR0B = 0; // alles ausschalten
 	CLR_BIT(HellStatus, HellStatBitSendeTon);
@@ -1015,13 +1017,17 @@ static void GrundstellungHerstellen()
 
 int main(void)
 	{
+	TMsTimer StartSperre; // 30 Sekunden jede Verbindung ablehnen. Zur Offenbarung von Abstürzen.
+	
 	Initalisierungen();
-
+	StartTimer(&StartSperre);
 	while (true)
 		{ // Endlosschleife 
 		GrundstellungHerstellen();
 		WarteAufEinschaltungKommendOderGehend();
-		BestehendeVerbindungBearbeiten();
+		if (TimerVal(&StartSperre) > 30000)
+			BestehendeVerbindungBearbeiten();
+		// sonst gleich wieder zu GrundstellungHerstellen gehen.
 		}
 	}
 
