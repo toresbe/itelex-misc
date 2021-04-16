@@ -847,7 +847,7 @@ static bool WahlMitTastatur()
 				LokalbetriebSimulieren();
 				return false;
 				}
-			else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
+			else if (c != 0 && c != ' ' && c != '+' && c != '\r' && c != '\n')
 				{
 				Falschziffern++;
 				}
