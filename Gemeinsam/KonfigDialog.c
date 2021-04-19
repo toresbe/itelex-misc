@@ -22,11 +22,6 @@ PROGMEM const char NeuStrP[] = " neu:     ";
 #endif
 
 
-extern char LokalZeichenLesen();
-// Diese Funktion muss in der Anwendung definiert werden und sollte nur Kleinbuchstaben zurückgeben.
-// Dies ist bei CodeZuZeichen() auf jeden Fall der Fall.
-
-
 //! Dialog-Abfrage einer Zahl.
 //----------------------------
 //! kann nur positive Zahlen.
@@ -141,81 +136,70 @@ uint8_t LokalTextEingabe(char* s, uint8_t maxbuchst)
 		{
 		char Zeichen = LokalZeichenLesen();
 
-		switch (Zeichen)
+		if (Zeichen == '\0') // Abschaltung
 			{
-			case '\0': // abschaltung
-				if (Pos > 0)
-					s[Pos] = '\0';
-				return 0;
+			if (Pos > 0)
+				s[Pos] = '\0';
+			return 0;
+			}
 
-			case '\t': // Taste ignorieren
-				break;
+		else if (Zeichen == '\t') // Taste ignorieren
+			; // nichts
 
-			case '\r':
-			case '\n':
-				if (Pos == 0)
-					if (ErstesZeichen == '\0')
-						break; // CR oder LF am Anfang ignorieren
+		else if (Zeichen < ' ') // jede Art Steuerzeichen
+			{
+			if (Pos == 0)
+				if (ErstesZeichen == '\0')
+					; // CR oder LF am Anfang ignorieren
+				else
+					if (ErstesZeichen == '.' || ErstesZeichen == '-' || ErstesZeichen == '+' 
+						|| ErstesZeichen == '=' || ErstesZeichen == '/')
+						return 1; // keine Änderung
+					else if (ErstesZeichen == ' ')
+						{
+						s[0] = '\0';
+						return 2;
+						}
 					else
-						if (ErstesZeichen == '.' || ErstesZeichen == '-' || ErstesZeichen == '+' 
-						    || ErstesZeichen == '=' || ErstesZeichen == '/')
-							return 1; // keine Änderung
-						else if (ErstesZeichen == ' ')
-							{
-							s[0] = '\0';
-							return 2;
-							}
-						else
-							{
-							s[0] = ErstesZeichen;
-							s[1] = '\0';
-							return 2;
-							}
-				else // Pos > 0
-					{
-					s[Pos] = '\0';
-					return 2;
-					}
+						{
+						s[0] = ErstesZeichen;
+						s[1] = '\0';
+						return 2;
+						}
+			else // Pos > 0
+				{
+				s[Pos] = '\0';
+				return 2;
+				}
+			}
+			
+		else if (Zeichen == '#')
+			// ungültig
+			;
 
-			case '#':
-				// ungültig
-				break;
+		else if (Zeichen == ' ' && Pos == 0)
+			ErstesZeichen = ' ';
 
-			case ' ':
-				if (Pos == 0)
+		else if (Pos < maxbuchst)
+			{
+			if (Pos == 0)
+				if (ErstesZeichen == '\0') 
+					// erstes eingegebenes Zeichen
+					ErstesZeichen = Zeichen;
+				else if (ErstesZeichen == ' ')
+					s[Pos++] = Zeichen;
+				else
 					{
-					ErstesZeichen = ' ';
-					break; // hier abbrechen, sonst weiter wie bei Buchstaben...
+					s[Pos++] = ErstesZeichen;
+					s[Pos++] = Zeichen;
 					}
-
-			default:
-				if (Zeichen >= ' ' && Pos < maxbuchst)
-					{
-					if (Pos == 0)
-						if (ErstesZeichen == '\0') 
-							// erstes eingegebenes Zeichen
-							ErstesZeichen = Zeichen;
-						else if (ErstesZeichen == ' ')
-							s[Pos++] = Zeichen;
-						else
-							{
-							s[Pos++] = ErstesZeichen;
-							s[Pos++] = Zeichen;
-							}
-					else
-						s[Pos++] = Zeichen;
-					}
-				break;
-					
-			} // switch Zeichen
+			else
+				s[Pos++] = Zeichen;
+			}
 		} // while true
 	} // LokalTextEingabe
 
 #endif
-
-
-extern void LokalZeichenAusgabe(char c);
-// Diese Funktion muss in der Anwendung definiert werden.
 
 
 //! Dialog-Abfrage für die allgemeinen Einstellungen eines Endgeräts.

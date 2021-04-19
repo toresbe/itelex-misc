@@ -13,11 +13,6 @@
 volatile uint8_t Status;
 
 
-// HACK (gilt nur für TW39):
-//#define ROT_EIN SET_BIT(PORTD,1);
-//#define ROT_AUS CLR_BIT(PORTD,1);
-
-
 #define EMPF_PUFFER_GROESSE 20
 
 // Variablen für Datenaustausch über I²C

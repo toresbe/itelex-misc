@@ -8,6 +8,17 @@
 
 #include <stdbool.h>
 
+
+// Für die Dialogausgabe und Eingabe werden nur die folgenden zwei Funktionen verwendet:
+extern char LokalZeichenLesen();
+// Diese Funktion muss in der Anwendung definiert werden und sollte nur Kleinbuchstaben zurückgeben.
+// Dies ist bei CodeZuZeichen() auf jeden Fall der Fall.
+// Bei Tastendruck soll '\t' geliefert werden, bei Abbruch '\0'.
+
+extern void LokalZeichenAusgabe(char c);
+// Diese Funktion muss in der Anwendung definiert werden.
+
+
 extern PROGMEM const char OkStrP[];
 
 extern PROGMEM const char NeuStrP[];

@@ -16,11 +16,6 @@
 #include "SeriellUmsetz.h"
 
 
-// HACK (Gilt nur für TW39):
-//#define HACK_ROT_EIN SET_BIT(PORTD,1);
-//#define HACK_ROT_AUS CLR_BIT(PORTD,1);
-
-
 // Allgemeine (typunabhägige) Schnittstelle zum Fernschreiber 
 // ----------------------------------------------------------
 
@@ -819,8 +814,6 @@ void Aktivieren(bool Aktiv)
 static void BusKomm()
 // darf nur bei aktivem Interrupt-Enable aufgerufen werden!
 	{
-	//HACK LED_EIN(ROT);
-	
 	uint8_t Kdo;
 
 	if (GetEmpfByte(&Kdo))
@@ -1134,7 +1127,6 @@ static void BusKomm()
 	if (BusVerbPartner == 0 || FsBetriebsart == AusschaltungGe || FsBetriebsart == AusschaltungKo)
 		wdt_reset();
 
-	//HACK LED_AUS(ROT);
 	}
 	
 
