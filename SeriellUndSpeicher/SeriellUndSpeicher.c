@@ -176,6 +176,9 @@ bool MenueImmerAusgeben; //!< Gibt das Menue nach jeder "Aktion" aus, bei false 
 
 bool SeriellHwHandshake; //!< bei true werden Daten auf der seriellen Schnittstelle nur bei CTS = aktiv gesendet.
 
+uint8_t CodeIndex; //!< Index der Code-Tabelle, siehe auch #CodeTabWechsel() in BaudotCode.c
+
+
 TMsTimer CheckCtsTimer; 
 	//!< Um ein Blockieren des Programmablaufs zu verhindern, wird bei Pufferüberlauf seriellen Ausgabe 
 	//!< der Puuferanfang gelöscht, sofern CTS zu lange (mehr als 3 Sekunden) auf "Low" liegt.
@@ -1377,6 +1380,19 @@ bool KonfigHwHandshake;
 	//!< der tatsächliche Konfigurationswert wird derweil hier gespeichert.
 
 
+// der folgende text wird mehrfach verwendet:
+
+#ifdef AF_TTYCODE_SWITCHABLE
+
+#ifdef SPRACHE_EN				
+PROGMEM const char CodepageSelectStrP[] = "\r\nselect character set: 0=ita2 1=ustty 2=KOI7N2 3=KOI8-R 4=Greek 5=Nordic: ";
+#else
+PROGMEM const char CodepageSelectStrP[] = "\r\nZeichensatz waehlen: 0=ita2 1=ustty 2=KOI7N2 3=KOI8-R 4=Griechisch 5=Nordisch: ";
+#endif					
+
+#endif //def AF_TTYCODE_SWITCHABLE
+
+
 //! wird nach langem Tastendruck aufgerufen
 static void Konfiguration()
 	{
@@ -1416,6 +1432,19 @@ static void Konfiguration()
 	Abbruch = !KonfigurationAllgemein();
 	if (Abbruch) 
 		return;
+
+#ifdef AF_TTYCODE_SWITCHABLE
+
+	LokalTextAusgabeP(CodepageSelectStrP);
+
+	// TODO: Alte Codepage anzeigen
+	
+	if (LokalZahlEingabe(&CodeIndex, 1) < 0)
+		return;
+	CodeTabWechsel(CodeIndex);
+		
+#endif //def AF_TTYCODE_SWITCHABLE
+
 
 #ifdef AF_LOKALE_UHR
 
@@ -1536,6 +1565,10 @@ static void KonfigurationEnde()
 	if (!UhrzeitUeberBus)
 		KonfigSchreibeByte(EEAdr_Minute, Minute);
 #endif //def AF_LOKALE_UHR
+
+#ifdef AF_TTYCODE_SWITCHABLE
+	KonfigSchreibeByte(EEAdr_Zeichensatz, CodeIndex);
+#endif //def AF_TTYCODE_SWITCHABLE
 	
 	Aktivieren(true);
 	clr_LEDROT();
@@ -1675,11 +1708,19 @@ int main()
 	
 	KonfigLeseString(EEAdr_Kennung, Kennung, sizeof(Kennung), PSTR("\r\ntxp-ab"));
 
+#ifdef SPRACHE_EN
+	KonfigLeseString(EEAdr_Kennwort, Kennwort, sizeof(Kennwort), PSTR("password"));
+#else
 	KonfigLeseString(EEAdr_Kennwort, Kennwort, sizeof(Kennwort), PSTR("kennwort"));
+#endif
 
 #ifdef AF_ZEITSPERRE
 	SperrzeitLadeEeprom(EEAdr_Sperrzeiten);
 #endif //def AF_ZEITSPERRE
+
+#ifdef AF_TTYCODE_SWITCHABLE
+	CodeIndex = KonfigLeseByteBegrenzt(EEAdr_Zeichensatz, 0, 0, 5);
+#endif //def AF_TTYCODE_SWITCHABLE
 
 #ifdef AF_ANRUFSPEICHER
 	BeginnErsteMeldung2 = KonfigLeseWortBegrenzt(EEAdr_BeginnErsteMeldung2, 0, 0, 0xFFFF);
@@ -1738,7 +1779,7 @@ int main()
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
 
 #ifdef AF_TTYCODE_SWITCHABLE
-	CodeTabWechsel(0); // TODO: Wählbarer Standard-Zeichensatz
+	CodeTabWechsel(CodeIndex);
 #endif //def AF_TTYCODE_SWITCHABLE
 
 	while (true) // Hauptschleife
@@ -1939,12 +1980,7 @@ int main()
 #ifdef AF_TTYCODE_SWITCHABLE
 				case CTRL('e'):
 				{
-					#ifdef SPRACHE_EN				
-					LokalTextAusgabeP(PSTR("\r\nselect character set: 0=ita2 1=ustty 2=KOI7N2 3=KOI8-R 4=Greek 5=Nordic: "));
-					#else
-					LokalTextAusgabeP(PSTR("\r\nZeichensatz waehlen: 0=ita2 1=ustty 2=KOI7N2 3=KOI8-R 4=Griechisch 5=Nordisch: "));
-					#endif					
-					uint8_t CodeIndex;
+					LokalTextAusgabeP(CodepageSelectStrP);
 					if (LokalZahlEingabe(&CodeIndex, 1) < 0)
 						break;
 					
