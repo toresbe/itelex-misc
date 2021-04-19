@@ -23,10 +23,6 @@
 #include "../SvnVersion.h"
 
 
-#define HELL_FONT_CHAR_SIZE 6 // 6 Einträge in der Tabelle je Zeichen
-#define HELL_FONT_TAB_START 10 // Linefeed
-#define HELL_FONT_TAB_END 127
-
 #define HELL_STARTCODE 0x0FF0 // Startimpuls
 #define HELL_PIXEL_PRO_REIHE 14 // 14 Pixel übereinander
 #define HELL_REIHEN_PRO_ZEICHEN 7 // 7 Pixel nebeneinander (inkl. "Startbits")
@@ -573,7 +569,6 @@ void PollTwi()
 		// -------------
 		case TwiEv_SR_AddrACK		:
 			wdt_reset();
-			// CLR_BIT(NewStat, TWEA); // damit nach erstem Datenbyte NACK gesendet wird   TODO prüfen ob es auch ohne geht.
 			break;
 
         case TwiEv_SR_DataACK		:
@@ -585,7 +580,6 @@ void PollTwi()
 			PufferSpeich(&SerOutBuf, '>');
 			PufferSpeich(&SerOutBuf, TWDR);
 #endif //def TESTSER
-			// CLR_BIT(NewStat, TWEA); // damit weiter NACK gesendet wird  TODO prüfen ob es auch ohne geht.
 			break;
 
         case TwiEv_SR_Stop			: // dies wird auch beim GeneralCall aufgerufen
@@ -754,15 +748,27 @@ static void WarteAufEinschaltungKommendOderGehend()
 			StartTimer(&KlingelTimer);
 			StartTimer(&KlingelFreqTimer);
 			SET_BIT(HellStatus, HellStatBitSendeAnruf);
-			while (!IstHellschreiberBereit() && TimerVal(&KlingelTimer) < 1000)
+			
+			// HACK Test: 3 Sekunden Klingelsignal, Frequenz steigend von 15 Hz bis 45 Hz...
+			// Somit Periodendauer von 66 ms bis 22 ms.
+			// Periodendauer: 66 - (44 * Timer / 3000)
+			// 44 / 3000 = 68 --> gerundet 64 -->  Timer >> 6
+			// nach Rundung 3000 / 64 -> Periodendauer von 66 bis 20 ms.
+			
+			uint16_t KlingelFreqPeriode = 66; // Startwert. Ursprünglich: (1000 / HELL_ANRUF_FREQ)
+			
+			while (!IstHellschreiberBereit() && TimerVal(&KlingelTimer) < 3000)
 				{				
 				PollTwi();
-				if (TimerVal(&KlingelFreqTimer) < (1000 / HELL_ANRUF_FREQ) / 2)
+				if (TimerVal(&KlingelFreqTimer) < KlingelFreqPeriode / 2)
 					set_HellAnrufPulse();
-				else if (TimerVal(&KlingelFreqTimer) < (1000 / HELL_ANRUF_FREQ))
+				else if (TimerVal(&KlingelFreqTimer) < KlingelFreqPeriode)
 					clr_HellAnrufPulse();
 				else
+					{
 					StartTimer(&KlingelFreqTimer);
+					KlingelFreqPeriode = 66 - (TimerVal(&KlingelTimer) >> 6);
+					}
 				}
 			clr_HellAnrufPulse();
 #ifdef TESTSER
@@ -1017,17 +1023,31 @@ static void GrundstellungHerstellen()
 
 int main(void)
 	{
-	TMsTimer StartSperre; // 30 Sekunden jede Verbindung ablehnen. Zur Offenbarung von Abstürzen.
+	TMsTimer StartSperre;
 	
 	Initalisierungen();
+
 	StartTimer(&StartSperre);
+
+	GrundstellungHerstellen();
+
+	while (TimerVal(&StartSperre) < 20000)
+		{  // 15 Sekunden jede Verbindung ablehnen. Zur Offenbarung von Abstürzen.
+		PollTwi();
+		PufferInit(&HellAusgZeichenPuffer); // ggf. ankommende Zeichen löschen
+		if (IstHellschreiberBereit())
+			GrundstellungHerstellen(); // ggf. Einschaltung nach vorherigem Anruf wieder ausschalten.
+		}
+	
+#ifdef TESTSER
+	SerAusgPStr(PSTR("\r\nStartsperre beendet\r\n"));
+#endif //def TESTSER
+
 	while (true)
 		{ // Endlosschleife 
-		GrundstellungHerstellen();
 		WarteAufEinschaltungKommendOderGehend();
-		if (TimerVal(&StartSperre) > 30000)
-			BestehendeVerbindungBearbeiten();
-		// sonst gleich wieder zu GrundstellungHerstellen gehen.
+		BestehendeVerbindungBearbeiten();
+		GrundstellungHerstellen();
 		}
 	}
 

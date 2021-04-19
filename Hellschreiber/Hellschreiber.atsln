@@ -18,8 +18,8 @@ Global
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.DebugKommProz|AVR.ActiveCfg = DebugSeriell21|AVR
 		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.DebugKommProz|AVR.Build.0 = DebugSeriell21|AVR
-		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.DebugSignalProz|AVR.ActiveCfg = DebugSeriell21|AVR
-		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.DebugSignalProz|AVR.Build.0 = DebugSeriell21|AVR
+		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.DebugSignalProz|AVR.ActiveCfg = ReleaseVer21|AVR
+		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.DebugSignalProz|AVR.Build.0 = ReleaseVer21|AVR
 		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.KommUeberSeriell|AVR.ActiveCfg = KommSimSeriell21|AVR
 		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.KommUeberSeriell|AVR.Build.0 = KommSimSeriell21|AVR
 		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.PlatVer21-Release|AVR.ActiveCfg = ReleaseVer21|AVR
@@ -28,8 +28,8 @@ Global
 		{2919FE10-C78F-47D7-87AC-0E93AC24FFDD}.Simulator|AVR.Build.0 = Simulator|AVR
 		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.DebugKommProz|AVR.ActiveCfg = Release|AVR
 		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.DebugKommProz|AVR.Build.0 = Release|AVR
-		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.DebugSignalProz|AVR.ActiveCfg = Release|AVR
-		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.DebugSignalProz|AVR.Build.0 = Release|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.DebugSignalProz|AVR.ActiveCfg = DebugSeriell|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.DebugSignalProz|AVR.Build.0 = DebugSeriell|AVR
 		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.KommUeberSeriell|AVR.ActiveCfg = Release|AVR
 		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.KommUeberSeriell|AVR.Build.0 = Release|AVR
 		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.PlatVer21-Release|AVR.ActiveCfg = Release|AVR

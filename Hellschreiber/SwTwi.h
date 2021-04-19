@@ -22,6 +22,7 @@ typedef struct
 	uint8_t AktByte; //!< Aktuell zu übertragenes Daten-Byte (ggf. auch Adresse)
 	uint8_t BitNr; //!< Aktuell gesendetes / empfangenes Bit.
 	uint8_t ByteNr; //!< wandert durch den Puffer
+	// TODO mal implementieren: uint8_t SdaStabZ; //!< Zählt zur Überprüfung der "Stabilität" die Gleichheit der SDA-Bit-Samples  
 	} T_SwTwiTransferdaten;
 
 // gültige "Zustände":

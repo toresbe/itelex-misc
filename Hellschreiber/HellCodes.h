@@ -34,9 +34,15 @@
 #define HellStatBitStatFlag 7 // wird immer gesetzt, wenn es eine Statusmeldung ist
 
 
+#define HellEinschaltBefehl '\002' // schaltet den Hellschreiber ein, ohne dass ein Zeichen gedruckt wird.
+#define HellAusschaltBefehl '\004' // schaltet den Hellschreiber aus und löscht den Empfangspuffer
+// geeignet sind alle Codes außerhalb des Bereichs HELL_FONT_TAB_START bis HELL_FONT_TAB_END
 
-#define HellEinschaltBefehl '^' // schaltet den Hellschreiber ein, ohne dass ein Zeichen gedruckt wird.
-#define HellAusschaltBefehl '~' // schaltet den Hellschreiber aus und löscht den Empfangspuffer
+
+#define HELL_FONT_CHAR_SIZE 6 // 6 Einträge in der Tabelle je Zeichen
+#define HELL_FONT_TAB_START 10 // Linefeed
+#define HELL_FONT_TAB_END 127
+
 
 const PROGMEM uint16_t HellFontTab[] = {
 	#include "HellFont.h"

@@ -29,7 +29,6 @@ DEFPORTOUT		(DiagA,							B, 3) // = MOSI = Pin 6 Programmierstecker       Funkt
 DEFPORTOUT		(DiagB,							B, 4) // = MISO = Pin 5 Programmierstecker       Funktion: Hell-Ton-Empfang: gesamtes Zeichen
 DEFPORTOUT		(DiagC,							B, 5) // = SCK  = Pin 4 Programmierstecker       Funktion: Wirkdauer von PollTwi
 
-DEFPORTTRI		(LEDblau,   					C, 0) // Da auch ein Ausgang vom Signalprozessor angeschlossen ist
 DEFPORTINAL		(SDA,							C, 4) 
 DEFPORTINAL		(SCL,							C, 5)
 
