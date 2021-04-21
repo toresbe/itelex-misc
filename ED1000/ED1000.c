@@ -133,7 +133,9 @@ enum {
     EEAdr_AutoWahlZiffern = 25,
 	EEAdr_AnrufAbbruchZeit = 35,
 	EEAdr_StartQuittVerz = 36,
-	EEAdr_Ende = 37 // darf erhöht werden
+    EEAdr_MitWaehlscheibe = 37,
+    EEAdr_WahlauffordImpulsLaenge = 38,
+	EEAdr_Ende = 39 // darf erhöht werden
 };
 
 
@@ -144,6 +146,9 @@ typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrun
 
 // Konfigurations-Variablen
 // ====================
+bool MitWaehlscheibe; //!< Gerät het eine Wählscheibe
+
+uint8_t WahlauffordImpulsLaenge; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
 
 uint8_t AnrufAbbruchZeit; //!< Maximale Zeit zwichen Aktivierung Anrufsignal und Ende des Hochlaufs des Fernschreibers
 
@@ -579,7 +584,6 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	StartTimer(&TasteTimer);
 	while (1)
 		{
-		// FernschrIO muss hier nicht aufgerufen werden, da die Generierung des Sinus im Timer-Interrupt erfolgt.
 		wdt_reset();
 
 		if (TimerVal(&TasteTimer) > 400)
@@ -767,6 +771,7 @@ static void LokalbetriebSimulieren()
 	clr_LEDROT();
 	}
 
+
 /////////////////////////////////////////////////////////////
 
 //! Wird aufgerufen, wenn bei gehender Verbindung zu lange nicht gewählt wird.
@@ -794,8 +799,81 @@ static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	
 /////////////////////////////////////////////////////////////
 
-//! Wickelt die gehende Wahl ab. 
+//! Wickelt die gehende Wahl ab bei vorhandener Wählscheibe.
 //----------------------------------------------
+//! \retval true bei erfolgreichem Verbindungsaufbau.
+
+static bool WahlMitWaehlscheibe()
+	{
+	uint8_t Wahlziffer;
+	TMsTimer WahlendeTimer;
+	bool EsWurdeGewaehlt;
+
+	// kurzzeitiger Mißbrauch von WahlendeTimer für Wahlaufforderung: 0,3 Sek unterbrechung
+	StartTimer(&WahlendeTimer);
+	EsWurdeGewaehlt = false;
+	while (TimerVal(&WahlendeTimer) < 700)
+		FernschrIO();
+
+	BefehlMark = false;
+	
+	StartTimer(&WahlendeTimer);
+	while (TimerVal(&WahlendeTimer) < 10 * WahlauffordImpulsLaenge) 
+		FernschrIO();
+		
+	BefehlMark = true;
+
+	// AutoWahlZiffern vorweg in den Wählpuffer schreiben
+	for (Wahlziffer = 0 ; Wahlziffer < AutoWahlMaxZiffern ; Wahlziffer++)
+		// Wahlziffer wird als Index missbraucht
+		if (AutoWahlZiffern[Wahlziffer] <= 9)
+			GeWaehlen(AutoWahlZiffern[Wahlziffer]);
+		else
+			break;
+		
+	Wahlziffer = 0;
+	StartTimer(&WahlendeTimer); // der Timer prüft auch, ob überhaupt gewählt wird...
+	while (true)
+		{
+		FernschrIO();
+		if (!MeldungMark)
+			{ // Pause durch Wählscheibe
+			Wahlziffer++;
+			do
+				FernschrIO();
+			while (!MeldungMark && MeldungEingeschaltet);
+			StartTimer(&WahlendeTimer);
+			}
+		
+		if (!MeldungEingeschaltet || KoAusschalten())
+			return false;
+			
+		if (Wahlziffer > 0 && TimerVal(&WahlendeTimer) > 200)
+			{
+			if (Wahlziffer > 9)
+				GeWaehlen(0);
+			else
+				GeWaehlen(Wahlziffer);
+			Wahlziffer = 0;
+			EsWurdeGewaehlt = true;
+			}
+			
+		if (KoEinschalten())
+			return true;
+
+		if (TimerVal(&WahlendeTimer) > (EsWurdeGewaehlt ? 45000 : 15000)) // 15 / 45 Sekunden nicht gewählt
+			{ // auf das Ausschalten durch die Schlusstaste warten
+			AbschaltungZuLangeWahlpause(EsWurdeGewaehlt);
+			return false;
+			}
+		} // while (true)
+	}
+	
+	
+/////////////////////////////////////////////////////////////
+
+//! Wickelt die gehende Wahl ab bei nicht vorhandener Wählscheibe.
+//----------------------------------------------------------------
 //! Tastaturwahl. 
 //! \retval true bei erfolgreichem Verbindungsaufbau.
 
@@ -811,7 +889,7 @@ static bool WahlMitTastatur()
 
 	SeriellUmsetzInit();
 		
-	LokalCodeAusgabe(TtyCodeZiUm);
+	// LokalCodeAusgabe(TtyCodeZiUm);
 	BaudotMode_SetZiffern(BaudotMode);
 
 	// AutoWahlZiffern vorweg in den Wählpuffer schreiben
@@ -884,7 +962,7 @@ static bool WahlMitTastatur()
   
 /////////////////////////////////////////////////////////////
 
-//! Wickelt ausgehende Verbdindungen vollständig ab.
+//! Wickelt ausgehende Verbindungen vollständig ab.
 //--------------------------------------------------
 //! Ruft VerbindungSteht() auf. Kehrt erst nach Verbindungsabbau wieder zurück.
 
@@ -908,7 +986,16 @@ static void VerbindungGehend()
 
 	bool Verbunden = false;
 	
-	Verbunden = WahlMitTastatur();
+	if (MitWaehlscheibe)
+		{
+		Verbunden = WahlMitWaehlscheibe();
+		if (Verbunden)
+			FernschrEinschalten(true);
+		}
+	else // ohne Waehlscheibe
+		{
+		Verbunden = WahlMitTastatur();
+		}
 
 	if (!Verbunden)
 		{
@@ -934,7 +1021,7 @@ static void VerbindungGehend()
 	else // Verbunden = true
 		{ 
 		if (GeEinschaltQuittung())  // endgültige Einschaltung bestätigen
-			VerbindungSteht(true);
+			VerbindungSteht(!MitWaehlscheibe); // wenn keine Wählscheibe, dann automatische Kennungsgeber-Abfrage
 		else
 			{ // Fehler
 			GeAusschalten(true);
@@ -1117,12 +1204,13 @@ static void Konfiguration()
 	Abbruch = !KonfigurationAllgemein(); 
 	if (Abbruch) 
 		return;
-
 	
 	// jetzt bei einfacher Konfiguration abbrechen
 	// -------------------------------------------
 	if (NoExpertSettings)
 		{
+		MitWaehlscheibe = false;
+		WahlauffordImpulsLaenge = 20;
 		KommendSperreWahl = KommendSperreWahl_Std;
 		LokalbetriebWahl = LokalbetriebWahl_Std;
 		AnrufAbbruchZeit = AnrufAbbruchZeit_Std;
@@ -1132,6 +1220,45 @@ static void Konfiguration()
 		AutoWahlZiffern[0] = 255; // Ende-Kennzeichen
 		LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
 		return;
+		}
+
+	// Wählscheibe vorhanden?
+	// ----------------------
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n has rotary dial? current: ")); 
+#else	
+	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden? aktuell: ")); 
+#endif //def SPRACHE_EN
+
+	LokalBoolAusgabe(MitWaehlscheibe);
+	LokalTextAusgabeP(NeuStrP);
+
+	if (LokalBoolEingabe(&MitWaehlscheibe) == 0)
+		return;
+
+	LokalTextAusgabeP(OkStrP);
+
+	if (MitWaehlscheibe)
+		{
+		// Länge Wahlaufforderungsimpuls?
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("\r\n duration dial proceed pulse: cur. "));
+		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
+		LokalTextAusgabeP(PSTR("/100 sec, "));
+#else
+		LokalTextAusgabeP(PSTR("\r\n laenge wahlauff-imp.: akt. "));
+		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
+		LokalTextAusgabeP(PSTR("/100 sek, "));
+#endif //def SPRACHE_EN
+		LokalTextAusgabeP(NeuStrP);
+
+		if (LokalZahlEingabe(&WahlauffordImpulsLaenge, 0) < 0)
+			return;
+
+		if (WahlauffordImpulsLaenge < 1)
+			WahlauffordImpulsLaenge = 1;
+
+		LokalTextAusgabeP(OkStrP);
 		}
 
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
@@ -1357,6 +1484,10 @@ static void KonfigurationEnde()
 	
 	KonfigSchreibeByte(EEAdr_UmleitungAbweisen, UmleitungAbweisen);
 
+	KonfigSchreibeBool(EEAdr_MitWaehlscheibe, MitWaehlscheibe);
+
+	KonfigSchreibeByte(EEAdr_WahlauffordImpulsLaenge, WahlauffordImpulsLaenge);
+
 	KonfigSchreibeByte(EEAdr_KommendSperreWahl, KommendSperreWahl);
 
 	KonfigSchreibeByte(EEAdr_LokalbetriebWahl, LokalbetriebWahl);
@@ -1546,6 +1677,9 @@ int main()
 	BusEigenAdrMehrfach = 1;
 	RundsendEmpfFreig = true;
 	
+	MitWaehlscheibe = KonfigLeseBool(EEAdr_MitWaehlscheibe, true);
+	WahlauffordImpulsLaenge = KonfigLeseByteBegrenzt(EEAdr_WahlauffordImpulsLaenge, 20, 1, 100);
+
 	UmleitungAbweisen = KonfigLeseBool(EEAdr_UmleitungAbweisen, false);
 
 	KommendSperreWahl = KonfigLeseByteBegrenzt(EEAdr_KommendSperreWahl, KommendSperreWahl_Std, 0, 99);
@@ -1594,7 +1728,7 @@ int main()
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 250)
 		;
-		
+	
 	// Bei Tastendruck Selbsttest
 	bool SelbsttestAusfuehen = get_TASTE();
 
@@ -1685,6 +1819,7 @@ int main()
 		clr_LEDBLAU();
 
 		TastePruefen();
+		
 		FernschrIO();
 
 		if (Tastendruck == Lang)
