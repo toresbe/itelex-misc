@@ -62,6 +62,21 @@
 #endif // USTTY Zi / Figs
 
 
+// für SCHWEDEN:
+// ----=========
+#if defined(AF_TTYCODE_SWITCHABLE) || defined(TTYCODE_SE) 
+
+#include "BaudotCode_SE.h"
+
+#ifndef AF_TTYCODE_SWITCHABLE
+#define TtyCodeTabZi TtyCodeTab_SE_Zi
+#define ErsetzTab NULL
+#endif					
+
+#endif // USTTY Zi / Figs
+
+
+
 // für GRIECHISCH (CP737) 
 // ----==========
 #if defined(AF_TTYCODE_SWITCHABLE) || defined(TTYCODE_GREEK_CP737)
@@ -132,6 +147,8 @@ PROGMEM char TtyCodeTabKy[] 			= { '#', 244,'\r', 239, ' ', 232, 238, 237,'\n', 
 */
 
 // ARBEITSVORRAT*/
+
+
 
 
 
