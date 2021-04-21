@@ -5,6 +5,8 @@
 "C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C PlatVer21
 "C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C PlatVer21-CodeSw
 "C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C PlatVer21-Full
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C PlatVer21-EN-CodeSw
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C PlatVer21-EN-Full
 "C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C OhneSpeicher13
 "C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C USTTY-45_21
 "C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C 110-7_21
