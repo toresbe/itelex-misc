@@ -323,10 +323,10 @@ static void FernschrIO()
 	if (BefehlEinschalten && BefehlMark)
 		SinAusgInc = SEND_MARK_FAKTOR;
 	else
-		{
 		SinAusgInc = SEND_SPACE_FAKTOR;
+		
+	if (BefehlEinschalten && !BefehlMark)
 		SpaceSperre = true;
-		}
 		
 	// Messungen auswerten
 	uint8_t AnzMesswerte = 0;
@@ -815,12 +815,14 @@ static bool WahlMitWaehlscheibe()
 	while (TimerVal(&WahlendeTimer) < 700)
 		FernschrIO();
 
-	BefehlMark = false;
+	BefehlEinschalten = true; // speziell ED1000
+	BefehlMark = true;
 	
 	StartTimer(&WahlendeTimer);
 	while (TimerVal(&WahlendeTimer) < 10 * WahlauffordImpulsLaenge) 
 		FernschrIO();
 		
+	BefehlEinschalten = false; // speziell ED1000
 	BefehlMark = true;
 
 	// AutoWahlZiffern vorweg in den Wählpuffer schreiben
