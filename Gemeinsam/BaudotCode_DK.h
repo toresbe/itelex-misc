@@ -2,7 +2,7 @@
 
 // figures level
 // =======================                         0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   
-PROGMEM const char TtyCodeTab_SE_Zi[]         = { '#', '5','\r', '9', ' ', 'ø', ',', '.','\n', ')', '4', 'æ', '8', '0', ':', '=', 
+PROGMEM const char TtyCodeTab_DK_Zi[]         = { '#', '5','\r', '9', ' ', 'ø', ',', '.','\n', ')', '4', 'æ', '8', '0', ':', '=', 
 // latin ITA2 equivalent:        		      = { '#', '5','\r', '9', ' ', '#', ',', '.','\n', ')', '4', '#', '8', '0', ':', '=', 
 // latin ITA2 equivalent in letters shift:        '#', 't','\r', 'o', ' ', 'h', 'n', 'm','\n', 'l', 'r', 'g', 'i', 'p', 'c', 'v', 
                                    

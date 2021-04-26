@@ -1385,10 +1385,11 @@ bool KonfigHwHandshake;
 #ifdef AF_TTYCODE_SWITCHABLE
 
 #ifdef SPRACHE_EN				
-PROGMEM const char CodepageSelectStrP[] = "\r\nselect character set: 0=ita2 1=ustty 2=KOI7N2 3=KOI8-R 4=Greek 5=Nordic: ";
+PROGMEM const char CodepageSelectStrP[] = "\r\nselect character set: 0=ita2 1=ustty 2=KOI7N2 3=KOI8-R 4=Greek 5=Swedish 6=Dansk: ";
 #else
-PROGMEM const char CodepageSelectStrP[] = "\r\nZeichensatz waehlen: 0=ita2 1=ustty 2=KOI7N2 3=KOI8-R 4=Griechisch 5=Nordisch: ";
-#endif					
+PROGMEM const char CodepageSelectStrP[] = "\r\nZeichensatz waehlen: 0=ita2 1=ustty 2=KOI7N2 3=KOI8-R 4=Griechisch 5=Schwedish 6=Daenish: ";
+#endif		
+// diese Liste muss den verfügbaren Zeichensätzen von #CodeTabWechsel entsprechen.
 
 #endif //def AF_TTYCODE_SWITCHABLE
 
@@ -1719,7 +1720,7 @@ int main()
 #endif //def AF_ZEITSPERRE
 
 #ifdef AF_TTYCODE_SWITCHABLE
-	CodeIndex = KonfigLeseByteBegrenzt(EEAdr_Zeichensatz, 0, 0, 5);
+	CodeIndex = KonfigLeseByteBegrenzt(EEAdr_Zeichensatz, 0, 0, MAX_CODETAB_IDX);
 #endif //def AF_TTYCODE_SWITCHABLE
 
 #ifdef AF_ANRUFSPEICHER
@@ -1984,7 +1985,7 @@ int main()
 					if (LokalZahlEingabe(&CodeIndex, 1) < 0)
 						break;
 					
-					if (CodeIndex > 5)
+					if (CodeIndex > MAX_CODETAB_IDX)
 						{
 						#ifdef SPRACHE_EN				
 						LokalTextAusgabeP(PSTR("\r\ninvalid selection"));

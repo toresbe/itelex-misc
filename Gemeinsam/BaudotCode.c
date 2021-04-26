@@ -10,6 +10,12 @@
 #define KL CodeChrKlingel 
 #define WD CodeChrWerDa 
 
+// USTTY ist ein Alias für TTYCODE_US
+#if defined(USTTY) && ! defined(TTYCODE_US)
+#define TTYCODE_US
+#endif
+
+
 // 15.01.2019: komplette umstrukturierung für verschiedene 'codepages':
 // defines für codepages: 
 //   AF_TTYCODE_SWITCHABLE für umschaltbare Tabellen (ungetestet)
@@ -18,7 +24,8 @@
 //   TTYCODE_RUSSIAN_KOI8R für Kyrillisch mit 8 Bit
 //   TTYCODE_
 //   TTYCODE_GREEK_CP737 für Griechich
-//   TTYCODE_NORDIC für Norwegen / Schweden (noch nicht implementiert)
+//   TTYCODE_SCHWEDISCH für Schweden (A°, Ä, Ö) (noch nicht implementiert)
+//   TTYCODE_DAENISCH für Dänemark (AE, A°, O/)
 
 
 // falls ich mal UTF-8 verwenden will: Umsetzung v.u.n. Unicode siehe 
@@ -73,7 +80,21 @@
 #define ErsetzTab NULL
 #endif					
 
-#endif // USTTY Zi / Figs
+#endif // Schwedisch Zi
+
+
+// für DÄNEMARK:
+// ----=========
+#if defined(AF_TTYCODE_SWITCHABLE) || defined(TTYCODE_DK) 
+
+#include "BaudotCode_DK.h"
+
+#ifndef AF_TTYCODE_SWITCHABLE
+#define TtyCodeTabZi TtyCodeTab_DK_Zi
+#define ErsetzTab NULL
+#endif					
+
+#endif // Schwedisch Zi
 
 
 
@@ -158,6 +179,7 @@ PROGMEM char TtyCodeTabKy[] 			= { '#', 244,'\r', 239, ' ', 232, 238, 237,'\n', 
 
 // für Großbuchstaben (ITA2):
 // ----==============--------
+// wird nur verwendet, falls die ASCII-Kleinbuchstaben durch andere Zeichen belegt sind, das gibt es (bisher) nur bei KOI7N
 
 #if defined(AF_TTYCODE_SWITCHABLE) || defined(TTYCODE_RUSSIAN_KOI7N2)
 //                          			     0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   
@@ -175,6 +197,7 @@ PROGMEM const char TtyCodeTab_Gross_Bu[]= { '#', 'T','\r', 'O', ' ', 'H', 'N', '
 
 // für Kleinbuchstaben = ITA2:
 // ----===============--------
+// dies ist der (europäische) Standard
 								   
 #if defined(AF_TTYCODE_SWITCHABLE) || !defined(TtyCodeTabBu)
 //                                           0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   
@@ -343,6 +366,22 @@ void CodeTabWechsel(uint8_t Mode)
 			TtyCodeTab3E = TtyCodeTab_GR737_3E;
 			ErsetzTab = NULL;
 			DritteEbeneVorhanden = true;
+			GrossZuKleinbuchstaben = true;
+			break;
+			
+		case 5: // SE
+			TtyCodeTabBu = TtyCodeTab_STD_Bu;
+			TtyCodeTabZi = TtyCodeTab_SE_Zi;
+			ErsetzTab = NULL;
+			DritteEbeneVorhanden = false;
+			GrossZuKleinbuchstaben = true;
+			break;
+			
+		case 6: // DK
+			TtyCodeTabBu = TtyCodeTab_STD_Bu;
+			TtyCodeTabZi = TtyCodeTab_DK_Zi;
+			ErsetzTab = NULL;
+			DritteEbeneVorhanden = false;
 			GrossZuKleinbuchstaben = true;
 			break;
 			
