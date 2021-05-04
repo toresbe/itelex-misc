@@ -2,6 +2,11 @@
 // Fernschreiber-Schnittstelle ED1000 für i-Telex-System
 //	für ATmega168 auf Platine ED1000
 //================================================================
+//				
+//  
+//================================================================
+// verwendete Pins siehe Ports.h
+//================================================================
 
 #include <avr/io.h>
 #include <avr/pgmspace.h>
@@ -135,7 +140,8 @@ enum {
 	EEAdr_StartQuittVerz = 36,
     EEAdr_MitWaehlscheibe = 37,
     EEAdr_WahlauffordImpulsLaenge = 38,
-	EEAdr_Ende = 39 // darf erhöht werden
+	EEAdr_TastaturwahlStartZeichen = 39,
+	EEAdr_Ende = 40 // darf erhöht werden
 };
 
 
@@ -149,6 +155,8 @@ typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrun
 bool MitWaehlscheibe; //!< Gerät het eine Wählscheibe
 
 uint8_t WahlauffordImpulsLaenge; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
+
+uint8_t TastaturwahlStartZeichen; //!< Welches Zeichen als Start der Tastaturwahl ausgeben? (Standard = 'v' = 15)
 
 uint8_t AnrufAbbruchZeit; //!< Maximale Zeit zwichen Aktivierung Anrufsignal und Ende des Hochlaufs des Fernschreibers
 
@@ -809,7 +817,7 @@ static bool WahlMitWaehlscheibe()
 	TMsTimer WahlendeTimer;
 	bool EsWurdeGewaehlt;
 
-	// kurzzeitiger Mißbrauch von WahlendeTimer für Wahlaufforderung: 0,3 Sek unterbrechung
+	// kurzzeitiger Missbrauch von WahlendeTimer für Wahlaufforderung: 0,3 Sek unterbrechung
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
 	while (TimerVal(&WahlendeTimer) < 700)
@@ -885,15 +893,28 @@ static bool WahlMitTastatur()
 	TMsTimer WahlendeTimer;
 	bool EsWurdeGewaehlt;
 	int Falschziffern;
+
+	// kurzzeitiger Missbrauch von WahlendeTimer für das "Anfangstiming"
+	StartTimer(&WahlendeTimer);
+	while (TimerVal(&WahlendeTimer) < 100)
+		FernschrIO();
 	
 	if (!FernschrEinschalten(false))
 		return false;
 
 	SeriellUmsetzInit();
-		
-	// LokalCodeAusgabe(TtyCodeZiUm);
+
 	BaudotMode_SetZiffern(BaudotMode);
 
+	if (TastaturwahlStartZeichen > 0)
+		{
+		StartTimer(&WahlendeTimer);
+		while (TimerVal(&WahlendeTimer) < 700)
+			FernschrIO();
+
+		LokalCodeAusgabe(TastaturwahlStartZeichen);			
+		}
+			
 	// AutoWahlZiffern vorweg in den Wählpuffer schreiben
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
@@ -1212,7 +1233,8 @@ static void Konfiguration()
 	if (NoExpertSettings)
 		{
 		MitWaehlscheibe = false;
-		WahlauffordImpulsLaenge = 20;
+		WahlauffordImpulsLaenge = 3;
+		TastaturwahlStartZeichen = 0; // keines
 		KommendSperreWahl = KommendSperreWahl_Std;
 		LokalbetriebWahl = LokalbetriebWahl_Std;
 		AnrufAbbruchZeit = AnrufAbbruchZeit_Std;
@@ -1259,6 +1281,26 @@ static void Konfiguration()
 
 		if (WahlauffordImpulsLaenge < 1)
 			WahlauffordImpulsLaenge = 1;
+
+		LokalTextAusgabeP(OkStrP);
+		}
+	else
+		{
+		// Startcode für Tastaturwahl
+#ifdef SPRACHE_EN
+		LokalTextAusgabeP(PSTR("\r\n start code for dialling (0 = none, 15 = v): cur. "));
+		LokalZahlAusgabe(TastaturwahlStartZeichen, 0);
+#else
+		LokalTextAusgabeP(PSTR("\r\n start code fuer wahlaufforderung (0 = kein, 15 = v): akt. "));
+		LokalZahlAusgabe(TastaturwahlStartZeichen, 0);
+#endif //def SPRACHE_EN
+		LokalTextAusgabeP(NeuStrP);
+
+		if (LokalZahlEingabe(&TastaturwahlStartZeichen, 0) < 0)
+			return;
+
+		if (TastaturwahlStartZeichen > 31)
+			TastaturwahlStartZeichen = 31;
 
 		LokalTextAusgabeP(OkStrP);
 		}
@@ -1490,6 +1532,8 @@ static void KonfigurationEnde()
 
 	KonfigSchreibeByte(EEAdr_WahlauffordImpulsLaenge, WahlauffordImpulsLaenge);
 
+	KonfigSchreibeByte(EEAdr_TastaturwahlStartZeichen, TastaturwahlStartZeichen);
+
 	KonfigSchreibeByte(EEAdr_KommendSperreWahl, KommendSperreWahl);
 
 	KonfigSchreibeByte(EEAdr_LokalbetriebWahl, LokalbetriebWahl);
@@ -1680,13 +1724,16 @@ int main()
 	RundsendEmpfFreig = true;
 	
 	MitWaehlscheibe = KonfigLeseBool(EEAdr_MitWaehlscheibe, true);
-	WahlauffordImpulsLaenge = KonfigLeseByteBegrenzt(EEAdr_WahlauffordImpulsLaenge, 20, 1, 100);
+	
+	WahlauffordImpulsLaenge = KonfigLeseByteBegrenzt(EEAdr_WahlauffordImpulsLaenge, 3, 1, 100); // ED1000 -> vsl elektronische Maschine
+
+	TastaturwahlStartZeichen = KonfigLeseByteBegrenzt(EEAdr_TastaturwahlStartZeichen, 0, 0, 31); // ED1000 -> vsl elektronische Maschine
 
 	UmleitungAbweisen = KonfigLeseBool(EEAdr_UmleitungAbweisen, false);
 
 	KommendSperreWahl = KonfigLeseByteBegrenzt(EEAdr_KommendSperreWahl, KommendSperreWahl_Std, 0, 99);
 
-	TasteFunktion = KonfigLeseByteBegrenzt(EEAdr_TasteFunktion, 0, 0, 1); // KEIN Bool
+	TasteFunktion = KonfigLeseByteBegrenzt(EEAdr_TasteFunktion, 0, 0, 2); // KEIN Bool
 
 	SperrzeitLadeEeprom(EEAdr_Sperrzeit);
 
