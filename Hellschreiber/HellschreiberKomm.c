@@ -1195,7 +1195,19 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 					case 'N':
 						GeSendeCode(TtyCodeWR);
 						GeSendeCode(TtyCodeZL);
+						LokalZeichenAusgabe(' ');
 						ZeilePosition = 0;
+						break;
+
+					case 'R':
+						GeSendeCode(TtyCodeWR);
+						LokalZeichenAusgabe(' ');
+						ZeilePosition = 0;
+						break;
+
+					case 'Z':
+						GeSendeCode(TtyCodeZL);
+						LokalZeichenAusgabe(' ');
 						break;
 
 					case 'H': // hier ist

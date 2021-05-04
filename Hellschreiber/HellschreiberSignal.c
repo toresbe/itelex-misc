@@ -1032,7 +1032,7 @@ int main(void)
 	GrundstellungHerstellen();
 
 	while (TimerVal(&StartSperre) < 20000)
-		{  // 15 Sekunden jede Verbindung ablehnen. Zur Offenbarung von Abstürzen.
+		{  // 20 Sekunden jede Verbindung ablehnen. Zur Offenbarung von Abstürzen.
 		PollTwi();
 		PufferInit(&HellAusgZeichenPuffer); // ggf. ankommende Zeichen löschen
 		if (IstHellschreiberBereit())

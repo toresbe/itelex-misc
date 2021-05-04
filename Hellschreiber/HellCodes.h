@@ -49,6 +49,6 @@ const PROGMEM uint16_t HellFontTab[] = {
 0 };
 
 // HellFont.h enthält auch die Definition der Sonderzeichen. Die ggf. nicht genutzte
-// Tabelle der Bitmuster wird wegoptimiert.
+// Tabelle der Bitmuster wird wegoptimiert (im Kommunikationsprozessor).
 
 #endif /* HELLCODES_H_ */
