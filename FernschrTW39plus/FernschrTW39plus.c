@@ -578,7 +578,7 @@ static bool WahlMitWaehlscheibe()
 	TMsTimer WahlendeTimer;
 	bool EsWurdeGewaehlt;
 
-	// kurzzeitiger Mißbrauch von WahlendeTimer für Wahlaufforderung: 0,3 Sek unterbrechung
+	// kurzzeitiger Missbrauch von WahlendeTimer für Wahlaufforderung: 0,3 Sek unterbrechung
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
 	while (TimerVal(&WahlendeTimer) < 700)
@@ -657,8 +657,7 @@ static bool WahlMitTastatur()
 		return false;
 
 	SeriellUmsetzInit();
-		
-	LokalCodeAusgabe(TtyCodeZiUm);
+
 	BaudotMode_SetZiffern(BaudotMode);
 
 	// AutoWahlZiffern vorweg in den Wählpuffer schreiben
@@ -694,7 +693,7 @@ static bool WahlMitTastatur()
 				LokalbetriebSimulieren();
 				return false;
 				}
-			else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
+			else if (c != 0 && c != ' ' && c != '+' && c != '\r' && c != '\n')
 				{
 				Falschziffern++;
 				}
@@ -1448,7 +1447,7 @@ int main()
 
 	KommendSperreWahl = KonfigLeseByteBegrenzt(EEAdr_KommendSperreWahl, KommendSperreWahl_Std, 0, 99);
 
-	TasteFunktion = KonfigLeseByteBegrenzt(EEAdr_TasteFunktion, 0, 0, 1); // KEIN Bool
+	TasteFunktion = KonfigLeseByteBegrenzt(EEAdr_TasteFunktion, 0, 0, 2); // KEIN Bool
 
 	SperrzeitLadeEeprom(EEAdr_Sperrzeit);
 
