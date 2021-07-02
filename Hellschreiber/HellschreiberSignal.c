@@ -23,6 +23,9 @@
 #include "../SvnVersion.h"
 
 
+#define NO_WATCHDOG
+
+
 #define HELL_STARTCODE 0x0FF0 // Startimpuls
 #define HELL_PIXEL_PRO_REIHE 14 // 14 Pixel übereinander
 #define HELL_REIHEN_PRO_ZEICHEN 7 // 7 Pixel nebeneinander (inkl. "Startbits")
@@ -725,7 +728,9 @@ static void WarteAufEinschaltungKommendOderGehend()
 		if (!WatchdogAktiv && get_SCL())
 			{
 			WatchdogAktiv = true;
+#ifndef NO_WATCHDOG
 			wdt_enable(WDTO_1S);
+#endif //ndef NO_WATCHDOG
 			}
 
 		if (IstHellschreiberBereit())
