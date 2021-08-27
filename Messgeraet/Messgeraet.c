@@ -827,7 +827,7 @@ static void VerbindungBildlocher()
 //! \param Funktion Welches Bit / welche Bits sind zu verzerren:
 //! 1-5 = Datenbits, 6 = Startbit, 7 = Stopbit, 8 = alle, 9 = Pegelverzerrung.
 //! \param Code Baudot-Code des zu sendenden Zeichens.
-//! \param Zerrgrad Grad der Verzerrung (Millisekunden oder Prozent)
+//! \param Zerrgrad Grad der Verzerrung (Millisekunden bzw. Prozent bei Funktion 8)
 static void PruefSendeZeichen(uint8_t Funktion, uint8_t Code, int8_t Zerrgrad)
 	{
 	TMsTimer SendeTimer;
@@ -836,8 +836,8 @@ static void PruefSendeZeichen(uint8_t Funktion, uint8_t Code, int8_t Zerrgrad)
 	uint8_t Bit;
 
 	for (Bit = 0 ; Bit <= 5 ; Bit++)
-		TimerTab[Bit] = 20 * (Bit + 1);
-	TimerTab[6] = 150; // Stop-Bit
+		TimerTab[Bit] = BIT_LENGTH * (Bit + 1);
+	TimerTab[6] = BIT_LENGTH * 7 + BIT_LENGTH / 2; // Stop-Bit
 
 	Code |= 0xE0;
 
@@ -916,10 +916,12 @@ static void PruefSendeZeichen(uint8_t Funktion, uint8_t Code, int8_t Zerrgrad)
 //! 1-5 = Datenbits, 6 = Startbit, 7 = Stopbit, 8 = alle, 9 = Pegelverzerrung.
 static void Pruefsendung(uint8_t Funktion)
 	{
-				// Funktionen:		0,	1,	2,	3,	4,	5,	6,	7,	8,	9 
-	static int8_t ZerrgradMin[] = { 0, -10,-10,-10,-10,-10,-10,-10,-10, -5 };
-	static int8_t ZerrgradMax[] = { 0,	10,	10,	10,	10,	10,	10, 10, 10,  5 };
-		 
+	#define BLH (BIT_LENGTH / 2)
+				// Funktionen:		0,	 1,   2,   3,   4,   5,   6,   7,   8,   9 
+	static int8_t ZerrgradMin[] = { 0, -BLH,-BLH,-BLH,-BLH,-BLH,-BLH,-BLH,-11 ,-BLH };
+	static int8_t ZerrgradMax[] = { 0,	BLH, BLH, BLH, BLH,	BLH, BLH, BLH, 11 , BLH }; // Funktion 8: Angabe in %
+	#undef BLH
+	
 	int8_t Zerrgrad;
 	uint8_t Pos;
 
