@@ -1423,6 +1423,9 @@ int main()
 	init_TASTE();
 	init_SV_EIN();
 	init_TASTEEXT();
+
+// HACK für Debugging des Timing Serielle Abtastung
+	SET_BIT(DDRB, 3);
 	
 	//init_TASTE2();
 

@@ -76,6 +76,23 @@ static void EmpfPegelBearbeiten(bool SeriellEing)
 	}
 
 
+// HACK: Debugging passt für TW39-Platine:
+#include <avr/io.h> 
+#define Debug_SerUmEmpfAbtastStart(bit) SET_BIT(PORTB, 3)
+#define Debug_SerUmEmpfAbtastEnde(bit) CLR_BIT(PORTB, 3)
+// PORT B3 = MOSI = Pin 1 Programmierstecker
+
+
+#ifndef Debug_SerUmEmpfAbtastStart
+
+static inline void nop(uint8_t bit) { }
+
+#define Debug_SerUmEmpfAbtastStart(bit) nop(bit)
+#define Debug_SerUmEmpfAbtastEnde(bit) nop(bit)
+
+#endif
+
+
 //! Durchführung der Seriell - Parallel - Umsetzung und umgekehrt.
 // ----------------------------------------------------------------
 //! Funktion ist zyklisch aufzurufen, um die Umsetzung durchzuführen.
@@ -147,16 +164,21 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 				SerUmEmpfDaten = 0;
 				SerUmEmpfPegel = 128; // Mittel
 				SerUmEmpfFehler = false;
+				Debug_SerUmEmpfAbtastStart(1); // Start-Bit
 				}
 			break;
 
 		case 1: // im Start-Bit
 			EmpfPegelBearbeiten(SeriellEing);
 			if (SerUmEmpfPegel > 150) // zu viele 1-Impulse im Startbit --> von vorn
+				{
 				SerUmEmpfBitNr = SerUmEmpfWarte; //! \todo Zum debuggen etwas vorsehen.
+				Debug_SerUmEmpfAbtastEnde(1);
+				}
 			else if (TimerVal(&SerUmTimerE) > BIT_LENGTH / 2) 
 				{
 				// Wir sind in der Mitte des Startbits...
+				Debug_SerUmEmpfAbtastEnde(1);
 				if (SerUmEmpfPegel < 128) // Startbit gültig, Daten empfangen
 					{
 					SerUmEmpfBitNr = 2;
@@ -176,9 +198,11 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 		case 2 ... 6 : // Datenbit
 			if (TimerVal(&SerUmTimerE) < BIT_LENGTH - 4) 
 				break; // nur die letzten 4 Milli-Sekunden auswerten
+			Debug_SerUmEmpfAbtastStart(SerUmEmpfBitNr); // wird ggf. mehrfach aufgerufen!
 			EmpfPegelBearbeiten(SeriellEing);
 			if (TimerVal(&SerUmTimerE) >= BIT_LENGTH) // Bit beendet
 				{
+				Debug_SerUmEmpfAbtastEnde(SerUmEmpfBitNr);
 				SerUmEmpfDaten <<= 1;
 				if (SerUmEmpfPegel >= 128)
 					SerUmEmpfDaten |= 1;
@@ -194,32 +218,23 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 				// Anfang beginnend. Beim Stop-Bit wird das genauso gemacht, da bleiben dann 
 				// aber nach Ende des Abtast-Bereichs noch 28 ms übrig.
 				break;
+			Debug_SerUmEmpfAbtastStart(7); // wird ggf. mehrfach aufgerufen!
 			EmpfPegelBearbeiten(SeriellEing);
 			if (TimerVal(&SerUmTimerE) >= BIT_LENGTH * 3/4) // die Hälfte des 3/4 Bit beendet
 				{
-				if (SerUmEmpfBitNr == 7)
-					{ // es war das Stopbit
-					if (SeriellEing) // Strom wieder da
-						{
-						SerUmEmpfFehler = (SerUmEmpfPegel < 128); 
-						SerUmEmpfBitNr = SerUmEmpfFertig;
-						StartTimer(&SerUmTimerE); 
-							// wird noch mal gestartet, damit beim Umsetzen für die Ausgabe
-							// noch der beginn des nächsten ggf. im Empfang laufenden Zeichens 
-							// gewartet wird.
-						}
-					else
-						{ // Strom immer noch unterbrochen
-						}
+				Debug_SerUmEmpfAbtastEnde(7);
+				if (SeriellEing) // Strom wieder da
+					{
+					SerUmEmpfFehler = (SerUmEmpfPegel < 128); 
+					SerUmEmpfBitNr = SerUmEmpfFertig;
+					StartTimer(&SerUmTimerE); 
+						// wird noch mal gestartet, damit beim Umsetzen für die Ausgabe
+						// noch der beginn des nächsten ggf. im Empfang laufenden Zeichens 
+						// gewartet wird.
 					}
 				else
-					{ // das war ein Datenbit
-					SerUmEmpfDaten <<= 1;
-					if (SerUmEmpfPegel >= 128)
-						SerUmEmpfDaten |= 1;
-					SerUmEmpfBitNr++;
-					DecrementTimer(&SerUmTimerE, BIT_LENGTH);
-					SerUmEmpfPegel = 128;
+					{ // Strom immer noch unterbrochen -> Kann eigentlich kein Stopbit sein.
+					// TODO: Was soll das und was bringt das eigentlich?
 					}
 				}
 			break;
