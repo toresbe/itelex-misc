@@ -76,10 +76,10 @@ static void EmpfPegelBearbeiten(bool SeriellEing)
 	}
 
 
-// HACK: Debugging passt für TW39-Platine:
-#include <avr/io.h> 
-#define Debug_SerUmEmpfAbtastStart(bit) SET_BIT(PORTB, 3)
-#define Debug_SerUmEmpfAbtastEnde(bit) CLR_BIT(PORTB, 3)
+// Debugging passt für TW39-Platine:
+// #include <avr/io.h> 
+// #define Debug_SerUmEmpfAbtastStart(bit) SET_BIT(PORTB, 3)
+// #define Debug_SerUmEmpfAbtastEnde(bit) CLR_BIT(PORTB, 3)
 // PORT B3 = MOSI = Pin 1 Programmierstecker
 
 
