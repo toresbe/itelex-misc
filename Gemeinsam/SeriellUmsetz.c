@@ -175,7 +175,7 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 				SerUmEmpfBitNr = SerUmEmpfWarte; //! \todo Zum debuggen etwas vorsehen.
 				Debug_SerUmEmpfAbtastEnde(1);
 				}
-			else if (TimerVal(&SerUmTimerE) > BIT_LENGTH / 2) 
+			else if (TimerVal(&SerUmTimerE) >= (BIT_LENGTH+1) / 2) // +1 um besser zu runden
 				{
 				// Wir sind in der Mitte des Startbits...
 				Debug_SerUmEmpfAbtastEnde(1);
@@ -183,10 +183,8 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 					{
 					SerUmEmpfBitNr = 2;
 					SerUmEmpfPegel = 128;
-					DecrementTimer(&SerUmTimerE, BIT_LENGTH / 2 - 2);
-						// da in der Mitte des Startbits der Timer neu gestartet wird, werden die 
-						// Datenbits auch in der Mitte abgetastet. Da 4 ms abgetastet werden
-						// soll der Beginn auf Bit-Mitte - 2 ms liegen.
+					DecrementTimer(&SerUmTimerE, (BIT_LENGTH+1) / 2);
+						// Timerstart auf die Mitte des Startbits legen
 					}
 				else // Startbit nicht gültig, von vorne...
 					{
@@ -196,11 +194,11 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 			break;
 
 		case 2 ... 6 : // Datenbit
-			if (TimerVal(&SerUmTimerE) < BIT_LENGTH - 4) 
+			if (TimerVal(&SerUmTimerE) <= BIT_LENGTH - 2) 
 				break; // nur die letzten 4 Milli-Sekunden auswerten
 			Debug_SerUmEmpfAbtastStart(SerUmEmpfBitNr); // wird ggf. mehrfach aufgerufen!
 			EmpfPegelBearbeiten(SeriellEing);
-			if (TimerVal(&SerUmTimerE) >= BIT_LENGTH) // Bit beendet
+			if (TimerVal(&SerUmTimerE) >= BIT_LENGTH + 2) // Bit beendet
 				{
 				Debug_SerUmEmpfAbtastEnde(SerUmEmpfBitNr);
 				SerUmEmpfDaten <<= 1;
@@ -213,14 +211,14 @@ void SeriellUmsetzung(bool SeriellEing, bool *SeriellAusg) // und auswerten
 			break;
 			
 		case 7: // Stopbit
-			if (TimerVal(&SerUmTimerE) < BIT_LENGTH - 4) 
-				// Bei den Datenbits wurden 4 ms in der Bit-Mitte abgetastet, also 8 ms vom 
-				// Anfang beginnend. Beim Stop-Bit wird das genauso gemacht, da bleiben dann 
+			if (TimerVal(&SerUmTimerE) <= BIT_LENGTH - 2) 
+				// Bei den Datenbits wurden 4 ms in der Bit-Mitte abgetastet.
+				// Beim Stop-Bit wird das genauso gemacht, da bleiben dann 
 				// aber nach Ende des Abtast-Bereichs noch 28 ms übrig.
 				break;
 			Debug_SerUmEmpfAbtastStart(7); // wird ggf. mehrfach aufgerufen!
 			EmpfPegelBearbeiten(SeriellEing);
-			if (TimerVal(&SerUmTimerE) >= BIT_LENGTH * 3/4) // die Hälfte des 3/4 Bit beendet
+			if (TimerVal(&SerUmTimerE) >= BIT_LENGTH + 2) 
 				{
 				Debug_SerUmEmpfAbtastEnde(7);
 				if (SeriellEing) // Strom wieder da
