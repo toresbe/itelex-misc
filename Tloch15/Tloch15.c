@@ -88,15 +88,14 @@ enum { StartQuittVerzoegerung_Std = 7 }; // x/10 sekunden
 // ------------------------
 
 enum {
-	EEAdr_BusEigenAdresse = 5,
-    EEAdr_KommendSperreWahl = 6,
-	EEAdr_EigeneKennung = 101,
-	EEAdr_Sperrzeit = 132,
-    EEAdr_UmleitungAbweisen = 133,
-	EEAdr_TasteFunktion = 135,
-	EEAdr_AnrufAbbruchZeit = 134,
-	EEAdr_StartQuittVerz = 136,
-	EEAdr_Ende = 138 // darf erhöht werden
+	EEAdr_BusEigenAdresse = 0,
+    EEAdr_Sperrzeit = 4, // Beansprucht 20 Bytes
+    EEAdr_TasteFunktion = 24,
+    EEAdr_UmleitungAbweisen = 25,
+	EEAdr_AnrufAbbruchZeit = 37,
+	EEAdr_StartQuittVerz = 38,
+	EEAdr_EigeneKennung = 39,
+	EEAdr_Ende = 70 // darf erhöht werden
 }; // MaxIndex < BankOffset = 160
 
 
@@ -141,6 +140,12 @@ enum { MaxCodefolgeLaenge = 30 }; //!< Maximale Länge von #AusschaltZeichen, #Wa
 	
 uint8_t EigeneKennung[MaxCodefolgeLaenge+1];
 	//!< Text des eigenen Kennungsgeber-Simulators
+	
+PROGMEM const uint8_t EigeneKennungDefault[] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, TtyCodeZiUm, 29, 1, TtyCodeBuUm, 1, 9, 3, 14, 5 } ;
+	//!< Standardwert für #EigeneKennung
+	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
+	
+// 14, 3, 6, wäre CON	
 
 // Schnittstellen-Spezifische Funktionen
 // =====================================
@@ -201,7 +206,7 @@ static void FernschrIO()
 			{ // Strom ist aus --> Space
 			if (MeldungMark)
 				{ // der Applikation wird noch Mark gemeldet
-				if (TimerVal(&EntprellungTimer) > 3) // mindestens 3 ms konstant Space --> Space melden
+				if (TimerVal(&EntprellungTimer) >= 3) // mindestens 3 ms konstant Space --> Space melden
 					MeldungMark = false;
 				}
 			else // !MeldungMark
@@ -211,7 +216,7 @@ static void FernschrIO()
 			{ // Schleifenstrom fließt
 			if (!MeldungMark)
 				{ // der Applikation wird noch Space gemeldet
-				if (TimerVal(&EntprellungTimer) > 3) // mindestens 3 ms konstant Mark --> Mark melden
+				if (TimerVal(&EntprellungTimer) >= 3) // mindestens 3 ms konstant Mark --> Mark melden
 					MeldungMark = true;
 				}
 			else // MeldungMark
@@ -442,7 +447,7 @@ void LokalZeichenAusgabe(char c)
 	}
 			
 		
-static void VerbindungSteht(bool AutoKennungAbfrage);
+static void VerbindungSteht();
 
 static void KommendSperren(TSperreGrund Grund);
 
@@ -479,7 +484,7 @@ static void VerbindungKommend()
 		FernschrAusschalten();
 		}
 	else
-		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
+		VerbindungSteht(); 
 		
 	}
 	
@@ -497,27 +502,29 @@ static void VerbindungKommend()
 //! abgerufen werden soll. Abfrage wird solange wiederholt, bis eine lesbare Antwort 
 //! eintrifft.
 
-static void VerbindungSteht(bool AutoKennungAbfrage)
+static void VerbindungSteht()
 	{
-	TMsTimer KennungAbfrageTimer;
-	bool ErsteKennungAbfrage;
 	uint8_t KennungAusgabePhase;
+	bool Bit5unterdruecken; // sperrt WerDa und F auf der Ziffernseite
+	bool ZiffernEbene;
 	
-	StartTimer(&KennungAbfrageTimer);
-	ErsteKennungAbfrage = true;
+	KennungAusgabePhase = 0;
 
 	GeSendeMark(true); 
+	BefehlMark = true;
 
-	SendeUmsetzModus = UmsetzFern;
-	EmpfUmsetzModus = UmsetzFern; 
+	SendeUmsetzModus = UmsetzLokalUndFern; // Für Sendung der simulierten Kennung 
+	EmpfUmsetzModus = UmsetzLokal; // Für Empfang von "Antworten" 
 	KennungAusgabePhase = 0;
+	Bit5unterdruecken = false;
+	ZiffernEbene = true; // sicherheitshalber
 
 	while (true)
 		{
 		FernschrIO();
 		TastePruefen();
 
-		if (!MeldungEingeschaltet)
+		if (!MeldungEingeschaltet) // sollte eigentlich nicht passieren
 			{
 			GeAusschalten(false);
 			FernschrAusschalten();
@@ -533,48 +540,40 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			return;
 			}
 
-		BefehlMark = KoEmpfMark();
+		BefehlMark = KoEmpfMark() || Bit5unterdruecken; // damit kann aus einer 0 eine 1 gemacht werden.
 	
 		if (SerUmSendBitNr <= SerUmSendStart) // Start oder Warten...
 			GeSendeMark(MeldungMark); // Nur Fs-Pegel direkt auf Bus, wenn nicht seriell gesendet wird...
 			
 		// Auswertung des Empfangspuffers: 
-		// a) Jedes Zeichen außer Buchstaben-Umschaltung beendet die Abfrage des 'fernen' Kennungsgebers.
+		// a) ???
 		// b) Internen Kennungsgeber-'Simulator' ansteuern
 		while (!PufferLeer(&EmpfPuffer))
 			{
 			uint8_t code = PufferAusg(&EmpfPuffer);
 			if (code == TtyCodeBuUm)
-				KennungAusgabePhase = 0; // Aufgabe b)
+				{
+				ZiffernEbene = false;
+				}
+			else if (code == TtyCodeZiUm)
+				{
+				ZiffernEbene = true;
+				}
 			else
 				{
-				AutoKennungAbfrage = false; // Aufgabe a)
-				if (code == TtyCodeZiUm)
-					KennungAusgabePhase = 1;
-				else if (code == TtyCodeZiWerDa && KennungAusgabePhase == 1)
+				if (code == TtyCodeZiWerDa && ZiffernEbene)
 					KennungAusgabePhase = 2;
 				else if (KennungAusgabePhase == 2)
 					KennungAusgabePhase = 1; 
 						// jedes andere Zeichen schaltet 'anstehende' Kennungsausgabe wieder ab.
 				}
 			}
-
-		// Kennungsgeber alle 5 Sekunden abfragen, bis Gegenantwort kam...
-		if (AutoKennungAbfrage 
-			&& TimerVal(&KennungAbfrageTimer) >= (ErsteKennungAbfrage ? 500 : 5000))
-			{
-			PufferSpeich(&SendePuffer, TtyCodeZiUm);
-			PufferSpeich(&SendePuffer, TtyCodeZiUm);
-			PufferSpeich(&SendePuffer, TtyCodeZiWerDa);
-			StartTimer(&KennungAbfrageTimer);
-			ErsteKennungAbfrage = false;
-			}
 			
-		// falls selber geschrieben wird, auch automatische Kennungsgeber-Abfrage
-		// löschen
-		if (TimerVal(&KennungAbfrageTimer) > 1000 && !MeldungMark)
-			AutoKennungAbfrage = false;
-			
+		// Verbotene Codes unterdrücken:
+		if (!Bit5unterdruecken && ZiffernEbene && SerUmEmpfBitNr == 6 /*5.Datenbit*/ && (SerUmEmpfDaten == (TtyCodeZiWerDa >> 1) || SerUmEmpfDaten == (22 >> 1))) // 22 = Code 'F'
+			Bit5unterdruecken = true;
+		if (Bit5unterdruecken && (SerUmEmpfBitNr == SerUmEmpfFertig || SerUmEmpfBitNr == SerUmEmpfWarte))
+			Bit5unterdruecken = false;
 
 		// Kennungsgeber-Simulator bearbeiten:
 		if (!MeldungMark) 
@@ -589,12 +588,6 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			KennungAusgabePhase = 0;
 			}
 
-		if (!AutoKennungAbfrage && PufferLeer(&SendePuffer) && SerUmSendBitNr == SerUmSendWarte)
-			SendeUmsetzModus = UmsetzLokalUndFern; 
-			// sobald die Automatische Kennungsgeber-Abfrage beendet ist, wird auf beidseitig Senden umgestellt.
-		
-		// Test:
-		// bset_LEDROT(AutoKennungAbfrage);
 		}
 
 	}
@@ -933,11 +926,48 @@ static void Deaktivieren()
 		
 	} // Deaktivieren
 
+	
+/////////////////////////////////////////////////////////////
+
+//! Liest aus dem EEPROM einen Datenblock als Codefolge, prüft ob dieser Block
+//! korrekt ist (nur Werte von 32 bis 63 und 0) und initialisiert
+//! ggf. ungültige Codefolgen
+//------------------------------------------------------------
+
+void CodefolgeLadenPruefenInitialisieren(uint8_t* cf, uint8_t size, uint8_t cf_eep_adr, const uint8_t* cf_default, uint8_t def_size)
+	{
+	uint8_t i;
+
+	for (i = 0 ; i < size ; i++)
+		{
+		cf[i] = KonfigLeseByte(cf_eep_adr + i, 0xFF); // 0xFF als Kennzeichen, dass tatsächlich was schiefgegangen ist.
+		if (cf[i] == 0)
+			return; // 0 heißt wie beim String "Ende".
+		else if (cf[i] == 0x5A) // historische Ende-Marke.
+			{
+			cf[i] = 0;
+			return; // alles ist schön
+			}
+		else if (ValidCode(cf[i]))
+			;					// 32 bis 63: neue Version des Konfig-Speicher-Inhalts. 
+		else if (cf[i] <= 0x1F) // 1 bis 31: alte Version des Konfig-Speicher-Inhalts.
+			cf[i] |= (1<<5); // neu mit gesetztem Bit 5
+		else // alles andere: Müll -> Initialisieren
+			{
+			for (i = 0 ; i < def_size ; i++)
+				cf[i] = pgm_read_byte(cf_default + i) | (1<<5);
+			cf[def_size] = 0;
+			return;
+			}
+		}
+	} // CodefolgeLadenPruefenInitialisieren()
+
 
 /////////////////////////////////////////////////////////////
 
-//! Das Hauptprogramm der TW39-Fernschreiber-Schnittstelle.
+//! Das Hauptprogramm der Fernschreiber-Schnittstelle.
 //---------------------------------------------------------
+
 
 int main()
 	{
@@ -979,6 +1009,8 @@ int main()
 	SperrzeitLadeEeprom(EEAdr_Sperrzeit);
 
 	StartQuittVerzoegerung = KonfigLeseByteBegrenzt(EEAdr_StartQuittVerz, StartQuittVerzoegerung_Std, StartQuittVerzoegerung_Min, 200);
+
+	CodefolgeLadenPruefenInitialisieren(EigeneKennung, sizeof(EigeneKennung), EEAdr_EigeneKennung, EigeneKennungDefault, sizeof(EigeneKennungDefault));
 	
 	AnrufAbbruchZeit = KonfigLeseByteBegrenzt(EEAdr_AnrufAbbruchZeit, AnrufAbbruchZeit_Std, 3, 25);
 		

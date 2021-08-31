@@ -7,11 +7,11 @@ Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "Tloch15", "Tloch15.cproj", 
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Release|AVR = Release|AVR
+		default|AVR = default|AVR
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.Release|AVR.ActiveCfg = Release|AVR
-		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.Release|AVR.Build.0 = Release|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.default|AVR.ActiveCfg = default|AVR
+		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.default|AVR.Build.0 = default|AVR
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
