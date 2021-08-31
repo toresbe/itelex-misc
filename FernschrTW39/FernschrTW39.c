@@ -157,7 +157,7 @@ static void TW39IO()
 			{ // Strom ist aus --> Space
 			if (MeldungMark)
 				{ // der Applikation wird noch Mark gemeldet
-				if (TimerVal(&EntprellungTimer) > 3) // mindestens 3 ms konstant Space --> Space melden
+				if (TimerVal(&EntprellungTimer) >= 3) // mindestens 3 ms konstant Space --> Space melden
 					MeldungMark = false;
 				}
 			else // !MeldungMark
@@ -167,7 +167,7 @@ static void TW39IO()
 			{ // Schleifenstrom fließt
 			if (!MeldungMark)
 				{ // der Applikation wird noch Space gemeldet
-				if (TimerVal(&EntprellungTimer) > 3) // mindestens 3 ms konstant Mark --> Mark melden
+				if (TimerVal(&EntprellungTimer) >= 3) // mindestens 3 ms konstant Mark --> Mark melden
 					MeldungMark = true;
 				}
 			else // MeldungMark

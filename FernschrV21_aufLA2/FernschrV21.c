@@ -110,15 +110,6 @@ uint8_t StartQuittVerzoegerung;
 	//!< zusätzliche Zeit nach Empfang der Betriebsbereitschaft des 
 	//!< Fernschreibers bis zur Meldung "Betriebsbereit" an den Verbindungspartner.
 
-bool BefehlEinschalten; //!< Fs soll laufen
-bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
-bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
-bool MeldungMark; //!< Fs Schleifenstrom ist Ein
-
-TMsTimer AusschaltungTimer; //!< Zählt die Millisekunden von Schleifenunterbrechung bis Ausschaltung
-TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port bis tatsächlichem Pegelwechsel
-TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalter
-
 uint8_t KommendSperreWahl; //!< Welche Wahlnummer sperrt den Anschluss für ankommende Rufe
 
 uint8_t LokalbetriebWahl; //!< Welche Wahlnummer aktiviert den simulieren Lokalbetrieb
@@ -129,6 +120,20 @@ uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
 typedef enum { Deaktivierung, DemoBetriebStarten, ExtStromEinschalten } TTasteFunktion;
 
 TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb, 2 = Ausgang zum externen Schalter aktivieren
+
+// Arbeits-Variablen 
+// =======================
+
+bool BefehlEinschalten; //!< Fs soll laufen
+bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
+bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
+bool MeldungMark; //!< Fs Schleifenstrom ist Ein
+
+TMsTimer AusschaltungTimer; //!< Zählt die Millisekunden von Schleifenunterbrechung bis Ausschaltung
+TMsTimer EntprellungTimer; //!< Zählt die Millisekunden von Pegelwechsel am Port bis tatsächlichem Pegelwechsel
+TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalter
+
+
 
 // Schnittstellen-Spezifische Variablen
 // ====================================
@@ -481,7 +486,7 @@ static void VerbindungKommend()
 		}
 	else
 		VerbindungSteht(false); // Keine automatische Kennungsgeber-Abfrage
-
+		
 	}
 	
 
@@ -516,6 +521,7 @@ static void LokalbetriebSimulieren()
 	clr_LEDROT();
 	}
 
+
 /////////////////////////////////////////////////////////////
 
 //! Wird aufgerufen, wenn bei gehender Verbindung zu lange nicht gewählt wird.
@@ -535,6 +541,7 @@ static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	
 	while (MeldungEingeschaltet)
 		FernschrIO();
+	
 	clr_LEDROT();
 	Aktivieren(true);
 	}
@@ -558,8 +565,7 @@ static bool WahlMitTastatur()
 		return false;
 
 	SeriellUmsetzInit();
-		
-	LokalCodeAusgabe(TtyCodeZiUm);
+
 	BaudotMode_SetZiffern(BaudotMode);
 
 	// AutoWahlZiffern vorweg in den Wählpuffer schreiben
@@ -595,7 +601,7 @@ static bool WahlMitTastatur()
 				LokalbetriebSimulieren();
 				return false;
 				}
-			else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
+			else if (c != 0 && c != ' ' && c != '+' && c != '\r' && c != '\n')
 				{
 				Falschziffern++;
 				}
@@ -632,7 +638,7 @@ static bool WahlMitTastatur()
   
 /////////////////////////////////////////////////////////////
 
-//! Wickelt ausgehende Verbdindungen vollständig ab.
+//! Wickelt ausgehende Verbindungen vollständig ab.
 //--------------------------------------------------
 //! Ruft VerbindungSteht() auf. Kehrt erst nach Verbindungsabbau wieder zurück.
 
@@ -1207,6 +1213,8 @@ static void KommendSperren(TSperreGrund Grund)
 					}
 				}
 			// else Daten anderwertig auswerten
+			else
+				RundsendAnzDaten = 0; // ungültige Daten loeschen
 			
 			RundsendAnzDaten = 0;
 			}
@@ -1286,11 +1294,11 @@ int main()
 
 	KommendSperreWahl = KonfigLeseByteBegrenzt(EEAdr_KommendSperreWahl, KommendSperreWahl_Std, 0, 99);
 
-	LokalbetriebWahl = KonfigLeseByteBegrenzt(EEAdr_LokalbetriebWahl, LokalbetriebWahl_Std, 0, 99);
+	TasteFunktion = KonfigLeseByteBegrenzt(EEAdr_TasteFunktion, 0, 0, 1); // KEIN Bool
 
 	SperrzeitLadeEeprom(EEAdr_Sperrzeit);
 
-	TasteFunktion = KonfigLeseByteBegrenzt(EEAdr_TasteFunktion, 0, 0, 1); // KEIN Bool
+	LokalbetriebWahl = KonfigLeseByteBegrenzt(EEAdr_LokalbetriebWahl, LokalbetriebWahl_Std, 0, 99);
 
 	StartQuittVerzoegerung = KonfigLeseByteBegrenzt(EEAdr_StartQuittVerz, StartQuittVerzoegerung_Std, StartQuittVerzoegerung_Min, 200);
 

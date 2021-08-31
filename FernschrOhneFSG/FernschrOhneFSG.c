@@ -89,7 +89,7 @@ enum {
 	EEAdr_WahlaufforderungZeichen = 39,
 	EEAdr_VerbindungHergestelltZeichen = 70,
 	EEAdr_EigeneKennung = 101,
-	EEAdr_SperrzeitDaten = 132,
+	EEAdr_SperrzeitDaten = 132, // 10 Bytes
     EEAdr_UmleitungAbweisen = 133,
 	EEAdr_LokalbetriebWahl = 134,
 	EEAdr_TasteFunktion = 135,
@@ -195,23 +195,23 @@ static void FernschrIO(bool TasteMachtBreak)
 		if (get_FS_EING() || (TasteMachtBreak && get_TASTE()))
 			{ // Schleifenstrom ist aus (negierter Eingang) ODER bei aktivierter Taste ist diese gedrückt.
 			if (MeldungMark)
-				{ // noch wird aber 'Mark' gemeldet
-				if (TimerVal(&EntprellungTimer) > 3) // mindestens 3 ms konstant Space --> Space melden
+				{ // der Applikation wird noch Mark gemeldet
+				if (TimerVal(&EntprellungTimer) >= 3) // mindestens 3 ms konstant Space --> Space melden
 					MeldungMark = false;
 				}
-			else
+			else // !MeldungMark
 				StartTimer(&EntprellungTimer); // Regelzustand bei Space: Space wird auch gemeldet
-			}
-		else
-			{ // Schleifenstrom ist ein
+			} // Strom ist aus
+		else // !get_FS_EING()
+			{ // Schleifenstrom fließt
 			if (!MeldungMark)
-				{
-				if (TimerVal(&EntprellungTimer) > 3) // mehr als 3 ms Strom --> ein
+				{ // der Applikation wird noch Space gemeldet
+				if (TimerVal(&EntprellungTimer) >= 3) // mindestens 3 ms konstant Mark --> Mark melden
 					MeldungMark = true;
-				} 
-			else
-				StartTimer(&EntprellungTimer); // Meldung und tatsächlicher Zustand stimmen überein
-			} // else Schleifenstrom ist ein
+				}
+			else // MeldungMark
+				StartTimer(&EntprellungTimer); // Regelzustand bei Mark: Mark wird auch gemeldet
+			} // else !get_FS_EING() == Schleifenstrom fließt
 		
 		// Prüfen, ob Space lange Andauert
 		if (MeldungMark || BreakSignal)
@@ -700,7 +700,7 @@ static bool WahlMitTastatur()
 				LokalbetriebSimulieren();
 				return false;
 				}
-			else if (c != 0 && c != ' ' && c != '\r' && c != '\n')
+			else if (c != 0 && c != ' ' && c != '+' && c != '\r' && c != '\n')
 				{
 				Falschziffern++;
 				}
@@ -1142,7 +1142,7 @@ static void Konfiguration()
 	// -----------
 	if (!SperrzeitEingabeDialog())
 		return;
-
+	
 #ifdef SPRACHE_EN
 	Res = LokalCodefolgeEingabe(PSTR("\r\n software answerback:      "), EigeneKennung, MaxCodefolgeLaenge);
 #else
@@ -1209,8 +1209,6 @@ static void KonfigurationEnde()
 	// for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
 		// KonfigSchreibeByte(EEAdr_AutoWahlZiffern + i, AutoWahlZiffern[i]);
 	
-	SperrzeitSpeicherEeprom(EEAdr_SperrzeitDaten);
-
 	KonfigSchreibeString(EEAdr_EigeneKennung, (char *) EigeneKennung, MaxCodefolgeLaenge + 1);
 	
 	KonfigSchreibeString(EEAdr_AusschaltZeichen, (char *) AusschaltZeichen, MaxCodefolgeLaenge + 1);
@@ -1219,7 +1217,10 @@ static void KonfigurationEnde()
 
 	KonfigSchreibeString(EEAdr_WahlaufforderungZeichen, (char *) WahlaufforderungZeichen, MaxCodefolgeLaenge + 1);
 	
+	SperrzeitSpeicherEeprom(EEAdr_SperrzeitDaten);
+
 	Aktivieren(true);
+
 	clr_LEDROT();
 	}
 	
@@ -1445,13 +1446,12 @@ int main()
 	BreakSignal = false;
 
 	KommInit();
-
-	FernschrIO(false);
 	
 	TMsTimer Timer;
 	StartTimer(&Timer);
 
 	sei();
+	FernschrIO(false);
 	
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 250)
@@ -1499,11 +1499,11 @@ int main()
 	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
 		;
 
-/*
 	if (SelbsttestAusfuehen)
 		{
 		BefehlMark = false;
 		MeldungMark = false;
+		BreakSignal = false;
 
 		StartTimer(&Timer);
 		while (1)
@@ -1515,24 +1515,14 @@ int main()
 			else
 				{ // nicht gedrückt
 				BefehlMark = true;
-				StartTimer(&Timer);
 				}
-			FernschrIO();
+			FernschrIO(true);
 
-			bset_LEDROT(BefehlEinschalten);
-			bset_LEDGELB(MeldungEingeschaltet);
+			bset_LEDROT(BreakSignal);
 			bset_LEDGRUEN(BefehlMark);
 			bset_LEDBLAU(MeldungMark);
-
-			if (TimerVal(&Timer) > 1000)
-				{
-				BefehlEinschalten = !BefehlEinschalten;
-				StartTimer(&Timer);
-				}
-
 			}
 		} // if SelbsttestAusfuehren
-*/
 
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
 

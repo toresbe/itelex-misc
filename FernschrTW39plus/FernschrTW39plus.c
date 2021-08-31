@@ -1441,7 +1441,7 @@ int main()
 	RundsendEmpfFreig = true;
 	
 	MitWaehlscheibe = KonfigLeseBool(EEAdr_MitWaehlscheibe, true);
-	WahlauffordImpulsLaenge = KonfigLeseByteBegrenzt(EEAdr_WahlauffordImpulsLaenge, 20, 1, 100);
+	WahlauffordImpulsLaenge = KonfigLeseByteBegrenzt(EEAdr_WahlauffordImpulsLaenge, 3, 1, 100);
 
 	UmleitungAbweisen = KonfigLeseBool(EEAdr_UmleitungAbweisen, false);
 
@@ -1467,7 +1467,6 @@ int main()
 	MeldungMark = true;
 
 	KommInit();
-
 	
 	TMsTimer Timer;
 	StartTimer(&Timer);
