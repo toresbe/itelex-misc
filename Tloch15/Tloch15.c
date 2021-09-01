@@ -514,7 +514,7 @@ static void VerbindungSteht()
 	BefehlMark = true;
 
 	SendeUmsetzModus = UmsetzLokalUndFern; // Für Sendung der simulierten Kennung 
-	EmpfUmsetzModus = UmsetzLokal; // Für Empfang von "Antworten" 
+	EmpfUmsetzModus = UmsetzFern; // Für Empfang von "Antworten" 
 	KennungAusgabePhase = 0;
 	Bit5unterdruecken = false;
 	ZiffernEbene = true; // sicherheitshalber
