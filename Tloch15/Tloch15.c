@@ -85,6 +85,8 @@ enum { BusEigenAdresse_Std = 15 };
 enum { StartQuittVerzoegerung_Min = 2 }; // x/10 sekunden
 enum { StartQuittVerzoegerung_Std = 7 }; // x/10 sekunden
 
+enum { AbtastStartCode = 22 }; // Code für F. Startet den Abtaster des Tloch15. Dieser Code muss in Binärdarstellung mit 10 enden.
+
 // Eeprom-Speicher-Adressen
 // ------------------------
 
@@ -96,7 +98,8 @@ enum {
 	EEAdr_AnrufAbbruchZeit = 37,
 	EEAdr_StartQuittVerz = 38,
 	EEAdr_EigeneKennung = 39,
-	EEAdr_Ende = 70 // darf erhöht werden
+	EEAdr_KennwortCodefolge = 70,
+	EEAdr_Ende = 101 // darf erhöht werden
 }; // MaxIndex < BankOffset = 160
 
 
@@ -146,7 +149,14 @@ PROGMEM const uint8_t EigeneKennungDefault[] = { TtyCodeBuUm, TtyCodeWR, TtyCode
 	//!< Standardwert für #EigeneKennung
 	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
 	
-// 14, 3, 6, wäre CON	
+uint8_t KennwortCodefolge[MaxCodefolgeLaenge+1];
+//!< Codefolge zum Start des Abtastens
+
+PROGMEM const uint8_t KennwortCodefolgeDefault[] = { TtyCodeZiUm, TtyCodeZiKlingel, 29 /*1*/, 1 /*5*/, TtyCodeZiKlingel } ;
+//!< Standardwert für #KennwortCodefolge
+// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
+
+
 
 // Schnittstellen-Spezifische Funktionen
 // =====================================
@@ -268,7 +278,7 @@ static bool FernschrEinschalten(bool WarteQuittVerz)
 			FernschrIO();
 			return false;
 			}
-		} while (TimerVal(&StabilTimer) < 300);
+		} while (TimerVal(&StabilTimer) < 500);
 		
 	if (WarteQuittVerz)
 		{
@@ -581,8 +591,10 @@ static void VerbindungSteht()
 	uint8_t KennungAusgabePhase;
 	bool Bit5unterdruecken; // sperrt WerDa und F auf der Ziffernseite
 	bool ZiffernEbene;
+	uint8_t KennwortPosition; // zählt mit, wie viele Buchstaben des Kennworts korrekt eingegeben sind
 	
 	KennungAusgabePhase = 0;
+	KennwortPosition = 0;
 
 	GeSendeMark(true); 
 	BefehlMark = true;
@@ -620,11 +632,28 @@ static void VerbindungSteht()
 			GeSendeMark(MeldungMark); // Nur Fs-Pegel direkt auf Bus, wenn nicht seriell gesendet wird...
 			
 		// Auswertung des Empfangspuffers: 
-		// a) ???
+		// a) Eingabe des Kennworts prüfen
 		// b) Internen Kennungsgeber-'Simulator' ansteuern
 		while (!PufferLeer(&EmpfPuffer))
 			{
 			uint8_t code = PufferAusg(&EmpfPuffer);
+
+			if (code == KennwortCodefolge[KennwortPosition])
+				{
+				KennwortPosition++;
+				if (!ValidCode(KennwortCodefolge[KennwortPosition]))
+					{ // Kennwort vollständig korrekt eingegeben
+					SendeUmsetzModus = UmsetzLokal;
+					PufferSpeich(&SendePuffer, TtyCodeZiUm);
+					PufferSpeich(&SendePuffer, AbtastStartCode);
+					KennwortPosition = 0;
+					}
+				}
+			else if (KennwortPosition > 0 && code == KennwortCodefolge[KennwortPosition - 1])
+				; // nichts, Doppelte Eingaben werden ignoriert
+			else
+				KennwortPosition = 0; // von vorne
+
 			if (code == TtyCodeBuUm)
 				{
 				ZiffernEbene = false;
@@ -644,7 +673,7 @@ static void VerbindungSteht()
 			}
 			
 		// Verbotene Codes unterdrücken:
-		if (!Bit5unterdruecken && ZiffernEbene && SerUmEmpfBitNr == 6 /*5.Datenbit*/ && (SerUmEmpfDaten == (TtyCodeZiWerDa >> 1) || SerUmEmpfDaten == (22 >> 1))) // 22 = Code 'F'
+		if (!Bit5unterdruecken && ZiffernEbene && SerUmEmpfBitNr == 6 /*5.Datenbit*/ && (SerUmEmpfDaten == (TtyCodeZiWerDa >> 1) || SerUmEmpfDaten == (AbtastStartCode >> 1))) 
 			Bit5unterdruecken = true;
 		if (Bit5unterdruecken && (SerUmEmpfBitNr == SerUmEmpfFertig || SerUmEmpfBitNr == SerUmEmpfWarte))
 			Bit5unterdruecken = false;
@@ -657,6 +686,7 @@ static void VerbindungSteht()
 				
 		if (KennungAusgabePhase == 2 && TimerVal(&RuheTimer) > 800)
 			{
+			SendeUmsetzModus = UmsetzLokalUndFern;
 			for (uint8_t i = 0 ; i < MaxCodefolgeLaenge && ValidCode(EigeneKennung[i]); i++)
 				PufferSpeich(&SendePuffer, EigeneKennung[i] & 0x1F);
 			KennungAusgabePhase = 0;
@@ -664,51 +694,6 @@ static void VerbindungSteht()
 
 		}
 
-	}
-
-
-/////////////////////////////////////////////////////////////
-
-//! Demo-Betrieb
-// ----------------------------------------------------------
-//! Ein fester Text wird gedruckt, bis die Taste gedrückt wird
-//! oder der Fs mit der Schlusstaste abgeschaltet wird.
-
-PROGMEM const char DemoText[] = 
-#include "DemoText.h"
-;
-
-static void DemoBetrieb()
-	{
-	PGM_P p;
-	
-	SeriellUmsetzInit();
-	Aktivieren(false);
-	
-	if (!FernschrEinschalten(true))
-		return;
-	
-	set_LEDBLAU();
-	
-	p = DemoText;
-	
-	while (pgm_read_byte(p) != '\0')
-		{
-		LokalZeichenAusgabe(pgm_read_byte(p));	
-			// macht intern FernschrIO also auch Schlusstaste-Erkennung
-		p++;
-		TastePruefen();
-		if (Tastendruck != NichtGedr)
-			break;
-		if (!MeldungEingeschaltet)
-			break;
-		}
-
-	Tastendruck = NichtGedr;
-	FernschrAusschalten();
-	Aktivieren(true);
-	clr_LEDBLAU();
-	
 	}
 
 
@@ -769,6 +754,14 @@ static void Konfiguration()
 	if (Res == 0)
 		return;
 	
+#ifdef SPRACHE_EN
+	Res = LokalCodefolgeEingabe(PSTR("\r\n abrufcode:      "), KennwortCodefolge, MaxCodefolgeLaenge);
+#else
+	Res = LokalCodefolgeEingabe(PSTR("\r\n replay start code:      "), KennwortCodefolge, MaxCodefolgeLaenge);
+#endif //def SPRACHE_EN
+	if (Res == 0)
+		return;
+
 	// jetzt bei einfacher Konfiguration abbrechen
 	// -------------------------------------------
 	if (NoExpertSettings)
@@ -885,6 +878,8 @@ static void KonfigurationEnde()
 	KonfigSchreibeByte(EEAdr_StartQuittVerz, StartQuittVerzoegerung);
 	
 	KonfigSchreibeString(EEAdr_EigeneKennung, (char *) EigeneKennung, MaxCodefolgeLaenge + 1);
+	
+	KonfigSchreibeString(EEAdr_KennwortCodefolge, (char *) KennwortCodefolge, MaxCodefolgeLaenge + 1);
 	
 	SperrzeitSpeicherEeprom(EEAdr_Sperrzeit);
 
@@ -1099,6 +1094,8 @@ int main()
 
 	CodefolgeLadenPruefenInitialisieren(EigeneKennung, sizeof(EigeneKennung), EEAdr_EigeneKennung, EigeneKennungDefault, sizeof(EigeneKennungDefault));
 	
+	CodefolgeLadenPruefenInitialisieren(KennwortCodefolge, sizeof(KennwortCodefolge), EEAdr_KennwortCodefolge, KennwortCodefolgeDefault, sizeof(KennwortCodefolgeDefault));
+	
 	AnrufAbbruchZeit = KonfigLeseByteBegrenzt(EEAdr_AnrufAbbruchZeit, AnrufAbbruchZeit_Std, 3, 25);
 		
 	BefehlEinschalten = false;
@@ -1251,10 +1248,6 @@ int main()
 
 			switch (TasteFunktion)
 				{
-				case DemoBetriebStarten:
-					DemoBetrieb();
-					break;
-					
 				case ExtStromEinschalten:
 					break;
 					
