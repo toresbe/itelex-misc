@@ -67,6 +67,17 @@
 //#define NOWATCHDOG
 	//!< Watchdog abgeschaltet
 
+#ifdef DOPPELSTROM
+
+#ifdef PROGIDZUSATZ
+//! Marker im Code als Identifikation
+PROGMEM const char Identifier[] = "___itlx_Doppelstrom-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#else
+//! Marker im Code als Identifikation
+PROGMEM const char Identifier[] = "___itlx_Doppelstrom___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#endif
+
+#else
 
 #ifdef PROGIDZUSATZ
 //! Marker im Code als Identifikation
@@ -76,6 +87,7 @@ PROGMEM const char Identifier[] = "___itlx_TW39plus-" PROGIDZUSATZ "___" __DATE_
 PROGMEM const char Identifier[] = "___itlx_TW39plus___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif
 
+#endif
 // Konstanten
 // ----------
 
@@ -208,7 +220,11 @@ static void FernschrIO()
 		
 	// Schleifenstrom auswerten: Mark / Space
 	// --------------------------------------
+#ifdef DOPPELSTROM
+	if (!MeldungEingeschaltet)
+#else // TW39
 	if (!BefehlMark || !MeldungEingeschaltet)
+#endif
 		{
 		MeldungMark = true; // Beim Senden von Space ist kein Empfang möglich --> Grundstellung
 		StartTimer(&EntprellungTimer);
@@ -278,8 +294,21 @@ static bool FernschrEinschalten(bool WarteQuittVerz)
 			StartTimer(&StabilTimer);
 		if (TimerVal(&AbbruchTimer) > AnrufAbbruchZeit * 1000)
 			{
+#ifdef DOPPELSTROM
+			StartTimer(&AbbruchTimer);
+			while (TimerVal(&AbbruchTimer) < 2000)
+				{
+				BefehlEinschalten = true;
+				BefehlMark = false;
+				FernschrIO();
+				}
+			BefehlEinschalten = false;
+			BefehlMark = false;
+			FernschrIO();
+#else // TW39				
 			BefehlEinschalten = false;
 			BefehlMark = true;
+#endif			
 			FernschrIO();
 			StartTimer(&NachlaufTimer);
 			return false;
@@ -308,6 +337,23 @@ static void FernschrAusschalten()
 	if (MeldungEingeschaltet && !BefehlEinschalten)
 		FernschrEinschalten(false); // Rückgabewert ignorieren
 
+#ifdef DOPPELSTROM
+	StartTimer(&Timer);
+	do
+		{
+		BefehlMark = false; // Dauer-Mark schaltet aus.
+		BefehlEinschalten = true;
+		FernschrIO();
+		if (MeldungEingeschaltet)
+			StartTimer(&Timer);
+		}
+	while (TimerVal(&Timer) < 2000);
+	BefehlMark = false; // Dauer-Mark schaltet aus.
+	BefehlEinschalten = false; // jetzt (wenn Hardware-seitig bestückt) Strom reduzieren (durch das Relais)
+	FernschrIO();
+
+#else // TW39
+
 	StartTimer(&Timer);
 	do
 		{
@@ -318,6 +364,8 @@ static void FernschrAusschalten()
 			StartTimer(&Timer);
 		}
 	while (TimerVal(&Timer) < 500);
+	
+#endif // TW39
 	
 	StartTimer(&NachlaufTimer); 
 	
@@ -342,8 +390,13 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	{
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWEN) | (0<<TWIE);
 
+#ifdef DOPPELSTROM
+	BefehlEinschalten = true;
+	BefehlMark = false;
+#else // TW39
 	BefehlEinschalten = false;
 	BefehlMark = true;
+#endif
 	FernschrIO(); // damit der Fernschreiber abgeschaltet wird.
 	clr_SV_EIN();
 	
@@ -1461,8 +1514,14 @@ int main()
 	
 	AnrufAbbruchZeit = KonfigLeseByteBegrenzt(EEAdr_AnrufAbbruchZeit, AnrufAbbruchZeit_Std, 3, 25);
 		
+#ifdef DOPPELSTROM
+	BefehlEinschalten = true;
+	BefehlMark = false;
+#else // TW39
 	BefehlEinschalten = false;
 	BefehlMark = true;
+#endif
+
 	MeldungEingeschaltet = false;
 	MeldungMark = true;
 
@@ -1508,6 +1567,15 @@ int main()
 
 	clr_LEDGRUEN();
 	set_LEDBLAU();
+
+#ifdef DOPPELSTROM
+	BefehlEinschalten = false;
+	BefehlMark = false;
+#else // TW39
+	BefehlEinschalten = false;
+	BefehlMark = true;
+#endif
+	FernschrIO();
 
 	// TWI nochmal resetten
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (1<<TWSTO) | (0<<TWEN) | (0<<TWIE);
@@ -1556,9 +1624,6 @@ int main()
 		} // if SelbsttestAusfuehren
 
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
-
-	BefehlEinschalten = false;
-	BefehlMark = true;
 
 	StartTimer(&NachlaufTimer);
 	

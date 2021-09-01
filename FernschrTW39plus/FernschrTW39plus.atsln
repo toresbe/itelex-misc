@@ -12,6 +12,9 @@ Global
 		AltePlatine|AVR = AltePlatine|AVR
 		default|AVR = default|AVR
 		DoppelAusgabe|AVR = DoppelAusgabe|AVR
+		DopStr|AVR = DopStr|AVR
+		DopStr-75Bd|AVR = DopStr-75Bd|AVR
+		DopStr-EN|AVR = DopStr-EN|AVR
 		English|AVR = English|AVR
 		USTTY-45|AVR = USTTY-45|AVR
 	EndGlobalSection
@@ -26,6 +29,12 @@ Global
 		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.default|AVR.Build.0 = default|AVR
 		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.DoppelAusgabe|AVR.ActiveCfg = DoppelAusgabe|AVR
 		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.DoppelAusgabe|AVR.Build.0 = DoppelAusgabe|AVR
+		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.DopStr|AVR.ActiveCfg = DoppelStrom|AVR
+		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.DopStr|AVR.Build.0 = DoppelStrom|AVR
+		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.DopStr-75Bd|AVR.ActiveCfg = DoppelStrom-75Bd|AVR
+		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.DopStr-75Bd|AVR.Build.0 = DoppelStrom-75Bd|AVR
+		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.DopStr-EN|AVR.ActiveCfg = DoppelStrom-EN|AVR
+		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.DopStr-EN|AVR.Build.0 = DoppelStrom-EN|AVR
 		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.English|AVR.ActiveCfg = English|AVR
 		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.English|AVR.Build.0 = English|AVR
 		{E4D92CB2-58A3-4FA4-A0A4-6D5495B586B6}.USTTY-45|AVR.ActiveCfg = USTTY-45|AVR
