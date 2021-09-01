@@ -77,6 +77,8 @@
       </AvrGcc>
     </ToolchainSettings>
     <OutputPath>bin\default\</OutputPath>
+    <PostBuildEvent>"$(AVRSTUDIO_EXE_PATH)\toolchain\avr8\avr8-gnu-toolchain\bin\avr-objcopy.exe" -I ihex -O binary "$(MSBuildProjectDirectory)\$(Configuration)\$(OutputFileName).hex" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_Tloch15.bin"
+copy /Y  "$(MSBuildProjectDirectory)\..\FuseMuster\Mega168_Quarz.txt" "$(MSBuildProjectDirectory)\..\AlleBins\itlx_Tloch15.txt"</PostBuildEvent>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\C-Libs\MsTimer.c">

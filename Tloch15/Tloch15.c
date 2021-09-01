@@ -8,6 +8,7 @@
 // verwendete Pins siehe Ports.h
 //================================================================
 
+#include <stddef.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
@@ -447,6 +448,79 @@ void LokalZeichenAusgabe(char c)
 	}
 			
 		
+///////////////////////////////////////////////////////////////
+
+//! Dialog-Abfrage für einen Text der als 5-Bit-Code abgespeichert wird.
+//----------------------------------------------------------------------
+//! neuer Text muss durch druckbare Begrenzungszeichen eingeschlossen werden. z.B. xhallox für hallo
+//! . (Punkt) als einziges Zeichen = alten Wert behalten.
+//! \param[out] buf Puffer des eingegebenen Textes. Hinweis: Ende-Markierung ist 0x00, Bit 5 wird für alle Werte gesetzt!
+//! \param[in] maxcodes Anzahl erlaubter codes bei der Eingabe, auch Puffergröße.
+//! \retval 0 abbruch
+//! \retval 1 unverändert
+//! \retval 2 eingabe erfolgt
+//! \todo mal nach KonfigDialog verschieben, da aber LokalZeichenLesen nicht verwendet werden kann, muss eine größere Umstellung gemacht werden.
+
+
+uint8_t LokalCodefolgeEingabe(PGM_P Prompt, uint8_t* buf, uint8_t maxcodes)
+	{
+	uint8_t Pos = 0; 
+	char TrennZeichen; // Zeichen für noch nicht belegt.
+
+	if (Prompt != NULL)
+		LokalTextAusgabeP(Prompt);
+	
+	TrennZeichen = '\0';
+
+	while (true)
+		{ // Schleifendurchlauf einmal je Taste
+		uint8_t code;
+		char zeichen; 
+		
+		while (true)
+			{ // Schleifendurchlauf bis ein Zeichen eingegeben oder Abbruch
+			FernschrIO(true);
+			SeriellUmsetzung(MeldungMark, &BefehlMark);
+			if (SerUmEmpfBitNr == SerUmEmpfFertig)
+				{
+				code = SerUmEmpfDaten;
+				SerUmEmpfBitNr = SerUmEmpfWarte;
+				break;
+				}
+			}
+
+		zeichen = CodeZuZeichen(code, &BaudotMode);
+		
+		if (TrennZeichen != '\0')
+			{ // Zeichenfolge wurde bereits begonnen.
+			if (zeichen == TrennZeichen)
+				{
+				if (Pos < maxcodes-1)
+					buf[Pos] = 0;
+				LokalTextAusgabeP(OkStrP);
+				return 2;
+				}
+			else
+				{
+				if (Pos < maxcodes-1)
+					buf[Pos++] = code | (1<<5);
+				}
+			} // if TrennZeichen != '\0'
+		else // TrennZeichen == '\0'
+			{ // Trennzeichen wurde noch nicht wirksam eingegebenen
+			if (zeichen == '.')
+				{ // vorhandenen Wert beibehalten
+				LokalTextAusgabeP(OkStrP);
+				return 1;
+				}
+			else if (zeichen != '#' && zeichen > ' ') // nicht ungültig und kein Leerzeichen
+				TrennZeichen = zeichen;
+			} // else Trennzeichen == '\0'
+
+		} // while true
+	} // LokalCodefolgeEingabe
+
+		
 static void VerbindungSteht();
 
 static void KommendSperren(TSperreGrund Grund);
@@ -647,6 +721,7 @@ static void DemoBetrieb()
 
 static void Konfiguration()
 	{
+	uint8_t Res;
 	bool Abbruch;
 	bool NoExpertSettings;
 	
@@ -682,6 +757,16 @@ static void Konfiguration()
 	// -----------------
 	Abbruch = !KonfigurationAllgemein(); 
 	if (Abbruch) 
+		return;
+
+	// Codefolgen 
+	// ---------------------
+#ifdef SPRACHE_EN
+	Res = LokalCodefolgeEingabe(PSTR("\r\n software answerback:      "), EigeneKennung, MaxCodefolgeLaenge);
+#else
+	Res = LokalCodefolgeEingabe(PSTR("\r\n software kennungsgeber:      "), EigeneKennung, MaxCodefolgeLaenge);
+#endif //def SPRACHE_EN
+	if (Res == 0)
 		return;
 	
 	// jetzt bei einfacher Konfiguration abbrechen
@@ -750,7 +835,7 @@ static void Konfiguration()
 		StartQuittVerzoegerung = 200;
 
 	LokalTextAusgabeP(OkStrP);
-		
+
 	// Modus für Tastendruck
 	// ---------------------
 #ifdef SPRACHE_EN
@@ -798,6 +883,8 @@ static void KonfigurationEnde()
 	KonfigSchreibeByte(EEAdr_AnrufAbbruchZeit, AnrufAbbruchZeit);
 
 	KonfigSchreibeByte(EEAdr_StartQuittVerz, StartQuittVerzoegerung);
+	
+	KonfigSchreibeString(EEAdr_EigeneKennung, (char *) EigeneKennung, MaxCodefolgeLaenge + 1);
 	
 	SperrzeitSpeicherEeprom(EEAdr_Sperrzeit);
 
