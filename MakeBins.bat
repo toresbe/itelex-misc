@@ -21,6 +21,11 @@ call MakeBin1.bat itlx_TW39plus-DOPAUS FernschrTW39Plus\DoppelAusgabe\FernschrTW
 call MakeBin1.bat itlx_TW39plus-US45 FernschrTW39Plus\USTTY-45\FernschrTW39plus.hex Mega168_Quarz
 call MakeBin1.bat itlx_TW39plus-100Bd FernschrTW39Plus\100Baud\FernschrTW39plus.hex Mega168_Quarz
 call MakeBin1.bat itlx_TW39plus-75Bd FernschrTW39Plus\75Baud\FernschrTW39plus.hex Mega168_Quarz
+call MakeBin1.bat itlx_TW39plus-EN FernschrTW39Plus\English\FernschrTW39plus.hex Mega168_Quarz
+call MakeBin1.bat itlx_Tloch15 Tloch15\default\Tloch15.hex Mega168_Quarz
+call MakeBin1.bat itlx_Doppelstrom FernschrTW39Plus\Doppelstrom\Doppelstrom.hex Mega168_Quarz
+call MakeBin1.bat itlx_Doppelstrom-EN FernschrTW39Plus\Doppelstrom-EN\Doppelstrom.hex Mega168_Quarz
+call MakeBin1.bat itlx_Doppelstrom-75Bd FernschrTW39Plus\Doppelstrom-75Bd\Doppelstrom.hex Mega168_Quarz
 call MakeBin1.bat itlx_Messgeraet Messgeraet\default\Messgeraet.hex Mega168_Quarz
 call MakeBin1.bat itlx_Messgeraet-75BD Messgeraet\75baud\Messgeraet.hex Mega168_Quarz
 call MakeBin1.bat itlx_Messgeraet-US45 Messgeraet\USTTY-45\Messgeraet.hex Mega168_Quarz

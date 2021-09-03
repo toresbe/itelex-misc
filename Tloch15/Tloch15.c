@@ -85,8 +85,6 @@ enum { BusEigenAdresse_Std = 15 };
 enum { StartQuittVerzoegerung_Min = 2 }; // x/10 sekunden
 enum { StartQuittVerzoegerung_Std = 7 }; // x/10 sekunden
 
-enum { AbtastStartCode = 22 }; // Code für F. Startet den Abtaster des Tloch15. Dieser Code muss in Binärdarstellung mit 10 enden.
-
 // Eeprom-Speicher-Adressen
 // ------------------------
 
@@ -638,22 +636,27 @@ static void VerbindungSteht()
 			{
 			uint8_t code = PufferAusg(&EmpfPuffer);
 
-			if (code == KennwortCodefolge[KennwortPosition])
+			if (code == (KennwortCodefolge[KennwortPosition] & 0x1F)) 
+				// Die Daten in #KennwortCodefolge sind im Bereich 0x20 bis 0x3F, um 'unintialisierte' Werte zu erkennen
 				{
+				set_LEDROT();
 				KennwortPosition++;
 				if (!ValidCode(KennwortCodefolge[KennwortPosition]))
 					{ // Kennwort vollständig korrekt eingegeben
 					SendeUmsetzModus = UmsetzLokal;
 					PufferSpeich(&SendePuffer, TtyCodeZiUm);
-					PufferSpeich(&SendePuffer, AbtastStartCode);
+					PufferSpeich(&SendePuffer, TtyCodeZiWerDa);
 					KennwortPosition = 0;
 					}
 				}
-			else if (KennwortPosition > 0 && code == KennwortCodefolge[KennwortPosition - 1])
+			else if (KennwortPosition > 0 && code == (KennwortCodefolge[KennwortPosition - 1] & 0x1F))
 				; // nichts, Doppelte Eingaben werden ignoriert
 			else
+				{
+				clr_LEDROT();
 				KennwortPosition = 0; // von vorne
-
+				}
+				
 			if (code == TtyCodeBuUm)
 				{
 				ZiffernEbene = false;
@@ -673,7 +676,7 @@ static void VerbindungSteht()
 			}
 			
 		// Verbotene Codes unterdrücken:
-		if (!Bit5unterdruecken && ZiffernEbene && SerUmEmpfBitNr == 6 /*5.Datenbit*/ && (SerUmEmpfDaten == (TtyCodeZiWerDa >> 1) || SerUmEmpfDaten == (AbtastStartCode >> 1))) 
+		if (!Bit5unterdruecken && ZiffernEbene && SerUmEmpfBitNr == 6 /*5.Datenbit*/ && SerUmEmpfDaten == (TtyCodeZiWerDa >> 1)) 
 			Bit5unterdruecken = true;
 		if (Bit5unterdruecken && (SerUmEmpfBitNr == SerUmEmpfFertig || SerUmEmpfBitNr == SerUmEmpfWarte))
 			Bit5unterdruecken = false;
