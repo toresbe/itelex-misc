@@ -1479,6 +1479,10 @@ int main()
 
 	//init_TASTE2();
 
+#ifdef DOPPELSTROM
+	set_FS_AKTIV(); // ggf. noch laufenden Fernschreiber ausschalten während der Initialisierung
+#endif
+
 	set_LEDROT();
 
 	KonfigSpeicherInit();
