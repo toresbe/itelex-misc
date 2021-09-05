@@ -242,6 +242,9 @@ uint8_t UebersteuerWarnZaehl;
 	//!< Grenzwert für UebersteuerWarnZaehl. Ein Überschreiten der Amplitude (#UEBERSTEUER_GRENZE)
 	//!< lässt rote LED 40 Zyklen leuchten (4 ms).
 
+bool LedRotEin; 
+	//!< rote LED zeigt Status an und auch Übersteuerung. Diese Variable steuert den Zustand entsprechend Status
+
 bool EmpfangMark; //!< ist false, wenn Endgerät ausgeschaltet oder Endgerät Space sendet
 bool SpaceSperre; //!< Wird gesetzt, wenn die empfangene Space-Frequenz trotzdem als Mark gewertet werden soll.
 
@@ -409,7 +412,7 @@ static void FernschrIO()
 			UebersteuerWarnZaehl = UEBERSTEUER_ZAEHLMAX;
 		else if (UebersteuerWarnZaehl > 0)
 			UebersteuerWarnZaehl--;
-		bset_LEDROT(UebersteuerWarnZaehl != 0);
+		bset_LEDROT(LedRotEin || UebersteuerWarnZaehl != 0);
 			
 		x2 = x1; x1 = x0;
 		ym2 = ym1; ym1 = ym0;
@@ -724,18 +727,18 @@ static void VerbindungKommend()
 	FernschrIO();
 
 	set_LEDGRUEN();
-	set_LEDROT();
+	LedRotEin = true;
 	
 	if (!FernschrEinschalten(true))
 		{ // Timeout...
 		clr_LEDGRUEN();
 		GeAusschalten(true);
 		KommendSperren(SperreStoerung);
-		clr_LEDROT();		
+		LedRotEin = false;
 		return;
 		}
 
-	clr_LEDROT();
+	LedRotEin = false;
 	
 	if (!GeEinschaltQuittung())
 		{
@@ -756,7 +759,8 @@ static void VerbindungKommend()
 
 static void LokalbetriebSimulieren()
 	{
-	set_LEDROT();
+	LedRotEin = true;
+
 	Aktivieren(false);
 	
 	BefehlMark = true;
@@ -776,7 +780,7 @@ static void LokalbetriebSimulieren()
 	FernschrAusschalten();
 
 	Aktivieren(true);
-	clr_LEDROT();
+	LedRotEin = false;
 	}
 
 
@@ -788,7 +792,8 @@ static void LokalbetriebSimulieren()
 
 static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	{
-	set_LEDROT();
+	LedRotEin = true;
+
 	GeAusschalten(true);
 	Aktivieren(false);
 	
@@ -800,7 +805,8 @@ static void AbschaltungZuLangeWahlpause(bool Abschaltimpuls)
 	while (MeldungEingeschaltet)
 		FernschrIO();
 	
-	clr_LEDROT();
+	LedRotEin = false;
+
 	Aktivieren(true);
 	}
 	
@@ -1196,7 +1202,8 @@ static void Konfiguration()
 	
 	SeriellUmsetzInit();
 	Aktivieren(false);
-	set_LEDROT();
+
+	LedRotEin = true;
 	
 	if (!FernschrEinschalten(true))
 		return;
@@ -1552,7 +1559,7 @@ static void KonfigurationEnde()
 
 	Aktivieren(true);
 
-	clr_LEDROT();
+	LedRotEin = false;
 	}
 	
 	
@@ -1564,7 +1571,7 @@ static void FehlermeldungDrucken()
 	{
 	SeriellUmsetzInit();
 	Aktivieren(false);
-	set_LEDROT();
+	LedRotEin = true;
 	
 	if (!FernschrEinschalten(true))
 		return;
@@ -1577,7 +1584,7 @@ static void FehlermeldungDrucken()
 
 	Aktivieren(true);
 
-	clr_LEDROT();
+	LedRotEin = false;
 	}
 
 
@@ -1669,7 +1676,8 @@ static void Deaktivieren()
 
 	Aktivieren(true);
 	clr_LEDBLAU();
-	clr_LEDROT();
+
+	LedRotEin = false;
 
 	KommendSperren(SperreTaste);
 		
@@ -1705,7 +1713,7 @@ int main()
 	
 	//init_TASTE2();
 
-	set_LEDROT();
+	LedRotEin = true;
 
 	InitADC();
 
@@ -1781,7 +1789,9 @@ int main()
 	// Bei Tastendruck Selbsttest
 	bool SelbsttestAusfuehen = get_TASTE();
 
-	clr_LEDROT();
+	clr_LEDROT(); 
+	LedRotEin = false;
+
 	set_LEDGELB();
 
 	TwiInit();
@@ -1832,7 +1842,7 @@ int main()
 				}
 			FernschrIO();
 
-			bset_LEDROT(BefehlEinschalten);
+			LedRotEin = BefehlEinschalten;
 			bset_LEDGELB(MeldungEingeschaltet);
 			bset_LEDGRUEN(BefehlMark);
 			bset_LEDBLAU(MeldungMark);
@@ -1857,9 +1867,9 @@ int main()
 		{
 		// aktueller Zustand: Ausgeschaltet
 		if (TimerVal(&Timer) <= 1200)
-			clr_LEDROT();
+			LedRotEin = false;
 		else if (TimerVal(&Timer) <= 1400)
-			bset_LEDROT(BusEigenAdresse == BusAdrUngueltig);
+			LedRotEin = (BusEigenAdresse == BusAdrUngueltig);
 		else
 			StartTimer(&Timer);
 

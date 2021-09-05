@@ -22,7 +22,7 @@
 typedef enum { Ausgeschaltet,   //!< Grundstellung = Ausgeschaltet
 			   Reserviert,      //!< von Gegenstelle aktiviert aber noch nicht eingeschaltet.
 			   Wahl, 			//!< es darf gewählt werden. Interne und Externe Wahl wird hier nicht unterschieden.
-			   EinschaltungKo,  //!< Gegenstelle eingeschaltet.
+			   EinschaltungKo,  //!< von Gegenstelle eingeschaltet.
                Eingeschaltet,   //!< ist eingeschaltet, Verbindung steht. (keine Unterscheidung ob kommend oder gehend).
 			   AusschaltungKo,  //!< Gegenstelle hat Verbindungsabbau eingeleitet.
 			   AusschaltungGe,  //!< An Gegenstelle wurde Wunsch zum Verbindungsabbau gesendet, noch keine Bestätigung erhalten.
@@ -240,7 +240,8 @@ void BetriebsartWechsel(TFsBetriebsart neu)
 		case EinschaltungKo:
 			CLR_BIT(Status, StatBit_Frei);
 			CLR_BIT(Status, StatBit_SpezialGeraetKennung); // weil dieses Bit nur bei StatBit_Frei = 1 erlaubt ist
-			SET_BIT(Status, StatBit_AngerufenBelegt);
+			if (FsBetriebsart == Reserviert)
+				SET_BIT(Status, StatBit_AngerufenBelegt); // sonst könnte es der Wahlzustand gewesen sein
 			SET_BIT(Status, StatBit_FsBefBetrieb);
 			BusEmpfMark = true; // schon mal vorsorglich.
 			FsAusgMark = true; // schon mal vorsorglich.
