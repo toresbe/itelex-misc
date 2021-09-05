@@ -34,3 +34,6 @@ cd UniversalIF
 call makeall.bat
 cd ..
 
+cd Hellschreiber
+call makeall.bat
+cd ..
