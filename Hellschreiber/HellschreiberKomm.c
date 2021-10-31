@@ -1542,14 +1542,10 @@ static void Konfiguration()
 			else if (c == '=' || c == '.' || c == '/')
 				{ 
 				if (i == 0)
-					{
-					LokalTextAusgabeP(OkStrP);
-					return; // unverändert lassen
-					}
-				else
-					break; // wie Ende behandeln
+					i = AutoWahlMaxZiffern - 1; // damit nichts geändet wird
+				break; // wie Ende behandeln
 				}
-			else if (c == '\0')
+			else if (c == '\0') // abbruch
 				{
 				if (i != 0)
 					AutoWahlZiffern[i] = 255; // Ende-Zeichen
