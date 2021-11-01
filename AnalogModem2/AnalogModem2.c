@@ -2131,7 +2131,7 @@ static bool AmtswahlAbfrage()
 			
 		if (ZahlEmpfangenFernAnzahlZiffern > 2) 
 			{
-			if (!TextAusgabeFern(PSTR("\r\n maximal 2 stellen")))
+			if (!TextAusgabeFernP(PSTR("\r\n maximal 2 stellen")))
 				return false; // Abbruch
 			continue; // nochmal;
 			}
@@ -2144,17 +2144,17 @@ static bool AmtswahlAbfrage()
 			ZahlEmpfangenFernAnzahlZiffern = AktAmtswahlZiffern;
 			}
 		
-		if (!TextAusgabeFern(PSTR("\r\n pruefe: "))
+		if (!TextAusgabeFernP(PSTR("\r\n pruefe: "))
 			|| !ZahlAusgabeFern(neu, ZahlEmpfangenFernAnzahlZiffern))
 			return false;
 
 		if (GetStatus(NeuEigenAdresse) < 0)
 			{
-			return TextAusgabeFern(PSTR(" ok. "));
+			return TextAusgabeFernP(PSTR(" ok. "));
 			}
 
 		// Adresse schon belegt...
-		if (!TextAusgabeFern(PSTR(" schon vergeben, andere waehlen!")))
+		if (!TextAusgabeFernP(PSTR(" schon vergeben, andere waehlen!")))
 			return false; // Abbruch
 
 		}
@@ -2167,12 +2167,12 @@ static bool AmtswahlAbfrage()
 //! \retval true Wenn kein Eingabe-Abbruch erfolgte.	
 static bool DurchwahlenAbfrage()
 	{
-	if (!TextAusgabeFern(PSTR("\r\n nebenstellen fuer durchwahlziffer...")))
+	if (!TextAusgabeFernP(PSTR("\r\n nebenstellen fuer durchwahlziffer...")))
 		return false;
 		
 	for (uint8_t i = 1 ; i <= 7 ; i += 3)
 		{
-		if (!TextAusgabeFern(PSTR("\r\n ... ist")))
+		if (!TextAusgabeFernP(PSTR("\r\n ... ist")))
 			return false;
 
 		for (uint8_t j = i ; j <= i+2 ; j++)
@@ -2182,7 +2182,7 @@ static bool DurchwahlenAbfrage()
 				|| !ZahlAusgabeFern(NebenstellenTabelle[j], 2))
 				return false;
 
-		if (!TextAusgabeFern(PSTR("  neu:    ")))
+		if (!TextAusgabeFernP(PSTR("  neu:    ")))
 			return false;
 			
 		for (uint8_t j = i ; j <= i+2 ; j++)
@@ -2206,7 +2206,7 @@ static bool JustierWahlziffernAbfragen()
 	{
 	uint8_t i;
 	
-	if (!TextAusgabeFern(PSTR("\r\n wahlziffern fuer justierung. mit + liste beenden.\r\n ist = ")))
+	if (!TextAusgabeFernP(PSTR("\r\n wahlziffern fuer justierung. mit + liste beenden.\r\n ist = ")))
 		return false;	
 	for (i = 0 ; i < AnzJustierWahlziffern ; i++)
 		{
@@ -2215,7 +2215,7 @@ static bool JustierWahlziffernAbfragen()
 		if (!ZeichenAusgabeFern('0' + JustierWahlziffern[i]))
 			return false;
 		}
-	if (!TextAusgabeFern(PSTR("+  neu = ")))
+	if (!TextAusgabeFernP(PSTR("+  neu = ")))
 		return false;
 
 	char c;
@@ -2264,7 +2264,7 @@ static void Einstellen()
 
 	set_LEDGRUEN();			
 
-	if (TextAusgabeFern(PSTR("\r\n konfiguration analog modem version " SVNVERSION " datum " __DATE__))
+	if (TextAusgabeFernP(PSTR("\r\n konfiguration analog modem version " SVNVERSION " datum " __DATE__))
 		&& ZahlAbfrageFern(PSTR("anzahl klingelzeichen bis annahme"), &AnnahmeKlingelzeichen, 1)
 		&& AmtswahlAbfrage()
 		&& BitAbfrageFern(PSTR("feste hauptstelle"), &KonfigBits, 1 << KonfigBit_FesterHauptanschluss)
@@ -2281,7 +2281,7 @@ static void Einstellen()
 		&& JustierWahlziffernAbfragen()
 		&& ZahlAbfrageFern(PSTR("justierung verzoegerung abheben - erste ziffer ...\r\n ... (x/10 sek)"), &JustierWahlVerzoegerung, 1)
 		&& ZahlAbfrageFern(PSTR("justierung verzoegerung auflegen - abheben nach taste ...\r\n ... (x/10 sek)"), &JustierNeustartPause, 1)
-		&& TextAusgabeFern(PSTR("\r\n fertig +++\r\n")))
+		&& TextAusgabeFernP(PSTR("\r\n fertig +++\r\n")))
 		{ // kein Abbruch, daher ordnungsgemäß abstellen
 		BusSenden(BusKdoSchluss);
 		WarteSchlussQuittung(2500);

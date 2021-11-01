@@ -41,7 +41,6 @@
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
-#include <avr/eeprom.h>
 #include <avr/wdt.h>
 #include <inttypes.h>
 
@@ -59,6 +58,7 @@
 //#include "LokalAusgabe.h"
 #include "BusKomm.h"
 #include "FernDialog.h"
+#include "KonfigSpeicher.h"
 
 #include "../SvnVersion.h"
 
@@ -118,7 +118,7 @@ const PROGMEM char Identifier[] = "___itlx_Messgeraet___" __DATE__ "___" __TIME_
 // -------------------
 
 #define KENNUNG_MAXLEN 20 //!< maximale Länge der Kennungsgeber-Texte.
-#define KENNWORT_MAXLEN 20 //!< maximale Länge des Kennwortes für die Fernabfrage.
+#define KENNWORT_MAXLEN 20 //!< maximale Länge des Kennwortes für die Fernabfrage. Nicht ändern, da EEAdr_xxx sonst betroffen!
 
 
 #ifndef STANDARD_NUMMER
@@ -143,29 +143,36 @@ typedef char TKennung[KENNUNG_MAXLEN];
 #define SUBADDR_RUECKRUF 3
 
 
-// interner Eeprom-Speicher
+// Konstanten
+// ----------
+
+
+// Kennungen fester Teil
+// ----------------------
+
+PROGMEM const TKennung Kennung[BUS_MEHRFACH_ADR] = 
+    { "\r\nmessgeraet", "\r\npruefsender", "\r\nbildlocher", "\r\nrueckrufautom" } ;
+
+
+// Eeprom-Speicher-Adressen
 // ------------------------
 
-uint8_t BusEigenAdresse_EE EEMEM = STANDARD_NUMMER << 1; 
-	//!< Eigene TWI-Adresse, nur Basisteil! (4 Sub-Adressen)
+enum {
+	EEAdr_BusEigenAdresse	= 0, // 1 Byte
+    EEAdr_Kennwort			= 1, // KENNWORT_MAXLEN + 1 = 21 Bytes
+	EEAdr_KennungZusatz     = 22, // KENNUNG_MAXLEN + 1 = 21 Bytes
+	EEAdr_Ende				= 43 // darf erhöht werden
+}; // MaxIndex < BankOffset = 160
 
-TKennung Kennung_EE[BUS_MEHRFACH_ADR] EEMEM = 
-    { "\r\ntxp2-mess", "\r\ntxp2-pruefsend", "\r\ntxp2-bildloch", "\r\ntxp2-rueckruf"} ; //!< Kopie von #Kennung im EEPROM
-
-char Kennwort_EE[KENNWORT_MAXLEN] EEMEM = "kennwort"; //!< Kennwort für Spezialfunktionen.
-
-uint8_t BusEigenAdressePruef_EE EEMEM = ~STANDARD_NUMMER; 
-	//!< Prüfwert Eigene TWI-Adresse: Muss gleich Komplement von (BusEigenAdresse_EE >> 1) sein
 
 
 // normales RAM
 // ------------
 // Kennung und Kennwort
 
-TKennung Kennung[BUS_MEHRFACH_ADR]; //!< Eigene Kennungen, da kein echter Fernschreiber angeschlossen.
-
 char Kennwort[KENNWORT_MAXLEN]; //!< Kennwort für Fernabfrage des Anrufspeichers.
 
+char KennungZusatz[KENNUNG_MAXLEN]; //!< Benutzerdefinierter Zusatz zur Kennung.
 
 
 //! Modul / Schnittstelle irreversibel stoppen.
@@ -324,7 +331,8 @@ static bool KennungsausgabeUndKennwortAbfrage(uint8_t Nr)
 	char *p;
 	char c;
 	
-	GeSendeText(Kennung[Nr]);
+	GeSendeTextP(Kennung[Nr]);
+	GeSendeText(KennungZusatz);
 	GeSendeCode(TtyCodeBuUm);
 
 	p = Kennwort;
@@ -404,7 +412,10 @@ static bool VerbindungIgnoriereErsteZweiSekunden(uint8_t SubAddr)
 			StartTimer(&PauseTimer);
 			
 		if (KoEmpfZeichen(&c) && c == CodeChrWerDa)
-			GeSendeText(Kennung[SubAddr]);
+			{
+			GeSendeTextP(Kennung[SubAddr]);
+			GeSendeText(KennungZusatz);
+			}
 
 		if (KoAusschalten())
 			{
@@ -435,7 +446,8 @@ static void VerbindungMessgeraet()
 	
 	KurzePause();
 
-	GeSendeText(Kennung[SUBADDR_MESSUNG]);
+	GeSendeTextP(Kennung[SUBADDR_MESSUNG]);
+	GeSendeText(KennungZusatz);
 	GeSendeCode(TtyCodeBuUm);
 	StartTimer(&MessTimer);
 
@@ -761,7 +773,10 @@ static void VerbindungBildlocher()
 				EmpfZifferMode = false;
 
 			if (c == TtyCodeZiWerDa && EmpfZifferMode)
-				GeSendeText(Kennung[SUBADDR_BILDLOCH]);
+				{
+				GeSendeTextP(Kennung[SUBADDR_BILDLOCH]);
+				GeSendeText(KennungZusatz);
+				}
 			else
 				{ // im Puffer ablegen
 				if (PufferPosEin < MAXPUFFER)
@@ -1076,24 +1091,72 @@ static void Deaktivieren()
 void FernDialogCallback()
 	{
 	LEDAktualisieren();
+	TastePruefen();
+	}
+
+
+uint8_t NeuEigenAdresse;
+
+
+//! Eingabe Durchwahl
+static bool KonfigurationDurchwahl()
+	{
+	uint8_t Durchwahl, DurchwahlZiffern;
+	Durchwahl = AdresseZuWahl(BusEigenAdresse, &DurchwahlZiffern);
+	
+	while (true)
+		{ // solange Durchwahl abfragen, bis gültige Eingabe erfolgt
+		uint8_t neu = Durchwahl;
+		if (!ZahlAbfrageFern(PSTR("durchwahl"), &neu, DurchwahlZiffern))
+			return false; // Abbruch
+			
+		if (ZahlEmpfangenFernAnzahlZiffern > 2) 
+			{
+			if (!TextAusgabeFernP(PSTR("\r\n maximal 2 stellen")))
+				return false; // Abbruch
+			continue; // nochmal;
+			}
+			
+		if (ZahlEmpfangenFernAnzahlZiffern > 0)
+			NeuEigenAdresse = WahlZuAdresse(neu, ZahlEmpfangenFernAnzahlZiffern);
+		else
+			{
+			NeuEigenAdresse = BusEigenAdresse;
+			ZahlEmpfangenFernAnzahlZiffern = DurchwahlZiffern;
+			}
+		NeuEigenAdresse &= ~3; // niedrigste zwei Bits löschen
+		neu = AdresseZuWahl(NeuEigenAdresse, &DurchwahlZiffern);
+		
+		if (!TextAusgabeFernP(PSTR("\r\n pruefe: "))
+			|| !ZahlAusgabeFern(neu, DurchwahlZiffern))
+			return false;
+
+		if (GetStatus(NeuEigenAdresse) < 0 && GetStatus(NeuEigenAdresse+1) < 0 && GetStatus(NeuEigenAdresse+2) < 0 && GetStatus(NeuEigenAdresse+3) < 0 )
+			{
+			return TextAusgabeFernP(PSTR(" ok. "));
+			}
+
+		// Adresse schon belegt...
+		if (!TextAusgabeFernP(PSTR(" schon vergeben, andere waehlen!")))
+			return false; // Abbruch
+
+		}
 	}
 
 
 //! wird nach langem Tastendruck aufgerufen
 static void Konfiguration()
 	{
-	static uint8_t TestA = 0;
-	
 	if (!FernDialogVerbinden(0)) // 0 = Startadresse
 		{
 		// Todo Aufräumen
 		return;
 		}
 
-	set_LED_GRUEN();			
+	set_LED_ROT();			
 
-	if (TextAusgabeFern(PSTR("\r\n konfiguration messgeraet version " SVNVERSION " datum " __DATE__))
-		&& ZahlAbfrageFern(PSTR("testabfrage zahl"), &TestA, 1)
+	if (TextAusgabeFernP(PSTR("\r\n konfiguration messgeraet version " SVNVERSION " datum " __DATE__))
+		&& KonfigurationDurchwahl()
 		// && BitAbfrageFern(PSTR("feste hauptstelle"), &KonfigBits, 1 << KonfigBit_FesterHauptanschluss)
 		// && (!BIT_IS_SET(KonfigBits, KonfigBit_FesterHauptanschluss) // folgende Abfrage nur bei FesterHauptanschluss
 		    // || ZahlAbfrageFern(PSTR("nummer der hauptstelle"), &Hauptanschluss, 2))
@@ -1108,19 +1171,34 @@ static void Konfiguration()
 		// && JustierWahlziffernAbfragen()
 		// && ZahlAbfrageFern(PSTR("justierung verzoegerung abheben - erste ziffer ...\r\n ... (x/10 sek)"), &JustierWahlVerzoegerung, 1)
 		// && ZahlAbfrageFern(PSTR("justierung verzoegerung auflegen - abheben nach taste ...\r\n ... (x/10 sek)"), &JustierNeustartPause, 1)
-		&& TextAusgabeFern(PSTR("\r\n fertig +++\r\n")))
+		&& TextAusgabeFernP(PSTR("\r\n fertig +++\r\n")))
 		{ // kein Abbruch, daher ordnungsgemäß abstellen
 		BusSenden(BusKdoSchluss);
 		WarteSchlussQuittung(2500);
 		// Grundstellen(false);
 		}
 	else
-		{ // es wurde ein Kommando empfangen, welches nicht Mark oder Space befahl... Abbruch?
-		// TODO Aufräumen??? 
+		{ // Konfiguration wurde abgebrochen
+		BusSenden(BusQuittSchluss);
 		}
 
-	clr_LED_GRUEN();
-		
+	BusWarteFertig();
+
+	BusVerbPartner = 0;
+	
+	clr_LED_ROT();
+
+	Status = (1 << StatBit_Frei) | (1 << StatBit_SpezialGeraetKennung);
+	wdt_reset();
+	
+	BusEigenAdressePruefenUndSetzen(NeuEigenAdresse);
+	
+	// Konfiguration in EEPROM sichern
+	KonfigSchreibeByte(EEAdr_BusEigenAdresse, NeuEigenAdresse);
+	KonfigSchreibeString(EEAdr_Kennwort, Kennwort, KENNWORT_MAXLEN + 1);
+	KonfigSchreibeString(EEAdr_KennungZusatz, KennungZusatz, KENNUNG_MAXLEN + 1);
+
+	Tastendruck = NichtGedr;
 	}
 
 
@@ -1169,36 +1247,11 @@ int main()
 
 	pgm_read_byte(Identifier); // Dummy read to force the identifier to be placed in the FLASH.
 
-	BusEigenAdresse = eeprom_read_byte(&BusEigenAdresse_EE) & 0xFE;
-	
-	if (BusEigenAdresse < BusAdrMin 
-		|| BusEigenAdresse > BusAdrMax 
-		|| (BusEigenAdresse & 0x07) != 0 //    ^^^^ muss durch 4 Teilbar sein, letztes Bit sowieso 0
-		|| eeprom_read_byte(&BusEigenAdressePruef_EE) != ~(BusEigenAdresse >> 1))
-											
-		BusEigenAdresse = STANDARD_NUMMER << 1; // Standardwert
-
+	BusEigenAdresse = KonfigLeseByteBegrenzt(EEAdr_BusEigenAdresse, STANDARD_NUMMER << 1, BusAdrMin, BusAdrMax) & 0xF8; // Bit 2-0 löschen
 	BusEigenAdrMehrfach = BUS_MEHRFACH_ADR;
-
-	for (uint8_t i = 0 ; i < BUS_MEHRFACH_ADR ; i++)
-		{
-		eeprom_read_string(Kennung[i], Kennung_EE[i], sizeof(Kennung[i]));
-		Kennung[i][KENNUNG_MAXLEN-1] = '\0';
-		}
-	if (Kennung[0][0] == '\377')
-		strcpy_P(Kennung[0], PSTR("\r\ntxp2-mess"));
-	if (Kennung[1][0] == '\377')
-		strcpy_P(Kennung[1], PSTR("\r\ntxp2-pruefsend"));
-	if (Kennung[2][0] == '\377')
-		strcpy_P(Kennung[2], PSTR("\r\ntxp2-bildloch"));
-	if (Kennung[3][0] == '\377')
-		strcpy_P(Kennung[3], PSTR("\r\ntxp2-rueckruf"));
-		
-	eeprom_read_string(Kennwort, Kennwort_EE, sizeof(Kennwort));
-	if (Kennwort[0] == '\377')
-		strcpy_P(Kennwort, PSTR("kennwort"));
-	else
-		Kennwort[sizeof(Kennwort)-1] = '\0'; // sicherheitshalber
+	
+	KonfigLeseString(EEAdr_KennungZusatz, KennungZusatz, KENNUNG_MAXLEN, PSTR(""));
+	KonfigLeseString(EEAdr_Kennwort, Kennwort, KENNWORT_MAXLEN, PSTR("kennwort"));	
 
 	UmleitungAbweisen = true;
 	
@@ -1268,10 +1321,6 @@ int main()
 			Deaktivieren();
 			}
 		
-		for (uint8_t i = 0 ; i < BUS_MEHRFACH_ADR ; i++)
-			eeprom_write_string_noblock(Kennung_EE[i], Kennung[i]);
-		eeprom_write_string_noblock(Kennwort_EE, Kennwort);
-	
 		} // while (1)
 	} // main()
 

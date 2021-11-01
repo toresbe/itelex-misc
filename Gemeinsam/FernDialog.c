@@ -348,7 +348,7 @@ bool ZeichenAusgabeFern(char c)
 //! \param[in] s Zeiger auf den ASCII-Text im Programmspeicher.
 //! \retval false, wenn Verbindung abgebaut wurde.
 
-bool TextAusgabeFern(PGM_P s)
+bool TextAusgabeFernP(PGM_P s)
 	{
 	while (pgm_read_byte(s) != '\0')
 		{
@@ -368,9 +368,9 @@ bool TextAusgabeFern(PGM_P s)
 bool BoolAusgabeFern(bool b)
 	{
 #ifdef SPRACHE_EN
-	return TextAusgabeFern(b ? PSTR(" yes ") : PSTR(" no "));
+	return TextAusgabeFernP(b ? PSTR(" yes ") : PSTR(" no "));
 #else
-	return TextAusgabeFern(b ? PSTR(" ja ") : PSTR(" nein "));
+	return TextAusgabeFernP(b ? PSTR(" ja ") : PSTR(" nein "));
 #endif
 	}
 	
@@ -414,11 +414,11 @@ PROGMEM const char NeuText[] = "  new =   ";
 
 bool ZahlAbfrageFern(PGM_P Prompt, uint8_t *Wert, uint8_t Ziffern)
 	{
-	if (!TextAusgabeFern(CrLf)
-		|| !TextAusgabeFern(Prompt)
-		|| !TextAusgabeFern(IstText)
+	if (!TextAusgabeFernP(CrLf)
+		|| !TextAusgabeFernP(Prompt)
+		|| !TextAusgabeFernP(IstText)
 		|| !ZahlAusgabeFern(*Wert, Ziffern)
-		|| !TextAusgabeFern(NeuText)
+		|| !TextAusgabeFernP(NeuText)
 		|| !ZahlEmpfangenFern(Wert))
 		return false;
 	return true;
@@ -438,11 +438,11 @@ bool BitAbfrageFern(PGM_P Prompt, uint8_t *Wert, uint8_t Mask)
 	{
 	bool Eingabe;
 	Eingabe = ((*Wert) & Mask) != 0;
-	if (!TextAusgabeFern(CrLf)
-		|| !TextAusgabeFern(Prompt)
-		|| !TextAusgabeFern(IstText)
+	if (!TextAusgabeFernP(CrLf)
+		|| !TextAusgabeFernP(Prompt)
+		|| !TextAusgabeFernP(IstText)
 		|| !BoolAusgabeFern(Eingabe)
-		|| !TextAusgabeFern(NeuText)
+		|| !TextAusgabeFernP(NeuText)
 		|| !BoolEmpfangenFern(&Eingabe))
 		return false;
 	if (Eingabe)

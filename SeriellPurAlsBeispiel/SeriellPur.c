@@ -298,7 +298,7 @@ char LokalZeichenLesen()
 		if (Tastendruck != NichtGedr)
 			{
 			Tastendruck = NichtGedr;
-			return '\t';
+			return '\0'; // wirkt wie abbruch.
 			}
 		}
 	if (SerEmpfZ(false) == CTRL('s'))

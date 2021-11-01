@@ -1157,7 +1157,7 @@ int main()
 		
 	TWCR = (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (1<<TWEN) | (1<<TWIE);
 
-	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
+	while (TimerVal(&Timer) < 1000 + BusEigenAdresse)
 		;
 
 	if (SelbsttestAusfuehen)

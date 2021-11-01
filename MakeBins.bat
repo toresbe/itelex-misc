@@ -31,10 +31,10 @@ call MakeBin1.bat itlx_Messgeraet-75BD Messgeraet\75baud\Messgeraet.hex Mega168_
 call MakeBin1.bat itlx_Messgeraet-US45 Messgeraet\USTTY-45\Messgeraet.hex Mega168_Quarz
 call MakeBin1.bat itlx_Messgeraet-plED Messgeraet\AufED1000\Messgeraet.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher SeriellUndSpeicher\PlatVer13\SeriellUndSpeicher.hex Mega168_Quarz
-call MakeBin1.bat itlx_SeriellUndSpeicher-CodeSw SeriellUndSpeicher\PlatVer13-CodeSw\SeriellUndSpeicher.hex Mega168_Quarz
+call MakeBin1.bat itlx_SeriellUndSpeicher-CODESW SeriellUndSpeicher\PlatVer13-CodeSw\SeriellUndSpeicher.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher-Full SeriellUndSpeicher\PlatVer13-Full\SeriellUndSpeicher.hex Mega328_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher2 SeriellUndSpeicher\PlatVer21\SeriellUndSpeicher.hex Mega168_Quarz
-call MakeBin1.bat itlx_SeriellUndSpeicher2-CodeSw SeriellUndSpeicher\PlatVer21-CodeSw\SeriellUndSpeicher.hex Mega168_Quarz
+call MakeBin1.bat itlx_SeriellUndSpeicher2-CODESW SeriellUndSpeicher\PlatVer21-CodeSw\SeriellUndSpeicher.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher2-Full SeriellUndSpeicher\PlatVer21-Full\SeriellUndSpeicher.hex Mega328_Quarz
 rem itlx_SeriellUndSpeicher2-mZS (Zeitsperre) durch -Full ersetzt
 rem OhneSpeicher wird nicht vertrieben
@@ -43,7 +43,7 @@ call MakeBin1.bat itlx_SeriellUndSpeicher2-KOI8R SeriellUndSpeicher\KOI8R_21\Ser
 call MakeBin1.bat itlx_SeriellUndSpeicher2-US45 SeriellUndSpeicher\USTTY-45_21\SeriellUndSpeicher.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher2-110-7 SeriellUndSpeicher\110-7_21\SeriellUndSpeicher.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher2-110-7_EN SeriellUndSpeicher\110-7_EN_21\SeriellUndSpeicher.hex Mega168_Quarz
-call MakeBin1.bat itlx_HellschrSignal Hellschreiber\Release\HellschrSignal.hex Mega168_ExtTakt
+call MakeBin1.bat itlx_HellschrSignal Hellschreiber\Release\HellschrSignal.hex Mega168_Quarz
 call MakeBin1.bat itlx_HellschrKomm2 Hellschreiber\ReleaseVer21\HellschrKomm.hex Mega168_Quarz
 
 rem UniIF wird nicht vertrieben

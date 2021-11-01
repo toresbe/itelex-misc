@@ -36,7 +36,7 @@ extern bool CodeAusgabeFern(uint8_t code);
 
 extern bool ZeichenAusgabeFern(char c);
 
-extern bool TextAusgabeFern(PGM_P s);
+extern bool TextAusgabeFernP(PGM_P s);
 
 extern bool BoolAusgabeFern(bool b);
 

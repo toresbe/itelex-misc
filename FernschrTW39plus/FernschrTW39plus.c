@@ -465,6 +465,7 @@ char LokalZeichenLesen()
 	EmpfUmsetzModus = UmsetzLokal; // sicherheitshalber
 	while (true)
 		{
+		TastePruefen();
 		FernschrIO();
 		SeriellUmsetzung(MeldungMark, &BefehlMark);
 		if (SerUmEmpfBitNr == SerUmEmpfFertig)
@@ -476,6 +477,11 @@ char LokalZeichenLesen()
 			}
 		if (!MeldungEingeschaltet)
 			return '\0';
+		if (Tastendruck != NichtGedr)
+			{
+			Tastendruck = NichtGedr;
+			return '\0'; // TODO prüfen ob die Abschaltung auch richtig funktioniert.
+			}
 		}
 	}
 
@@ -1494,7 +1500,7 @@ int main()
 	RundsendEmpfFreig = true;
 	
 	MitWaehlscheibe = KonfigLeseBool(EEAdr_MitWaehlscheibe, true);
-	WahlauffordImpulsLaenge = KonfigLeseByteBegrenzt(EEAdr_WahlauffordImpulsLaenge, 3, 1, 100);
+	WahlauffordImpulsLaenge = KonfigLeseByteBegrenzt(EEAdr_WahlauffordImpulsLaenge, 3, 1, 200);
 
 	UmleitungAbweisen = KonfigLeseBool(EEAdr_UmleitungAbweisen, false);
 
@@ -1585,7 +1591,7 @@ int main()
 		
 	TWCR = (1<<TWINT) | (1<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (1<<TWEN) | (1<<TWIE);
 
-	while (TimerVal(&Timer) < 1000 + 20 * BusEigenAdresse)
+	while (TimerVal(&Timer) < 1000 + BusEigenAdresse)
 		;
 
 	if (SelbsttestAusfuehen)
