@@ -141,7 +141,8 @@ enum {
     EEAdr_MitWaehlscheibe = 37,
     EEAdr_WahlauffordImpulsLaenge = 38,
 	EEAdr_TastaturwahlStartZeichen = 39,
-	EEAdr_Ende = 40 // darf erhöht werden
+	EEAdr_Einschaltschwelle = 40,
+	EEAdr_Ende = 41 // darf erhöht werden
 };
 
 
@@ -174,6 +175,9 @@ uint8_t AutoWahlZiffern[AutoWahlMaxZiffern];
 typedef enum { Deaktivierung, DemoBetriebStarten, ExtStromEinschalten } TTasteFunktion;
 
 TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-Betrieb, 2 = Ausgang zum externen Schalter aktivieren
+
+uint8_t Einschaltschwelle; //!< Bei ausgeschaltetem Fernschreiber ist die Erkennungsschwelle Mark / Space verschoben
+
 
 // Arbeits-Variablen 
 // =======================
@@ -423,18 +427,26 @@ static void FernschrIO()
 		if (ys0 < 0) ys0 = -ys0;
 
 		if (ym0 > ys0)
+			{
 			// Mark über Space
-			if (PegelGlaettZaehl < PEGEL_GLAETT)
+			set_DETECTMARK();
+			if (!MeldungEingeschaltet && !BefehlEinschalten && ym0 < ys0 + Einschaltschwelle)
+				; // nichts tun
+			else if (PegelGlaettZaehl < PEGEL_GLAETT)
 				PegelGlaettZaehl++;
 			else
 				EmpfangMark = true;
+			}
 		else
+			{
 			// Space über Mark
+			clr_DETECTMARK();
 			if (PegelGlaettZaehl > 0)
 				PegelGlaettZaehl--;
 			else
 				EmpfangMark = false;
-				
+			}
+							
 		AnzMesswerte++;
 		}
 		
@@ -1373,6 +1385,27 @@ static void Konfiguration()
 	if (!SperrzeitEingabeDialog())
 		return;
 	
+	// Einschaltschwelle
+	// -----------------
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR("\r\n threshold for switch on (default 0, cur. "));
+#else
+	LokalTextAusgabeP(PSTR("\r\n einschaltschwelle (normal 0, akt. "));
+#endif //def SPRACHE_EN
+
+	LokalZahlAusgabe(Einschaltschwelle, 0);
+
+#ifdef SPRACHE_EN
+	LokalTextAusgabeP(PSTR(") new:   "));
+#else
+	LokalTextAusgabeP(PSTR(") neu:   "));
+#endif //def SPRACHE_EN
+
+	if (LokalZahlEingabe(&Einschaltschwelle, 0) < 0)
+		return;
+
+	LokalTextAusgabeP(OkStrP);
+
 	// Feste Verbindung
 	// ----------------
 #ifdef SPRACHE_EN
@@ -1541,6 +1574,8 @@ static void KonfigurationEnde()
 
 	KonfigSchreibeByte(EEAdr_LokalbetriebWahl, LokalbetriebWahl);
 
+	KonfigSchreibeByte(EEAdr_Einschaltschwelle, Einschaltschwelle);
+
 	KonfigSchreibeByte(EEAdr_TasteFunktion, TasteFunktion);
 
 	KonfigSchreibeByte(EEAdr_AnrufAbbruchZeit, AnrufAbbruchZeit);
@@ -1706,7 +1741,8 @@ int main()
 	init_TASTE();
 	init_SV_EIN();
 	init_TASTEEXT();
-	
+	init_DETECTMARK();
+
 	//init_TASTE2();
 
 	LedRotEin = true;
@@ -1744,6 +1780,8 @@ int main()
 	LokalbetriebWahl = KonfigLeseByteBegrenzt(EEAdr_LokalbetriebWahl, LokalbetriebWahl_Std, 0, 99);
 	
 	StartQuittVerzoegerung = KonfigLeseByteBegrenzt(EEAdr_StartQuittVerz, StartQuittVerzoegerung_Std, StartQuittVerzoegerung_Min, 200);
+
+	Einschaltschwelle = KonfigLeseByteBegrenzt(EEAdr_Einschaltschwelle, 0, 0, 200);
 
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)

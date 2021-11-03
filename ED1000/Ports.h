@@ -26,8 +26,8 @@ DEFPORTOUT		(LEDBLAU,	D, 3)	//	 5
 //							B, 6)	//	 9	XTAL1
 //			 				B, 7)	//	10	XTAL2
 //DEFPORTOUT(, 				D, 5)	//	11
-//DEFPORTOUT(, 				D, 6)	//	12
-//DEFPORT(,					D, 7)	//	13
+DEFPORTOUT		(DETECTMARK,D, 6)	//	12
+//DEFPORTOUT(, 				D, 7)	//	13
 DEFPORTOUT		(SIGAUS0,	B, 0)	//	14
 DEFPORTOUT		(SIGAUS1, 	B, 1)	//	15
 DEFPORTOUT		(SIGAUS2, 	B, 2)	//	16
@@ -60,7 +60,7 @@ DEFPORTOUT		(LEDBLAU,	D, 4)  	//	 6
 //							B, 6)	//	 9	XTAL1
 //			 				B, 7)	//	10	XTAL2
 //DEFPORTOUT(, 				D, 5)	//	11
-//DEFPORTOUT(, 				D, 6)	//	12
+DEFPORTOUT		(DETECTMARK,D, 6)	//	12
 //DEFPORT(,					D, 7)	//	13
 DEFPORTOUT		(SIGAUS0,	B, 0)	//	14
 DEFPORTOUT		(SIGAUS1, 	B, 1)	//	15

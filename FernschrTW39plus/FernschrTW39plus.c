@@ -152,7 +152,7 @@ TTasteFunktion TasteFunktion; //!< Bisher möglich: 0 = deaktivierung, 1 = Demo-B
 // Arbeits-Variablen 
 // =======================
 
-bool BefehlEinschalten; //!< Fs soll laufen
+bool BefehlEinschalten; //!< Fs soll laufen (TW39) bzw. 'echt' Mark / Space bei Doppelstrom
 bool BefehlMark; //!< Fs Schleifenstrom soll Ein sein
 bool MeldungEingeschaltet; //!< Fs läuft tatsächlich
 bool MeldungMark; //!< Fs Schleifenstrom ist Ein
@@ -281,7 +281,7 @@ static bool FernschrEinschalten(bool WarteQuittVerz)
 	
 	set_SV_EIN(); // externen Schalter der Energieversorgung des Fernschreibers einschalten
 	StartTimer(&NachlaufTimer);
-	
+
 	if (BefehlEinschalten) // ist schon an, dann nicht verzögern
 		WarteQuittVerz = false;
 		
@@ -293,18 +293,16 @@ static bool FernschrEinschalten(bool WarteQuittVerz)
 		if (!MeldungEingeschaltet)
 			StartTimer(&StabilTimer);
 		if (TimerVal(&AbbruchTimer) > AnrufAbbruchZeit * 1000)
-			{
+			{ // Fernschreiber hat auf Einschaltkommando nicht reagiert
 #ifdef DOPPELSTROM
 			StartTimer(&AbbruchTimer);
 			while (TimerVal(&AbbruchTimer) < 2000)
 				{
-				BefehlEinschalten = true;
 				BefehlMark = false;
 				FernschrIO();
 				}
 			BefehlEinschalten = false;
 			BefehlMark = false;
-			FernschrIO();
 #else // TW39				
 			BefehlEinschalten = false;
 			BefehlMark = true;
@@ -341,13 +339,13 @@ static void FernschrAusschalten()
 	StartTimer(&Timer);
 	do
 		{
-		BefehlMark = false; // Dauer-Mark schaltet aus.
-		BefehlEinschalten = true;
+		BefehlMark = false; // Dauer-Space schaltet aus.
+		BefehlEinschalten = true; // Damit nicht "weak space" ausgegeben wird.
 		FernschrIO();
 		if (MeldungEingeschaltet)
 			StartTimer(&Timer);
-		}
-	while (TimerVal(&Timer) < 2000);
+		} while (TimerVal(&Timer) < 2000);
+
 	BefehlMark = false; // Dauer-Mark schaltet aus.
 	BefehlEinschalten = false; // jetzt (wenn Hardware-seitig bestückt) Strom reduzieren (durch das Relais)
 	FernschrIO();
@@ -357,13 +355,12 @@ static void FernschrAusschalten()
 	StartTimer(&Timer);
 	do
 		{
-		BefehlEinschalten = false;
+		BefehlEinschalten = false; // Auf Ruhepolung schalten
 		BefehlMark = true;
 		FernschrIO();
 		if (MeldungEingeschaltet)
 			StartTimer(&Timer);
-		}
-	while (TimerVal(&Timer) < 500);
+		} while (TimerVal(&Timer) < 500);
 	
 #endif // TW39
 	
@@ -404,7 +401,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	bool TasteWirk = false;
 	TMsTimer TasteTimer;
 	StartTimer(&TasteTimer);
-	while (1)
+	while (true)
 		{
 		wdt_reset();
 
@@ -427,7 +424,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 						{
 						cli();
 						wdt_enable(WDTO_1S);
-						while (1)
+						while (true)
 							;
 						}
 					}
@@ -581,14 +578,15 @@ static void LokalbetriebSimulieren()
 	
 	BefehlMark = true;
 	
-	if (!BefehlEinschalten) // offensichtlich Wählscheiben-Wahl
+	if (MitWaehlscheibe)
 		{
 		FernschrEinschalten(true);
 		}
+		// sonst ist der Fs schon eingeschaltet.
 	
 	LokalTextAusgabeP(PSTR("\r\nloc\r\n"));
 
-	while(MeldungEingeschaltet)
+	while (MeldungEingeschaltet)
 		{
 		FernschrIO();
 		}
@@ -637,19 +635,37 @@ static bool WahlMitWaehlscheibe()
 	TMsTimer WahlendeTimer;
 	bool EsWurdeGewaehlt;
 
-	// kurzzeitiger Missbrauch von WahlendeTimer für Wahlaufforderung: 0,3 Sek unterbrechung
+#ifdef DOPPELSTROM
+	BefehlEinschalten = true; // 'richtiges' Space vor dem Wahlaufforderungsimpuls
+	BefehlMark = false; 
+#else // TW39
+	BefehlEinschalten = false;
+	BefehlMark = true;
+#endif
+
+	// kurzzeitiger Missbrauch von WahlendeTimer für...
+	// Pause vor dem Wahlaufforderungsimpuls
+
 	StartTimer(&WahlendeTimer);
 	EsWurdeGewaehlt = false;
 	while (TimerVal(&WahlendeTimer) < 700)
 		FernschrIO();
 
-	BefehlMark = false;
-	
+	// jetzt der wirkliche Wahlaufforderungsimpuls
+#ifdef DOPPELSTROM
+	BefehlMark = true; // Mark-Signal
+#else // TW39
+	BefehlMark = false; // Schleifenunterbrechung bei Ruhepolarität
+#endif
 	StartTimer(&WahlendeTimer);
 	while (TimerVal(&WahlendeTimer) < 10 * WahlauffordImpulsLaenge) 
 		FernschrIO();
 		
-	BefehlMark = true;
+#ifdef DOPPELSTROM
+	BefehlMark = false; // wieder Space
+#else // TW39
+	BefehlMark = true; // Schleife ein mit weiter Ruhepolarität
+#endif
 
 	// AutoWahlZiffern vorweg in den Wählpuffer schreiben
 	for (Wahlziffer = 0 ; Wahlziffer < AutoWahlMaxZiffern ; Wahlziffer++)
@@ -1602,7 +1618,7 @@ int main()
 		MeldungMark = false;
 
 		StartTimer(&Timer);
-		while (1)
+		while (true)
 			{
 			if (get_TASTE())
 				{ // gedrückt
