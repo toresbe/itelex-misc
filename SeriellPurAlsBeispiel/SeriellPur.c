@@ -255,8 +255,6 @@ void SerSendFlush()
 	while (!PufferLeer(&SerOutBuf))
 		{
 		SeriellIO();
-		UhrAktualisieren();
-		DoSwTwi();
 		}
 	}
 
@@ -292,9 +290,7 @@ char LokalZeichenLesen()
 	while (PufferLeer(&SerInBuf))
 		{
 		SeriellIO();
-		UhrAktualisieren();
 		TastePruefen();
-		DoSwTwi();
 		if (Tastendruck != NichtGedr)
 			{
 			Tastendruck = NichtGedr;
@@ -635,7 +631,6 @@ static void VerbindungSteht(bool SeriellEin, bool AufzeichnungEin)
 				{
 				if (KennungsausgabeUndKennwortAbfrage(SeriellEin, AufzeichnungEin))
 					{ // richtiges Kennwort eingegeben
-Kennwort abfrage löschen
 					}
 				}
 			else
