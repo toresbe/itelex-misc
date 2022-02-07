@@ -188,8 +188,6 @@ static void FernschrIO()
 		bset_FS2_AKTIV(BefehlEinschalten);
 	#endif //def PARALLELAUSGABE
 
-	if (BefehlEinschalten)
-		bset_LEDBLAU(!BefehlMark);
 	bset_FS_AUSG(BefehlMark);
 	#ifdef PARALLELAUSGABE
 		bset_FS2_AUSG(BefehlMark);
@@ -257,6 +255,9 @@ static void FernschrIO()
 		bset_LEDGELB(!MeldungMark);
 	else // !BIT_IS_SET(Status, StatBit_AngerufenBelegt))
 		bset_LEDGRUEN(!MeldungMark);
+
+	if (BefehlEinschalten)
+		bset_LEDBLAU(!BefehlMark);
 
 	} // FernschrIO
 	
@@ -346,7 +347,7 @@ static void FernschrAusschalten()
 			StartTimer(&Timer);
 		} while (TimerVal(&Timer) < 2000);
 
-	BefehlMark = false; // Dauer-Mark schaltet aus.
+	BefehlMark = false; // Dauer-Space schaltet aus.
 	BefehlEinschalten = false; // jetzt (wenn Hardware-seitig bestückt) Strom reduzieren (durch das Relais)
 	FernschrIO();
 
