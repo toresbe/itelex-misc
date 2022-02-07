@@ -36,6 +36,8 @@
 
 #define HellEinschaltBefehl '\002' // schaltet den Hellschreiber ein, ohne dass ein Zeichen gedruckt wird.
 #define HellAusschaltBefehl '\004' // schaltet den Hellschreiber aus und löscht den Empfangspuffer
+#define HellDebugStartBefehl '\006' // aktiviert die Ausgabe der Pixelbilder und der Auswertung der Zeichenerkennung.
+#define HellDebugEndeBefehl '\007' // Normalbetrieb
 // geeignet sind alle Codes außerhalb des Bereichs HELL_FONT_TAB_START bis HELL_FONT_TAB_END
 
 

@@ -164,8 +164,8 @@ TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalte
 // Einstell-Modus
 bool WarteKonfig; // TODO noch nicht implementiert
 
-TPuffer KommInBuf; //!< Empfangspuffer für die serielle Schnittstelle. Nicht identisch mit Puffer für Baudot-Ein/-Ausgabe.
-TPuffer KommOutBuf; //!< Sendepuffer für die serielle Schnittstelle. Nicht identisch mit Puffer für Baudot-Ein/-Ausgabe.
+TPuffer KommInBuf; //!< Empfangspuffer für die Schnittstelle zum Signalprozessor. Nicht identisch mit Puffer für Baudot-Ein/-Ausgabe.
+TPuffer KommOutBuf; //!< Sendepuffer für die Schnittstelle zum Signalprozessor. Nicht identisch mit Puffer für Baudot-Ein/-Ausgabe.
 
 uint8_t HellStatus; //!< Aktuelle Zustandsmeldung des Hellschreibers
 
@@ -190,9 +190,9 @@ enum { SignalTwiFehlerzaehlerMax = 50 };
 
 #endif //ndef KOMMSER
 	
-#ifdef DEBUGSER
-
 TPuffer DebugOutBuf;
+
+#ifdef DEBUGSER
 
 bool DebugKommProt = false; // wird true, wenn alle TWI-IO-Aktionen protokolliert werden sollen.
 
@@ -206,8 +206,6 @@ bool DebugKommProt = false; // wird true, wenn alle TWI-IO-Aktionen protokollier
 
 //! Hier ist es nur das Schreiben und Lesen auf der Seriellen Schnittstelle
 
-
-#if defined(KOMMSER) || defined(DEBUGSER)
 
 //! Initialisiert serielle Schnittstelle.
 static void SerIOInit()
@@ -240,10 +238,6 @@ static void SerIOInit()
 
 	}
 
-#endif //def KOMMSER / DEBUGSER
-
-
-#ifdef DEBUGSER
 
 void DebugAusg(char c)
 	{
@@ -280,9 +274,6 @@ void DebugAusgPStr(const char *s)
 		s++;
 		}
 	}
-
-
-#endif //def DEBUGSER
 
 
 static void HellschreiberMeldetLaeuft()
@@ -438,6 +429,7 @@ static void FernschrIO()
 			clr_DiagA();
 			clr_DiagB();
 			} // TWI Fehler
+
 		else // letzter TWI Zugriff erfolgreich
 			{
 			clr_DiagA();
@@ -590,12 +582,12 @@ static void FernschrIO()
 		DebugAusgPStr(PSTR("\r\n"));
 		} // Serielles Zeichen empfangen
 
+#endif //def DEBUGSER
+
 	// Zeichen senden wenn Schnittstelle bereit.
 	if (BIT_IS_SET(UCSR0A, UDRE0) && !PufferLeer(&DebugOutBuf))
 		UDR0 = PufferAusg(&DebugOutBuf);
 		
-#endif //def DEBUGSER
-
 	} // FernschrIO
 
 
@@ -1779,15 +1771,39 @@ static void Deaktivieren()
 	seto_LEDBLAU();
 	Aktivieren(false);
 
+#ifndef KOMMSER
+	PufferSpeich(&KommOutBuf, HellDebugStartBefehl);
+#endif //ndef KOMMSER
+
 	while (Tastendruck == NichtGedr)
 		{
 		TastePruefen();
 		FernschrIO();
-		if (HellBetrieb == MeldEin || HellBetrieb == KdoEin)
-			HellBetrieb = KdoAus;
+
+#ifndef KOMMSER
+		if (!PufferLeer(&KommInBuf) && !PufferVoll(&DebugOutBuf))
+			PufferSpeich(&DebugOutBuf, PufferAusg(&KommInBuf));
+
+		if (BIT_IS_SET(UCSR0A, RXC0) && !PufferVoll(&KommOutBuf))
+			{ // Zeichen empfangen
+			uint8_t c = UDR0;
+			PufferSpeich(&KommOutBuf, c);
+			}
+
+#endif //ndef KOMMSER
+
+		// if (HellBetrieb == MeldEin || HellBetrieb == KdoEin)
+		//	HellBetrieb = KdoAus;
 		}
+
 		
 	Tastendruck = NichtGedr;
+
+#ifndef KOMMSER
+	PufferSpeich(&KommOutBuf, HellDebugStartBefehl);
+	while (!PufferLeer(&KommOutBuf))
+		FernschrIO();
+#endif //ndef KOMMSER
 
 	Aktivieren(true);
 	inp_LEDBLAU();
@@ -1868,18 +1884,14 @@ int main()
 	
 	LedRotEin = false;
 
-#if defined(KOMMSER) || defined(DEBUGSER)
 	SerIOInit();
-#endif 
 	
 	KommInit();
 
 	PufferInit(&KommInBuf);
 	PufferInit(&KommOutBuf);
 	
-#ifdef DEBUGSER
 	PufferInit(&DebugOutBuf);
-#endif //def DEBUGSER
 
 	TMsTimer Timer;
 	StartTimer(&Timer);

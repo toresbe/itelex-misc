@@ -89,6 +89,10 @@ uint8_t HellStatus;
 bool WatchdogAktiv;
 
 
+bool DebugAusgabeEin;
+	//!< wird auf true gesetzt, um die Pixelmuster und Ergebnisse der Zeichenerkennung auszugeben.
+
+
 #ifdef PROGIDZUSATZ
 //! Identifikation im Programmspeicher
 const PROGMEM char Identifier[] = "___itlx_HellschrSignal-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
@@ -473,46 +477,53 @@ static void SerIOInit()
 }
 
 
-void SerAusg(char c)
-{
+void DebugAusg(char c)
+	{
 	PufferSpeich(&SerOutBuf, c);
-}
+	}
 
 
-void SerAusgZahl(int i)
+#else //ndef TESTSER
+
+void DebugAusg(char c)
+	{
+	PufferSpeich(&TwiOutBuf, c);
+	}
+
+
+#endif //def TESTSER
+
+
+void DebugAusgZahl(int i)
 {
 	if (i < 0)
 	{
-		SerAusg('-');
-		SerAusgZahl(-i);
+		DebugAusg('-');
+		DebugAusgZahl(-i);
 	}
 	else
 	{
 		if (i >= 10)
 		{
 			int z = i / 10;
-			SerAusgZahl(z);
+			DebugAusgZahl(z);
 			i -= 10 * z;
 		}
-		SerAusg('0' + i);
+		DebugAusg('0' + i);
 	}
 }
 
 
-void SerAusgPStr(const char *s)
+void DebugAusgPStr(const char *s)
 {
 	char c;
 	while ((c = pgm_read_byte(s)) != '\0')
 	{
-		SerAusg(c);
+		DebugAusg(c);
 		s++;
 	}
 }
 
-
-#else //ndef TESTSER
-
-#endif //ndef TESTSER
 
 
 // Regelbetrieb über TWI als Slave
@@ -687,6 +698,8 @@ static void Initalisierungen()
 	init_DiagD();
 	init_DiagE();
 
+	DebugAusgabeEin = false;
+
 	WatchdogAktiv = false;
 	wdt_disable();
 	
@@ -711,16 +724,38 @@ static void Initalisierungen()
 	sei();
 
 	#ifdef TESTSER
-	SerAusgPStr(PSTR("\r\nHellschreiber Signalprozessor\r\n"));
+	DebugAusgPStr(PSTR("\r\nHellschreiber Signalprozessor\r\n"));
 	#endif //def TESTSER
+}
+
+
+static bool BearbeiteDebugBefehle()
+//!< Funktion darf nur bei nicht-leerem HellAusgZeichenPuffer aufgerufen werden
+//!< \retval true, wenn das Zeichen im Puffer ein "Steuerzeichen" war.
+{
+	if (PufferZeig(&HellAusgZeichenPuffer) == HellDebugStartBefehl)
+	{
+		PufferAusg(&HellAusgZeichenPuffer); // Zeichen ignorieren
+		DebugAusgabeEin = true;
+		return true;
+	}
+
+	if (PufferZeig(&HellAusgZeichenPuffer) == HellDebugEndeBefehl)
+	{
+		PufferAusg(&HellAusgZeichenPuffer); // Zeichen ignorieren
+		DebugAusgabeEin = false;
+		return true;
+	}
+	return false;
 }
 
 
 static void WarteAufEinschaltungKommendOderGehend()
 	{
 #ifdef TESTSER
-	SerAusgPStr(PSTR("\r\nWarteAufEinschaltungKommendOderGehend\r\n"));
+	DebugAusgPStr(PSTR("\r\nWarteAufEinschaltungKommendOderGehend\r\n"));
 #endif //def TESTSER
+
 	while (true)
 		{
 		PollTwi();
@@ -747,8 +782,12 @@ static void WarteAufEinschaltungKommendOderGehend()
 				PufferAusg(&HellAusgZeichenPuffer); // Zeichen ignorieren
 				continue;
 				}
+
+			if (BearbeiteDebugBefehle())
+				continue;
+
 #ifdef TESTSER
-			SerAusgPStr(PSTR("\r\nRufsignal EIN\r\n"));
+			DebugAusgPStr(PSTR("\r\nRufsignal EIN\r\n"));
 #endif //def TESTSER
 			StartTimer(&KlingelTimer);
 			StartTimer(&KlingelFreqTimer);
@@ -777,7 +816,7 @@ static void WarteAufEinschaltungKommendOderGehend()
 				}
 			clr_HellAnrufPulse();
 #ifdef TESTSER
-			SerAusgPStr(PSTR("\r\nRufsignal AUS\r\n"));
+			DebugAusgPStr(PSTR("\r\nRufsignal AUS\r\n"));
 #endif //def TESTSER
 			StartTimer(&KlingelTimer);
 			CLR_BIT(HellStatus, HellStatBitSendeAnruf);
@@ -898,19 +937,24 @@ static void HellZeichenEmpfangAuswerten()
 	AnzahlVergl = 0;
 
 #ifdef TESTSER
-	// Ausgabe des "rohen" Puffers, ri und i2 werden "mißbraucht":
-	for (ri = 0 ; ri < MESSBYTES_PRO_ZEICHEN ; ri++)
-		for (i2 = 0 ; i2 < 8 ; i2++)
-			{
-			if (BIT_IS_SET(HellMessung[HellAuswertIndex + ri], 7 - i2))
-				SerAusg('#');
-			else
-				SerAusg('.');
-			if ((8 * ri + i2 + 1) % HELL_PIXEL_PRO_REIHE == 0)
-				SerAusgPStr(PSTR("\r\n"));
-			}
-	SerAusgPStr(PSTR("\r\n"));
+	if (true)
+#else
+	if (DebugAusgabeEin && PufferAnzahl(&TwiOutBuf) < MaxPuffer - 110)
 #endif //def TESTSER
+		{
+		// Ausgabe des "rohen" Puffers, ri und i2 werden "mißbraucht":
+		for (ri = 0 ; ri < MESSBYTES_PRO_ZEICHEN ; ri++)
+			for (i2 = 0 ; i2 < 8 ; i2++)
+				{
+				if (BIT_IS_SET(HellMessung[HellAuswertIndex + ri], 7 - i2))
+					DebugAusg('#');
+				else
+					DebugAusg('.');
+				if ((8 * ri + i2 + 1) % HELL_PIXEL_PRO_REIHE == 0)
+					DebugAusgPStr(PSTR("\r\n"));
+				}
+		DebugAusgPStr(PSTR("\r\n"));
+		}
 			
 	for (i2 = 0; i2 < sizeof(Zeichensatz) - 1; i2++)
 		{
@@ -940,24 +984,32 @@ static void HellZeichenEmpfangAuswerten()
 	HellAuswertIndex += MESSBYTES_PRO_ZEICHEN;
 	if (HellAuswertIndex >= MESSBYTES_PRO_ZEICHEN * MESSUNG_ANZAHL_ZEICHEN)
 		HellAuswertIndex = 0;
-			
-#ifdef TESTSER
-	for (ri = 0; ri < RL; ri++)
-		{
-		SerAusg(VZeichen[ri]);
-		SerAusg('=');
-		SerAusgZahl(Punkte[ri]);
-		SerAusg(' ');
-		}
-	SerAusgZahl(BestSchieb);
-	SerAusg(' ');
-	SerAusgZahl(AnzahlVergl);
-	SerAusg(' ');
-	SerAusgZahl(HellMessPeriode);
-	SerAusgPStr(PSTR("\r\n"));
-#endif //def TESTSER
 
-	PufferSpeich(&TwiOutBuf, VZeichen[0]); // TODO ggf von Punktzahl abhängig machen.
+	if (!DebugAusgabeEin)			
+		PufferSpeich(&TwiOutBuf, VZeichen[0]); // TODO ggf von Punktzahl abhängig machen.
+
+#ifdef TESTSER
+	if (true)
+#else
+	if (DebugAusgabeEin && PufferAnzahl(&TwiOutBuf) < MaxPuffer - 27)
+#endif //def TESTSER
+		{
+		for (ri = 0; ri < RL; ri++)
+			{
+			DebugAusg(VZeichen[ri]);
+			DebugAusg('=');
+			DebugAusgZahl(Punkte[ri]);
+			DebugAusg(' ');
+			}
+#ifdef TESTSER
+		DebugAusgZahl(BestSchieb);
+		DebugAusg(' ');
+		DebugAusgZahl(AnzahlVergl);
+		DebugAusg(' ');
+#endif //def TESTSER
+		DebugAusgZahl(HellMessPeriode);
+		DebugAusgPStr(PSTR("\r\n"));
+		}
 
 	} // HellZeichenEmpfangAuswerten()
 
@@ -967,7 +1019,7 @@ static void BestehendeVerbindungBearbeiten()
 	char DruckZeichen = '\0';
 
 #ifdef TESTSER
-	SerAusgPStr(PSTR("\r\nBestehendeVerbindungBearbeiten\r\n"));
+	DebugAusgPStr(PSTR("\r\nBestehendeVerbindungBearbeiten\r\n"));
 #endif //def TESTSER
 	
 	HellTonEmpfEinschalten();
@@ -986,15 +1038,20 @@ static void BestehendeVerbindungBearbeiten()
 
 		if (!PufferLeer(&HellAusgZeichenPuffer)) 
 			{
-			HellTonEmpfAusschalten();
-			while (!PufferLeer(&HellAusgZeichenPuffer))
-				{
-				DruckZeichen = PufferAusg(&HellAusgZeichenPuffer);
-				if (DruckZeichen != HellAusschaltBefehl)
-					HellZeichenSenden(DruckZeichen);
+			if (BearbeiteDebugBefehle())
+				; // nichts weiter
+			else
+				{ // empfangenes Zeichen senden
+				HellTonEmpfAusschalten();
+				while (!PufferLeer(&HellAusgZeichenPuffer))
+					{
+					DruckZeichen = PufferAusg(&HellAusgZeichenPuffer);
+					if (DruckZeichen != HellAusschaltBefehl)
+						HellZeichenSenden(DruckZeichen);
+					}
+				HellTonEmpfEinschalten();
+				CLR_BIT(HellStatus, HellStatBitPufferVoll);
 				}
-			CLR_BIT(HellStatus, HellStatBitPufferVoll);
-			HellTonEmpfEinschalten();
 			}
 
 		} // while (DruckZeichen != HellAusschaltBefehl)
@@ -1007,19 +1064,19 @@ static void BestehendeVerbindungBearbeiten()
 static void GrundstellungHerstellen()
 	{
 #ifdef TESTSER
-	SerAusgPStr(PSTR("\r\nGrundstellungHerstellen\r\n"));
+	DebugAusgPStr(PSTR("\r\nGrundstellungHerstellen\r\n"));
 #endif //def TESTSER	
 	if (IstHellschreiberBereit())
 		{
 #ifdef TESTSER
-		SerAusgPStr(PSTR("\r\nAusschaltsignal EIN\r\n"));
+		DebugAusgPStr(PSTR("\r\nAusschaltsignal EIN\r\n"));
 #endif //def TESTSER
 		HellTonAusgabeEinschalten(); // Dauerton bis zur Ausschaltung
 		while (IstHellschreiberBereit())
 			PollTwi();
 		HellTonAusgabeAusschalten();
 #ifdef TESTSER
-		SerAusgPStr(PSTR("\r\nAusschaltsignal AUS\r\n"));
+		DebugAusgPStr(PSTR("\r\nAusschaltsignal AUS\r\n"));
 #endif //def TESTSER
 		}
 	CLR_BIT(HellStatus, HellStatBitLaeuft);
@@ -1038,14 +1095,17 @@ int main(void)
 
 	while (TimerVal(&StartSperre) < 20000)
 		{  // 20 Sekunden jede Verbindung ablehnen. Zur Offenbarung von Abstürzen.
+		SET_BIT(HellStatus, HellStatBitEmpfStoer); // zur Anzeige der Startsperre
 		PollTwi();
 		PufferInit(&HellAusgZeichenPuffer); // ggf. ankommende Zeichen löschen
 		if (IstHellschreiberBereit())
 			GrundstellungHerstellen(); // ggf. Einschaltung nach vorherigem Anruf wieder ausschalten.
 		}
+
+	SET_BIT(HellStatus, HellStatBitEmpfStoer); // zur Anzeige der Startsperre
 	
 #ifdef TESTSER
-	SerAusgPStr(PSTR("\r\nStartsperre beendet\r\n"));
+	DebugAusgPStr(PSTR("\r\nStartsperre beendet\r\n"));
 #endif //def TESTSER
 
 	while (true)
