@@ -970,6 +970,7 @@ static bool WahlMitTastatur()
 				case 'S': c = '5'; break;
 				case 'G': c = '6'; break;
 				case 'B': c = '8'; break;
+				case 'R': c = '8'; break;
 				}
 			
 			if (c >= '0' && c <= '9')
@@ -1768,7 +1769,6 @@ static void Deaktivieren()
 	clr_LEDROT();
 	clr_LEDGELB();
 	clr_LEDGRUEN();
-	seto_LEDBLAU();
 	Aktivieren(false);
 
 #ifndef KOMMSER
@@ -1777,12 +1777,15 @@ static void Deaktivieren()
 
 	while (Tastendruck == NichtGedr)
 		{
+		seto_LEDBLAU(); // wird von FernschrIO() ggf. wieder gelöscht. Dann ist "halbe Helligkeit" zu sehen.
+
 		TastePruefen();
 		FernschrIO();
 
 #ifndef KOMMSER
 		if (!PufferLeer(&KommInBuf) && !PufferVoll(&DebugOutBuf))
 			PufferSpeich(&DebugOutBuf, PufferAusg(&KommInBuf));
+
 
 		if (BIT_IS_SET(UCSR0A, RXC0) && !PufferVoll(&KommOutBuf))
 			{ // Zeichen empfangen
