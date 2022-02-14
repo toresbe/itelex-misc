@@ -68,23 +68,17 @@ volatile uint8_t HellMessung[MESSBYTES_PRO_ZEICHEN * MESSUNG_ANZAHL_ZEICHEN];
 
 volatile uint8_t HellMessPhase; // 0 = Ruhe, 1 = Startbits, 2 bis 11 = Zeichen
 
-volatile uint8_t HellMessSchreibIndex; // index in HellMessung beim Speichern der Bits
+volatile uint8_t HellMessSchreibIndex; // index in HellMessung
 
-volatile uint8_t HellMessBit; // im Startbereich (HellMessPhase = 1) ein Zähler, sonst (HellMessPhase > 1) eine Bitmaske
+volatile uint8_t HellMessBit; // im Startbereich ein Zähler, sonst eine Bitmaske
 
-volatile uint16_t HellMessPeriode; //!< Aktueller Wert der PIXEL-Dauer in Takten des Counter 2
+volatile uint16_t HellMessPeriode; // Aktueller Wert der PIXEL-Dauer in Takten des Counter 2
 
 uint8_t HellAuswertIndex;
 
 volatile int8_t HellStartVerschiebung; //!< Ausgleich zu Maschinen-individueller Verschiebung des Startbits
 
 bool LernphaseAbgeschlossen; //!< Speichert, ob der Lernvorgang (--> Ermittlung von #HellStartVerschiebung und #HellMessPeriode)
-
-#define ImpulsStartLogMax 10
-
-char ImpulsStartLog[ImpulsStartLogMax];
-
-uint8_t ImpulsStartLogPos;
 
 
 TPuffer SerOutBuf; //!< Sendepuffer für die serielle Schnittstelle. 
@@ -197,16 +191,13 @@ ISR(ANALOG_COMP_vect)
 				HellMessBit = HELL_START_OFFSET + (HellStartVerschiebung / 8); 
 				HellTonEmpfEin = true;
 				SET_BIT(HellStatus, HellStatBitEmpfTon);
-				ImpulsStartLogPos = 0;
 				set_DiagB();
 				}
 			else if (!HellTonEmpfEin)
 				{ // gerade eingeschaltet.
-				int16_t TonStartVerschiebung; // > 0 falls der Hellton später einsetzt als erwartet.
-				TonStartVerschiebung = TCNT1 - (HellMessPeriode / 2);
-				if (TonStartVerschiebung >= 0)
+				if (TCNT1 >= HellMessPeriode / 2)
 					{
-					if (TonStartVerschiebung > TIMER1_MESS_OV_NENNW / 4)
+					if ((TCNT1 - HellMessPeriode / 2) > HellMessPeriode / 8)
 						{
 						SET_BIT(HellStatus, HellStatBitEmpfStoer);
 						// TODO Fehlerart speichern
@@ -215,7 +206,7 @@ ISR(ANALOG_COMP_vect)
 					}
 				else
 					{
-					if (TonStartVerschiebung < -(TIMER1_MESS_OV_NENNW / 4))
+					if ((HellMessPeriode / 2 - TCNT1) > HellMessPeriode / 8)
 						{
 						SET_BIT(HellStatus, HellStatBitEmpfStoer);
 						// TODO Fehlerart speichern
@@ -225,31 +216,6 @@ ISR(ANALOG_COMP_vect)
 				OCR1A = HellMessPeriode;
 				HellTonEmpfEin = true;
 				SET_BIT(HellStatus, HellStatBitEmpfTon);
-
-/*				
-				if (ImpulsStartLogPos < ImpulsStartLogMax)
-					{ // zur Auswertung
-					if (TonStartVerschiebung >= 0)
-						if (TonStartVerschiebung >= 256)
-							{
-							ImpulsStartLog[ImpulsStartLogPos] = 'P' + (TonStartVerschiebung / 256);
-							if (ImpulsStartLog[ImpulsStartLogPos] > 'Z')
-								ImpulsStartLog[ImpulsStartLogPos] = 'Z';
-							}
-						else
-							ImpulsStartLog[ImpulsStartLogPos] = 'A' + (TonStartVerschiebung / 16); // Bereich 0 bis 15, also A bis P
-					else
-						if (TonStartVerschiebung <= -256)
-							{
-							ImpulsStartLog[ImpulsStartLogPos] = 'p' + (-TonStartVerschiebung / 256);
-							if (ImpulsStartLog[ImpulsStartLogPos] > 'z')
-								ImpulsStartLog[ImpulsStartLogPos] = 'z';
-							}
-						else
-							ImpulsStartLog[ImpulsStartLogPos] = 'a' + (-TonStartVerschiebung / 16); // Bereich 0 bis 15, also a bis p
-					ImpulsStartLogPos++;
-					}
-*/
 				}
 			}
 		}
@@ -758,7 +724,6 @@ static void Initalisierungen()
 	HellStartVerschiebung = 10; // HACK als Test ob es tatsächlich ausgemittelt wird.
 	LernphaseAbgeschlossen = false;
 	
-	ImpulsStartLogPos = 0;
 
 	PufferInit(&SerOutBuf);
 	PufferInit(&TwiOutBuf);
@@ -982,7 +947,7 @@ static void HellZeichenEmpfangAuswerten()
 #ifdef TESTSER
 	if (true)
 #else
-	if (DebugAusgabeEin && PufferAnzahl(&TwiOutBuf) < MaxPuffer - 120)
+	if (DebugAusgabeEin && PufferAnzahl(&TwiOutBuf) < MaxPuffer - 110)
 #endif //def TESTSER
 		{
 		// Ausgabe des "rohen" Puffers, ri und i2 werden "mißbraucht":
@@ -997,11 +962,6 @@ static void HellZeichenEmpfangAuswerten()
 					DebugAusgPStr(PSTR("\r\n"));
 				}
 		DebugAusgPStr(PSTR("\r\n"));
-/*
-		for (ri = 0 ; ri < ImpulsStartLogPos ; ri++)
-			DebugAusg(ImpulsStartLog[ri]);
-		DebugAusgPStr(PSTR("\r\n"));
-*/
 		}
 			
 	for (i2 = 0; i2 < sizeof(Zeichensatz) - 1; i2++)
@@ -1032,18 +992,14 @@ static void HellZeichenEmpfangAuswerten()
 	HellAuswertIndex += MESSBYTES_PRO_ZEICHEN;
 	if (HellAuswertIndex >= MESSBYTES_PRO_ZEICHEN * MESSUNG_ANZAHL_ZEICHEN)
 		HellAuswertIndex = 0;
-		
-	if (BestSchieb >= 4)
-		HellStartVerschiebung += 4;
-	else if (BestSchieb <= -4)
-		HellStartVerschiebung -= 4;
-	else
-		HellStartVerschiebung += BestSchieb;
+
+	if (!DebugAusgabeEin)			
+		PufferSpeich(&TwiOutBuf, VZeichen[0]); // TODO ggf von Punktzahl abhängig machen.
 
 #ifdef TESTSER
 	if (true)
 #else
-	if (DebugAusgabeEin && PufferAnzahl(&TwiOutBuf) < MaxPuffer - 38)
+	if (DebugAusgabeEin && PufferAnzahl(&TwiOutBuf) < MaxPuffer - 27)
 #endif //def TESTSER
 		{
 		for (ri = 0; ri < RL; ri++)

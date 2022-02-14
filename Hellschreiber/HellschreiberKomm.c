@@ -1803,7 +1803,7 @@ static void Deaktivieren()
 	Tastendruck = NichtGedr;
 
 #ifndef KOMMSER
-	PufferSpeich(&KommOutBuf, HellDebugStartBefehl);
+	PufferSpeich(&KommOutBuf, HellDebugEndeBefehl);
 	while (!PufferLeer(&KommOutBuf))
 		FernschrIO();
 #endif //ndef KOMMSER
