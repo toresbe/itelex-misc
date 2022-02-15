@@ -68,11 +68,11 @@ volatile uint8_t HellMessung[MESSBYTES_PRO_ZEICHEN * MESSUNG_ANZAHL_ZEICHEN];
 
 volatile uint8_t HellMessPhase; // 0 = Ruhe, 1 = Startbits, 2 bis 11 = Zeichen
 
-volatile uint8_t HellMessSchreibIndex; // index in HellMessung
+volatile uint8_t HellMessSchreibIndex; // index in HellMessung beim Speichern der Bits
 
-volatile uint8_t HellMessBit; // im Startbereich ein Zähler, sonst eine Bitmaske
+volatile uint8_t HellMessBit; // im Startbereich (HellMessPhase = 1) ein Zähler, sonst (HellMessPhase > 1) eine Bitmaske
 
-volatile uint16_t HellMessPeriode; // Aktueller Wert der PIXEL-Dauer in Takten des Counter 2
+volatile uint16_t HellMessPeriode; //!< Aktueller Wert der PIXEL-Dauer in Takten des Counter 2
 
 uint8_t HellAuswertIndex;
 
@@ -992,14 +992,18 @@ static void HellZeichenEmpfangAuswerten()
 	HellAuswertIndex += MESSBYTES_PRO_ZEICHEN;
 	if (HellAuswertIndex >= MESSBYTES_PRO_ZEICHEN * MESSUNG_ANZAHL_ZEICHEN)
 		HellAuswertIndex = 0;
-
-	if (!DebugAusgabeEin)			
-		PufferSpeich(&TwiOutBuf, VZeichen[0]); // TODO ggf von Punktzahl abhängig machen.
+		
+	if (BestSchieb >= 4)
+		HellStartVerschiebung += 4;
+	else if (BestSchieb <= -4)
+		HellStartVerschiebung -= 4;
+	else
+		HellStartVerschiebung += BestSchieb;
 
 #ifdef TESTSER
 	if (true)
 #else
-	if (DebugAusgabeEin && PufferAnzahl(&TwiOutBuf) < MaxPuffer - 27)
+	if (DebugAusgabeEin && PufferAnzahl(&TwiOutBuf) < MaxPuffer - 38)
 #endif //def TESTSER
 		{
 		for (ri = 0; ri < RL; ri++)
