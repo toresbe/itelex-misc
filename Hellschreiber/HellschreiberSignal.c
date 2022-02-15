@@ -80,6 +80,13 @@ volatile int8_t HellStartVerschiebung; //!< Ausgleich zu Maschinen-individueller
 
 bool LernphaseAbgeschlossen; //!< Speichert, ob der Lernvorgang (--> Ermittlung von #HellStartVerschiebung und #HellMessPeriode)
 
+#define ImpulsStartLogMax 10
+
+int16_t ImpulsStartLog[ImpulsStartLogMax];
+
+uint8_t ImpulsStartLogPos;
+
+
 #ifdef TESTSER
 TPuffer SerOutBuf; //!< Sendepuffer für die serielle Schnittstelle. 
 #endif //def TESTSER
@@ -192,13 +199,16 @@ ISR(ANALOG_COMP_vect)
 				HellMessBit = HELL_START_OFFSET + (HellStartVerschiebung / 8); 
 				HellTonEmpfEin = true;
 				SET_BIT(HellStatus, HellStatBitEmpfTon);
+				ImpulsStartLogPos = 0;
 				set_DiagB();
 				}
 			else if (!HellTonEmpfEin)
 				{ // gerade eingeschaltet.
-				if (TCNT1 >= HellMessPeriode / 2)
+				int16_t TonStartVerschiebung; // > 0 falls der Hellton später einsetzt als erwartet.
+				TonStartVerschiebung = TCNT1 - (HellMessPeriode / 2);
+				if (TonStartVerschiebung >= 0)
 					{
-					if ((TCNT1 - HellMessPeriode / 2) > HellMessPeriode / 8)
+					if (TonStartVerschiebung > TIMER1_MESS_OV_NENNW / 4)
 						{
 						SET_BIT(HellStatus, HellStatBitEmpfStoer);
 						// TODO Fehlerart speichern
@@ -207,7 +217,7 @@ ISR(ANALOG_COMP_vect)
 					}
 				else
 					{
-					if ((HellMessPeriode / 2 - TCNT1) > HellMessPeriode / 8)
+					if (TonStartVerschiebung < -(TIMER1_MESS_OV_NENNW / 4))
 						{
 						SET_BIT(HellStatus, HellStatBitEmpfStoer);
 						// TODO Fehlerart speichern
@@ -217,6 +227,12 @@ ISR(ANALOG_COMP_vect)
 				OCR1A = HellMessPeriode;
 				HellTonEmpfEin = true;
 				SET_BIT(HellStatus, HellStatBitEmpfTon);
+	
+				if (ImpulsStartLogPos < ImpulsStartLogMax)
+					{
+					ImpulsStartLog[ImpulsStartLogPos] = TonStartVerschiebung;
+					ImpulsStartLogPos++;
+					}
 				}
 			}
 		}
@@ -722,8 +738,10 @@ static void Initalisierungen()
 	
 	HellAuswertIndex = 0;
 	
-	HellStartVerschiebung = 10; // HACK als Test ob es tatsächlich ausgemittelt wird.
+	HellStartVerschiebung = -20; // HACK als Test ob es tatsächlich ausgemittelt wird.
 	LernphaseAbgeschlossen = false;
+	
+	ImpulsStartLogPos = 0;
 	
 #ifdef TESTSER
 	PufferInit(&SerOutBuf);
@@ -964,6 +982,16 @@ static void HellZeichenEmpfangAuswerten()
 					DebugAusgPStr(PSTR("\r\n"));
 				}
 		DebugAusgPStr(PSTR("\r\n"));
+		for (ri = 0 ; ri < ImpulsStartLogPos ; ri++)
+			{
+			if (PufferAnzahl(&TwiOutBuf) > MaxPuffer - 50)
+				break;
+			DebugAusgZahl(ImpulsStartLog[ri]);
+			DebugAusg(' ');
+			}
+		if (ri > 0)
+			DebugAusgPStr(PSTR("\r\n"));
+		ImpulsStartLogPos = 0;
 		}
 			
 	for (i2 = 0; i2 < sizeof(Zeichensatz) - 1; i2++)
@@ -1116,8 +1144,8 @@ int main(void)
 
 	GrundstellungHerstellen();
 
-	while (TimerVal(&StartSperre) < 20000)
-		{  // 20 Sekunden jede Verbindung ablehnen. Zur Offenbarung von Abstürzen.
+	while (TimerVal(&StartSperre) < 10000)
+		{  // 10 Sekunden jede Verbindung ablehnen. Zur Offenbarung von Abstürzen.
 		SET_BIT(HellStatus, HellStatBitEmpfStoer); // zur Anzeige der Startsperre
 		PollTwi();
 		PufferInit(&HellAusgZeichenPuffer); // ggf. ankommende Zeichen löschen
