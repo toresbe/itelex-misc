@@ -80,8 +80,9 @@ volatile int8_t HellStartVerschiebung; //!< Ausgleich zu Maschinen-individueller
 
 bool LernphaseAbgeschlossen; //!< Speichert, ob der Lernvorgang (--> Ermittlung von #HellStartVerschiebung und #HellMessPeriode)
 
-
+#ifdef TESTSER
 TPuffer SerOutBuf; //!< Sendepuffer für die serielle Schnittstelle. 
+#endif //def TESTSER
 TPuffer TwiOutBuf; //!< Sendepuffer für die TWI Schnittstelle. 
 TPuffer HellAusgZeichenPuffer; //!< Puffer für empfangene Zeichen / Befehle. Wird auch von TWI benutzt.
 
@@ -724,8 +725,9 @@ static void Initalisierungen()
 	HellStartVerschiebung = 10; // HACK als Test ob es tatsächlich ausgemittelt wird.
 	LernphaseAbgeschlossen = false;
 	
-
+#ifdef TESTSER
 	PufferInit(&SerOutBuf);
+#endif //def TESTSER
 	PufferInit(&TwiOutBuf);
 	PufferInit(&HellAusgZeichenPuffer);
 	
