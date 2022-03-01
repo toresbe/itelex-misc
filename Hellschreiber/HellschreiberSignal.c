@@ -78,8 +78,6 @@ uint8_t HellAuswertIndex;
 
 volatile int8_t HellStartVerschiebung; //!< Ausgleich zu Maschinen-individueller Verschiebung des Startbits
 
-bool LernphaseAbgeschlossen; //!< Speichert, ob der Lernvorgang (--> Ermittlung von #HellStartVerschiebung und #HellMessPeriode)
-
 #define ImpulsStartLogMax 10
 
 int16_t ImpulsStartLog[ImpulsStartLogMax];
@@ -738,8 +736,7 @@ static void Initalisierungen()
 	
 	HellAuswertIndex = 0;
 	
-	HellStartVerschiebung = -20; // HACK als Test ob es tatsächlich ausgemittelt wird.
-	LernphaseAbgeschlossen = false;
+	HellStartVerschiebung = 0;
 	
 	ImpulsStartLogPos = 0;
 	

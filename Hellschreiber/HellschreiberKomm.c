@@ -1375,15 +1375,15 @@ static void Konfiguration()
 		return;
 	
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(" configuration hellschreiber version " SVNVERSION " date " __DATE__));
+	LokalTextAusgabeP(PSTR(" hellschreiber version " SVNVERSION " date " __DATE__));
 #else
-	LokalTextAusgabeP(PSTR(" konfiguration hellschreiber version " SVNVERSION " datum " __DATE__));
+	LokalTextAusgabeP(PSTR(" hellschreiber version " SVNVERSION " datum " __DATE__));
 #endif //def SPRACHE_EN
 
 // zum "Trainieren" zunächst Zeichen nur 'echoen'
 
 #ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(" training phase, start config with +++   "));
+	LokalTextAusgabeP(PSTR(" training phase, start configuration with +++   "));
 #else
 	LokalTextAusgabeP(PSTR(" lernphase, konfiguration beginnen mit +++   "));
 #endif //def SPRACHE_EN
@@ -1394,13 +1394,18 @@ static void Konfiguration()
 		char Zeichen = LokalZeichenLesen();
 		if (Zeichen == '+')
 			PlusZahl++;
-		else if (Zeichen == '0')
-			Zeichen = HELLC_NULL_ALT;
-		else
+		else if (Zeichen == '\0') // ausgeschaltet
+			return;
+		else 
+			{
 			PlusZahl = 0; 
-		LokalZeichenAusgabe(Zeichen);	
+			if (Zeichen == '0')
+				LokalZeichenAusgabe('!');	
+			else
+				LokalZeichenAusgabe(Zeichen);	
+			}
 		}
-
+		
 	// Vorab die Frage nach "Expertenfunktionen"
 	// -----------------------------------------
 #ifdef SPRACHE_EN
