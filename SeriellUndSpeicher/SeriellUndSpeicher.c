@@ -739,6 +739,17 @@ static void VerbindungGehend()
 	LokalTextAusgabeP(PSTR("\r\nVerbunden\r\n"));
 #endif	
 
+	if (!GeEinschaltQuittung())
+		{
+#ifdef SPRACHE_EN					
+		LokalTextAusgabeP(PSTR("failed\r\n"));
+#else
+		LokalTextAusgabeP(PSTR("Fehler\r\n"));
+#endif
+		GeAusschalten(false); // zu warten ist nicht mehr nötig.
+		return;
+		}
+
 	VerbindungSteht(false);
 
 #ifdef AF_ZEITSPERRE
