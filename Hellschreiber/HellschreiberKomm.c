@@ -1400,7 +1400,7 @@ static void Konfiguration()
 			{
 			PlusZahl = 0; 
 			if (Zeichen == '0')
-				LokalZeichenAusgabe('!');	
+				LokalZeichenAusgabe(HELLC_NULL_ALT);	
 			else
 				LokalZeichenAusgabe(Zeichen);	
 			}
