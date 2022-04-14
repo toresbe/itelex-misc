@@ -183,7 +183,32 @@ static void FernschrIO()
 	{
 	// Pegel & Polung ausgeben
 	// -----------------------
-	bset_FS_AKTIV(BefehlEinschalten);
+#ifdef DOPPELSTROM
+	// nichts besonderes
+#else // TW39
+	// Bei Ein- oder Ausschaltung die Schleife auch kurz unterbrechen
+	if (BefehlEinschalten != get_FS_AKTIV())
+		{
+		if (!get_FS_EING()) // negiert, daher false = Strom Ein
+			{
+			// zur Schonung des Relais den Schleifenstrom jetzt unterbrechen
+			clr_FS_AUSG();
+			#ifdef PARALLELAUSGABE
+				clr_FS2_AUSG(BefehlMark);
+			#endif //def PARALLELAUSGABE
+
+			TMsTimer Timer;
+
+			StartTimer(&Timer);
+			while (TimerVal(&Timer) < 10)
+				;
+
+			// das Umpolen und Wiedereinschalten der Schleife folgt gleich.
+			}
+		}
+#endif
+
+	bset_FS_AKTIV(BefehlEinschalten); // auch wenn es nichts zu ändern gibt, sicher ist sicher
 	#ifdef PARALLELAUSGABE
 		bset_FS2_AKTIV(BefehlEinschalten);
 	#endif //def PARALLELAUSGABE
