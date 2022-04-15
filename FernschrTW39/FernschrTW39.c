@@ -109,13 +109,32 @@ static void TW39IO()
 	{
 	// Pegel & Polung ausgeben
 	// -----------------------
-	bset_FS_AKTIV(BefehlEinschalten);
-	#ifdef PARALLELAUSGABE
-		bset_FS2_AKTIV(BefehlEinschalten);
-	#endif //def PARALLELAUSGABE
+	// Bei Ein- oder Ausschaltung die Schleife auch kurz unterbrechen
+	if (BefehlEinschalten != get_FS_AKTIV())
+		{
+		// zur Schonung des Relais den Schleifenstrom jetzt unterbrechen
+		clr_FS_AUSG(); // Low -> Optokoppler durchgeschaltet -> Gate auf 0 -> trennung
+		#ifdef PARALLELAUSGABE
+			clr_FS2_AUSG(BefehlMark);
+		#endif //def PARALLELAUSGABE
 
-	if (BefehlEinschalten)
-		bset_LEDBLAU(!BefehlMark);
+		TMsTimer Timer;
+
+		StartTimer(&Timer);
+		while (TimerVal(&Timer) < 15) // Strom abklingen lassen
+			;
+
+		bset_FS_AKTIV(BefehlEinschalten); // Relais schalten
+		#ifdef PARALLELAUSGABE
+			bset_FS2_AKTIV(BefehlEinschalten);
+		#endif //def PARALLELAUSGABE
+
+		StartTimer(&Timer);
+		while (TimerVal(&Timer) < 15) // Schaltzeit des Relais abwarten
+			;
+
+		// das Wiedereinschalten der Schleife folgt gleich.
+		}
 	bset_FS_AUSG(BefehlMark);
 	#ifdef PARALLELAUSGABE
 		bset_FS2_AUSG(BefehlMark);
@@ -179,6 +198,9 @@ static void TW39IO()
 		bset_LEDGELB(!MeldungMark);
 	else // !BIT_IS_SET(Status, StatBit_AngerufenBelegt))
 		bset_LEDGRUEN(!MeldungMark);
+
+	if (BefehlEinschalten)
+		bset_LEDBLAU(!BefehlMark);
 
 	} // TW39IO
 	
