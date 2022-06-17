@@ -922,10 +922,10 @@ static void VerbindungGehend()
 static void VerbindungSteht(bool AutoKennungAbfrage)
 	{
 	TMsTimer KennungAbfrageTimer;
-	bool ErsteKennungAbfrage;
+	bool KennungAbfrageZaehler;
 	
 	StartTimer(&KennungAbfrageTimer);
-	ErsteKennungAbfrage = true;
+	KennungAbfrageZaehler = 0;
 
 	GeSendeMark(true); 
 
@@ -969,13 +969,15 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 
 		// Kennungsgeber alle 5 Sekunden abfragen, bis Gegenantwort kam...
 		if (AutoKennungAbfrage 
-			&& TimerVal(&KennungAbfrageTimer) >= (ErsteKennungAbfrage ? 500 : 5000))
+			&& TimerVal(&KennungAbfrageTimer) >= ((KennungAbfrageZaehler == 0) ? 500 : 5000))
 			{
 			PufferSpeich(&SendePuffer, TtyCodeZiUm);
 			PufferSpeich(&SendePuffer, TtyCodeZiUm);
 			PufferSpeich(&SendePuffer, TtyCodeZiWerDa);
 			StartTimer(&KennungAbfrageTimer);
-			ErsteKennungAbfrage = false;
+			KennungAbfrageZaehler++;
+			if (KennungAbfrageZaehler >= 5)
+				AutoKennungAbfrage = false;
 			}
 			
 		// falls selber geschrieben wird, auch automatische Kennungsgeber-Abfrage
