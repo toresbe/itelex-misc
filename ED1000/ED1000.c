@@ -1093,7 +1093,7 @@ static void VerbindungGehend()
 static void VerbindungSteht(bool AutoKennungAbfrage)
 	{
 	TMsTimer KennungAbfrageTimer;
-	bool KennungAbfrageZaehler;
+	uint8_t KennungAbfrageZaehler;
 	
 	StartTimer(&KennungAbfrageTimer);
 	KennungAbfrageZaehler = 0;
