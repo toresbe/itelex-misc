@@ -8,6 +8,7 @@
 // verwendete Pins siehe Ports.h
 //================================================================
 
+#include <stddef.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
@@ -114,7 +115,8 @@ enum {
     EEAdr_AutoWahlZiffern = 27,
 	EEAdr_AnrufAbbruchZeit = 37,
 	EEAdr_StartQuittVerz = 38,
-	EEAdr_Ende = 39 // Platz für neue Werte, darf erhöht werden	
+	EEAdr_SimulierteKennung = 39, 
+	EEAdr_Ende = 70 // Platz für neue Werte, darf erhöht werden	
 };
 
 
@@ -167,9 +169,19 @@ TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalte
 // ====================================
 
 // keine
+enum { MaxCodefolgeLaenge = 30 }; //!< Maximale Länge von #AusschaltZeichen, #Wahlaufforderung, #VerbindungHergestelltZeichen, #SimulierteKennung
 
+uint8_t SimulierteKennung[MaxCodefolgeLaenge+1];
+	//!< Text des eigenen Kennungsgeber-Simulators
+	
+PROGMEM const uint8_t SimulierteKennungDefault[] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, TtyCodeZiUm, 25, 25, 28, 28, 13, 12, TtyCodeBuUm, TtyCodeLeer, 26, 3, 16 } ;
+	//!< Standardwert für #SimulierteKennung
+	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
+	
+uint8_t KennwortCodefolge[MaxCodefolgeLaenge+1];
 // Schnittstellen-Spezifische Funktionen
 // =====================================
+static inline bool ValidCode(uint8_t c) { return c >= (1<<5) && c < (1<<6); }
 
 //! bedient Hardware-IO entsprechend der aktuellen Zustände.
 
@@ -556,6 +568,79 @@ void LokalZeichenAusgabe(char c)
 	}
 			
 		
+///////////////////////////////////////////////////////////////
+
+//! Dialog-Abfrage für einen Text der als 5-Bit-Code abgespeichert wird.
+//----------------------------------------------------------------------
+//! neuer Text muss durch druckbare Begrenzungszeichen eingeschlossen werden. z.B. xhallox für hallo
+//! . (Punkt) als einziges Zeichen = alten Wert behalten.
+//! \param[out] buf Puffer des eingegebenen Textes. Hinweis: Ende-Markierung ist 0x00, Bit 5 wird für alle Werte gesetzt!
+//! \param[in] maxcodes Anzahl erlaubter codes bei der Eingabe, auch Puffergröße.
+//! \retval 0 abbruch
+//! \retval 1 unverändert
+//! \retval 2 eingabe erfolgt
+//! \todo mal nach KonfigDialog verschieben, da aber LokalZeichenLesen nicht verwendet werden kann, muss eine größere Umstellung gemacht werden.
+
+
+uint8_t LokalCodefolgeEingabe(PGM_P Prompt, uint8_t* buf, uint8_t maxcodes)
+	{
+	uint8_t Pos = 0; 
+	char TrennZeichen; // Zeichen für noch nicht belegt.
+
+	if (Prompt != NULL)
+		LokalTextAusgabeP(Prompt);
+	
+	TrennZeichen = '\0';
+
+	while (true)
+		{ // Schleifendurchlauf einmal je Taste
+		uint8_t code;
+		char zeichen; 
+		
+		while (true)
+			{ // Schleifendurchlauf bis ein Zeichen eingegeben oder Abbruch
+			FernschrIO(true);
+			SeriellUmsetzung(MeldungMark, &BefehlMark);
+			if (SerUmEmpfBitNr == SerUmEmpfFertig)
+				{
+				code = SerUmEmpfDaten;
+				SerUmEmpfBitNr = SerUmEmpfWarte;
+				break;
+				}
+			}
+
+		zeichen = CodeZuZeichen(code, &BaudotMode);
+		
+		if (TrennZeichen != '\0')
+			{ // Zeichenfolge wurde bereits begonnen.
+			if (zeichen == TrennZeichen)
+				{
+				if (Pos < maxcodes-1)
+					buf[Pos] = 0;
+				LokalTextAusgabeP(OkStrP);
+				return 2;
+				}
+			else
+				{
+				if (Pos < maxcodes-1)
+					buf[Pos++] = code | (1<<5);
+				}
+			} // if TrennZeichen != '\0'
+		else // TrennZeichen == '\0'
+			{ // Trennzeichen wurde noch nicht wirksam eingegebenen
+			if (zeichen == '.')
+				{ // vorhandenen Wert beibehalten
+				LokalTextAusgabeP(OkStrP);
+				return 1;
+				}
+			else if (zeichen != '#' && zeichen > ' ') // nicht ungültig und kein Leerzeichen
+				TrennZeichen = zeichen;
+			} // else Trennzeichen == '\0'
+
+		} // while true
+	} // LokalCodefolgeEingabe
+
+		
 static void VerbindungSteht(bool AutoKennungAbfrage);
 
 static void KommendSperren(TSperreGrund Grund);
@@ -923,14 +1008,22 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 	{
 	TMsTimer KennungAbfrageTimer;
 	uint8_t KennungAbfrageZaehler;
+	uint8_t KennungAusgabePhase;
+	
+	bool Bit5unterdruecken; // sperrt WerDa und F auf der Ziffernseite
+	bool ZiffernEbene;
 	
 	StartTimer(&KennungAbfrageTimer);
 	KennungAbfrageZaehler = 0;
+	KennungAusgabePhase = 0;
 
 	GeSendeMark(true); 
 
-	SendeUmsetzModus = UmsetzFern;
+	SendeUmsetzModus = UmsetzFern; // Für das Senden von WerDa.
 	EmpfUmsetzModus = UmsetzFern; 
+	KennungAusgabePhase = 0;
+	Bit5unterdruecken = false;
+	ZiffernEbene = true; // sicherheitshalber
 
 	while (true)
 		{
@@ -953,7 +1046,7 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			return;
 			}
 
-		BefehlMark = KoEmpfMark();
+		BefehlMark = KoEmpfMark() || Bit5unterdruecken; // damit kann aus einer 0 eine 1 gemacht werden.
 	
 		if (SerUmSendBitNr <= SerUmSendStart) // Start oder Warten...
 			GeSendeMark(MeldungMark); // Nur Fs-Pegel direkt auf Bus, wenn nicht seriell gesendet wird...
@@ -963,9 +1056,28 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		// 'sinnvolle' Zeichen gesendet hat. Falls ja, braucht der Kennungsgeber nicht mehr abgefragt zu werden.
 		while (!PufferLeer(&EmpfPuffer))
 			{
-			if (PufferAusg(&EmpfPuffer) != TtyCodeBuUm)
+			uint8_t code = PufferAusg(&EmpfPuffer);
+			
+			if (code != TtyCodeBuUm)
 				AutoKennungAbfrage = false;
+			if (code == TtyCodeBuUm)
+				{
+				ZiffernEbene = false;
+				}
+			else if (code == TtyCodeZiUm)
+				{
+				ZiffernEbene = true;
+				}
+			else
+				{
+				if (ValidCode(SimulierteKennung[0]) && code == TtyCodeZiWerDa && ZiffernEbene)
+					KennungAusgabePhase = 2;
+				else if (KennungAusgabePhase == 2)
+					KennungAusgabePhase = 1; 
+						// jedes andere Zeichen schaltet 'anstehende' Kennungsausgabe wieder ab.
+				}
 			}
+			
 
 		// Kennungsgeber alle 5 Sekunden abfragen, bis Gegenantwort kam...
 		if (AutoKennungAbfrage 
@@ -984,6 +1096,27 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 		// löschen
 		if (TimerVal(&KennungAbfrageTimer) > 1000 && !MeldungMark)
 			AutoKennungAbfrage = false;
+
+		// Verbotene Codes unterdrücken:
+		if (!Bit5unterdruecken && ZiffernEbene && SerUmEmpfBitNr == 6 /*5.Datenbit*/ && SerUmEmpfDaten == (TtyCodeZiWerDa >> 1) && ValidCode(SimulierteKennung[0])) 
+			Bit5unterdruecken = true;
+		if (Bit5unterdruecken && (SerUmEmpfBitNr == SerUmEmpfFertig || SerUmEmpfBitNr == SerUmEmpfWarte))
+			Bit5unterdruecken = false;
+
+		// Kennungsgeber-Simulator bearbeiten:
+		if (!MeldungMark) 
+			KennungAusgabePhase = 0; 
+				// sobald selbst geschrieben wird wird Kennungsgeber-Ausgabe wieder in Grundstellung
+				// gesetzt.
+				
+		if (KennungAusgabePhase == 2)
+			{
+			SendeUmsetzModus = UmsetzLokalUndFern;
+			for (uint8_t i = 0 ; i < MaxCodefolgeLaenge && ValidCode(SimulierteKennung[i]); i++)
+				PufferSpeich(&SendePuffer, SimulierteKennung[i] & 0x1F);
+			KennungAusgabePhase = 0;
+			}
+
 			
 		// Test:
 		// bset_LEDROT(AutoKennungAbfrage);
@@ -1334,6 +1467,16 @@ static void Konfiguration()
 		return;
 
 	LokalTextAusgabeP(OkStrP);
+
+	// Codefolgen 
+	// ---------------------
+#ifdef SPRACHE_EN
+	if (LokalCodefolgeEingabe(PSTR("\r\n answerback simulation:      "), SimulierteKennung, MaxCodefolgeLaenge) == 0)
+		return;
+#else
+	if (LokalCodefolgeEingabe(PSTR("\r\n simulierter kennungsgeber:      "), SimulierteKennung, MaxCodefolgeLaenge) == 0)
+		return;
+#endif //def SPRACHE_EN
 	
 	// weitere Eingaben
 	// ----------------
@@ -1375,7 +1518,9 @@ static void KonfigurationEnde()
 		KonfigSchreibeByte(EEAdr_AutoWahlZiffern + i, AutoWahlZiffern[i]);
 	
 	SperrzeitSpeicherEeprom(EEAdr_Sperrzeit);
-
+	
+	KonfigSchreibeString(EEAdr_SimulierteKennung, (char *) SimulierteKennung, MaxCodefolgeLaenge + 1);
+	
 	Aktivieren(true);
 
 	clr_LEDROT();
@@ -1501,6 +1646,42 @@ static void Deaktivieren()
 		
 	} // Deaktivieren
 
+	
+/////////////////////////////////////////////////////////////
+
+//! Liest aus dem EEPROM einen Datenblock als Codefolge, prüft ob dieser Block
+//! korrekt ist (nur Werte von 32 bis 63 und 0) und initialisiert
+//! ggf. ungültige Codefolgen
+//------------------------------------------------------------
+
+void CodefolgeLadenPruefenInitialisieren(uint8_t* cf, uint8_t size, uint8_t cf_eep_adr, const uint8_t* cf_default, uint8_t def_size)
+	{
+	uint8_t i;
+
+	for (i = 0 ; i < size ; i++)
+		{
+		cf[i] = KonfigLeseByte(cf_eep_adr + i, 0xFF); // 0xFF als Kennzeichen, dass tatsächlich was schiefgegangen ist.
+		if (cf[i] == 0)
+			return; // 0 heißt wie beim String "Ende".
+		else if (cf[i] == 0x5A) // historische Ende-Marke.
+			{
+			cf[i] = 0;
+			return; // alles ist schön
+			}
+		else if (ValidCode(cf[i]))
+			;					// 32 bis 63: neue Version des Konfig-Speicher-Inhalts. 
+		else if (cf[i] <= 0x1F) // 1 bis 31: alte Version des Konfig-Speicher-Inhalts.
+			cf[i] |= (1<<5); // neu mit gesetztem Bit 5
+		else // alles andere: Müll -> Initialisieren
+			{
+			for (i = 0 ; i < def_size ; i++)
+				cf[i] = pgm_read_byte(cf_default + i) | (1<<5);
+			cf[def_size] = 0;
+			return;
+			}
+		}
+	} // CodefolgeLadenPruefenInitialisieren()
+
 
 /////////////////////////////////////////////////////////////
 
@@ -1564,6 +1745,8 @@ int main()
 	LokalbetriebWahl = KonfigLeseByteBegrenzt(EEAdr_LokalbetriebWahl, LokalbetriebWahl_Std, 0, 99);
 	
 	StartQuittVerzoegerung = KonfigLeseByteBegrenzt(EEAdr_StartQuittVerz, StartQuittVerzoegerung_Std, StartQuittVerzoegerung_Min, 200);
+
+	CodefolgeLadenPruefenInitialisieren(SimulierteKennung, sizeof(SimulierteKennung), EEAdr_SimulierteKennung, SimulierteKennungDefault, sizeof(SimulierteKennungDefault));
 
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
