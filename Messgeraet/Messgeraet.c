@@ -150,9 +150,17 @@ typedef char TKennung[KENNUNG_MAXLEN];
 // Kennungen fester Teil
 // ----------------------
 
+#ifdef SPRACHE_EN
+
+PROGMEM const TKennung Kennung[BUS_MEHRFACH_ADR] = 
+    { "\r\nmeasuring", "\r\ntestsender", "\r\nletterpuncher", "\r\ncallback" } ;
+
+#else
+
 PROGMEM const TKennung Kennung[BUS_MEHRFACH_ADR] = 
     { "\r\nmessgeraet", "\r\npruefsender", "\r\nbildlocher", "\r\nrueckrufautom" } ;
-
+	
+#endif //def SPRACHE_EN
 
 // Eeprom-Speicher-Adressen
 // ------------------------
@@ -493,7 +501,11 @@ static void VerbindungMessgeraet()
 					PufferPos = 0;
 					MessPhase = Ausgabe;
 					GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
-					GeSendeTextP(PSTR("\r\nMessung:\r\n"));
+#ifdef SPRACHE_EN					
+					GeSendeTextP(PSTR("\r\nmeasures:\r\n"));
+#else
+					GeSendeTextP(PSTR("\r\nmessung:\r\n"));
+#endif //def SPRACHE_EN
 					}
 				break;
 
@@ -506,7 +518,11 @@ static void VerbindungMessgeraet()
 					GeSendeZahl(x);
 					if (x == 255)
 						{
+#ifdef SPRACHE_EN
+						GeSendeTextP(PSTR("\r\n End \r\n"));
+#else
 						GeSendeTextP(PSTR("\r\n Ende \r\n"));
+#endif //def SPRACHE_EN
 						MessPhase = StartSperre;
 						}
 					else 
@@ -557,7 +573,13 @@ static void VerbindungRueckruf()
 
 	// Nummer abfragen:
 	KurzePause();
+
+#ifdef SPRACHE_EN
+	GeSendeTextP(PSTR("\r\n Number:     "));
+#else
 	GeSendeTextP(PSTR("\r\n Nummer:     "));
+#endif //def SPRACHE_EN
+
 	GeSendeCode(TtyCodeZiUm);
 	PufferPos = 0;
 	while (true)
@@ -988,7 +1010,11 @@ static void VerbindungTestsender()
 		while (KoEmpfZeichen(&c))
 			; // weitere empfangene Zeichen ignorieren
 	
+#ifdef SPRACHE_EN
+		GeSendeTextP(PSTR("\r\nselect function:     "));
+#else
 		GeSendeTextP(PSTR("\r\nFunktion waehlen:     "));
+#endif //ndef SPRACHE_EN
 
 		while (!KoEmpfZeichen(&c))
 			if (KoAusschalten())
@@ -1007,6 +1033,18 @@ static void VerbindungTestsender()
 			}
 		else
 			{
+#ifdef SPRACHE_EN
+			if (c != '?')
+				GeSendeTextP(PSTR("\r\nunknown selection. list of functions:"));
+			GeSendeTextP(PSTR("\r\n0: no distortion"));
+			GeSendeTextP(PSTR("\r\n1..5: distorted data bit "));
+			GeSendeTextP(PSTR("(related to end-of-bit)"));
+			GeSendeTextP(PSTR("\r\n6: distorted start bit"));
+			GeSendeTextP(PSTR("\r\n7: distorted stop bit"));
+			GeSendeTextP(PSTR("\r\n8: differing baudrate"));
+			GeSendeTextP(PSTR("\r\n9: mark/space-distortion"));
+			GeSendeTextP(PSTR("\r\nE: end"));
+#else
 			if (c != '?')
 				GeSendeTextP(PSTR("\r\nunbekannte Funktion. Funktionsliste:"));
 			GeSendeTextP(PSTR("\r\n0: ohne Verzerrung"));
@@ -1017,6 +1055,7 @@ static void VerbindungTestsender()
 			GeSendeTextP(PSTR("\r\n8: abweichende Baudrate"));
 			GeSendeTextP(PSTR("\r\n9: Mark/Space-Verzerrung"));
 			GeSendeTextP(PSTR("\r\nE: Ende"));
+#endif //ndef SPRACHE_EN
 			while (!GeSendePufferLeer())
 				;
 			}
@@ -1107,12 +1146,20 @@ static bool KonfigurationDurchwahl()
 	while (true)
 		{ // solange Durchwahl abfragen, bis gültige Eingabe erfolgt
 		uint8_t neu = Durchwahl;
+#ifdef SPRACHE_EN
+		if (!ZahlAbfrageFern(PSTR("internal number"), &neu, DurchwahlZiffern))
+#else
 		if (!ZahlAbfrageFern(PSTR("durchwahl"), &neu, DurchwahlZiffern))
+#endif //ndef SPRACHE_EN
 			return false; // Abbruch
 			
 		if (ZahlEmpfangenFernAnzahlZiffern > 2) 
 			{
+#ifdef SPRACHE_EN
+			if (!TextAusgabeFernP(PSTR("\r\n at most 2 digits")))
+#else
 			if (!TextAusgabeFernP(PSTR("\r\n maximal 2 stellen")))
+#endif //ndef SPRACHE_EN
 				return false; // Abbruch
 			continue; // nochmal;
 			}
@@ -1127,6 +1174,9 @@ static bool KonfigurationDurchwahl()
 		NeuEigenAdresse &= ~3; // niedrigste zwei Bits löschen
 		neu = AdresseZuWahl(NeuEigenAdresse, &DurchwahlZiffern);
 		
+#ifdef SPRACHE_EN
+#warning Unfertig!
+#endif //ndef SPRACHE_EN
 		if (!TextAusgabeFernP(PSTR("\r\n pruefe: "))
 			|| !ZahlAusgabeFern(neu, DurchwahlZiffern))
 			return false;
