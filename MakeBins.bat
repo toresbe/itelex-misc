@@ -40,6 +40,7 @@ rem itlx_SeriellUndSpeicher2-mZS (Zeitsperre) durch -Full ersetzt
 rem OhneSpeicher wird nicht vertrieben
 call MakeBin1.bat itlx_SeriellUndSpeicher2-KOI7N2 SeriellUndSpeicher\KOI7N2_21\SeriellUndSpeicher.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher2-KOI8R SeriellUndSpeicher\KOI8R_21\SeriellUndSpeicher.hex Mega168_Quarz
+call MakeBin1.bat itlx_SeriellUndSpeicher2-EN SeriellUndSpeicher\PlatVer21-EN\SeriellUndSpeicher.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher2-US45 SeriellUndSpeicher\USTTY-45_21\SeriellUndSpeicher.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher2-110-7 SeriellUndSpeicher\110-7_21\SeriellUndSpeicher.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher2-110-7_EN SeriellUndSpeicher\110-7_EN_21\SeriellUndSpeicher.hex Mega168_Quarz
