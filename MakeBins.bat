@@ -29,6 +29,7 @@ call MakeBin1.bat itlx_Doppelstrom-75Bd FernschrTW39Plus\Doppelstrom-75Bd\Doppel
 call MakeBin1.bat itlx_Messgeraet Messgeraet\default\Messgeraet.hex Mega168_Quarz
 call MakeBin1.bat itlx_Messgeraet-75BD Messgeraet\75baud\Messgeraet.hex Mega168_Quarz
 call MakeBin1.bat itlx_Messgeraet-US45 Messgeraet\USTTY-45\Messgeraet.hex Mega168_Quarz
+call MakeBin1.bat itlx_Messgeraet-EN Messgeraet\EN\Messgeraet.hex Mega168_Quarz
 call MakeBin1.bat itlx_Messgeraet-plED Messgeraet\AufED1000\Messgeraet.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher SeriellUndSpeicher\PlatVer13\SeriellUndSpeicher.hex Mega168_Quarz
 call MakeBin1.bat itlx_SeriellUndSpeicher-CODESW SeriellUndSpeicher\PlatVer13-CodeSw\SeriellUndSpeicher.hex Mega168_Quarz
