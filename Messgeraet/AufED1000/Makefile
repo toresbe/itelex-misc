@@ -37,6 +37,7 @@ SUBDIRS :=
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS +=  \
+../../Gemeinsam/KonfigSpeicher.c \
 ../Messgeraet.c \
 ../Taste.c \
 ../../Gemeinsam/BaudotCode.c \
@@ -57,6 +58,7 @@ ASM_SRCS +=
 
 
 OBJS +=  \
+KonfigSpeicher.o \
 Messgeraet.o \
 Taste.o \
 BaudotCode.o \
@@ -70,6 +72,7 @@ BusKomm2.o \
 FernDialog.o
 
 OBJS_AS_ARGS +=  \
+KonfigSpeicher.o \
 Messgeraet.o \
 Taste.o \
 BaudotCode.o \
@@ -83,6 +86,7 @@ BusKomm2.o \
 FernDialog.o
 
 C_DEPS +=  \
+KonfigSpeicher.d \
 Messgeraet.d \
 Taste.d \
 BaudotCode.d \
@@ -96,6 +100,7 @@ BusKomm2.d \
 FernDialog.d
 
 C_DEPS_AS_ARGS +=  \
+KonfigSpeicher.d \
 Messgeraet.d \
 Taste.d \
 BaudotCode.d \
@@ -122,6 +127,13 @@ LINKER_SCRIPT_DEP+=
 
 
 # AVR32/GNU C Compiler
+./KonfigSpeicher.o: ../../Gemeinsam/KonfigSpeicher.c
+	@echo Building file: $<
+	@echo Invoking: AVR/GNU C Compiler : 5.4.0
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DFUER_PLAT_ED1000 -DPROGIDZUSATZ=\"plED\" -DF_CPU=14745600UL  -I"..\..\..\C-Libs" -I"..\..\Gemeinsam" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\include"  -Os -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega168 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\gcc\dev\atmega168" -c -gdwarf-2 -std=gnu99 -fgnu89-inline -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	@echo Finished building: $<
+	
+
 ./Messgeraet.o: .././Messgeraet.c
 	@echo Building file: $<
 	@echo Invoking: AVR/GNU C Compiler : 5.4.0

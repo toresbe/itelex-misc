@@ -1175,9 +1175,10 @@ static bool KonfigurationDurchwahl()
 		neu = AdresseZuWahl(NeuEigenAdresse, &DurchwahlZiffern);
 		
 #ifdef SPRACHE_EN
-#warning Unfertig!
-#endif //ndef SPRACHE_EN
+		if (!TextAusgabeFernP(PSTR("\r\n checking: "))
+#else
 		if (!TextAusgabeFernP(PSTR("\r\n pruefe: "))
+#endif //ndef SPRACHE_EN
 			|| !ZahlAusgabeFern(neu, DurchwahlZiffern))
 			return false;
 
@@ -1187,7 +1188,11 @@ static bool KonfigurationDurchwahl()
 			}
 
 		// Adresse schon belegt...
-		if (!TextAusgabeFernP(PSTR(" schon vergeben, andere waehlen!")))
+#ifdef SPRACHE_EN
+		if (!TextAusgabeFernP(PSTR(" already used, choose different number.")))
+#else
+		if (!TextAusgabeFernP(PSTR(" schon vergeben, andere waehlen.")))
+#endif //ndef SPRACHE_EN
 			return false; // Abbruch
 
 		}
@@ -1205,7 +1210,11 @@ static void Konfiguration()
 
 	set_LED_ROT();			
 
+#ifdef SPRACHE_EN
+	if (TextAusgabeFernP(PSTR("\r\n configuration metering version " SVNVERSION " date " __DATE__))
+#else
 	if (TextAusgabeFernP(PSTR("\r\n konfiguration messgeraet version " SVNVERSION " datum " __DATE__))
+#endif //ndef SPRACHE_EN
 		&& KonfigurationDurchwahl()
 		// && BitAbfrageFern(PSTR("feste hauptstelle"), &KonfigBits, 1 << KonfigBit_FesterHauptanschluss)
 		// && (!BIT_IS_SET(KonfigBits, KonfigBit_FesterHauptanschluss) // folgende Abfrage nur bei FesterHauptanschluss
@@ -1221,7 +1230,11 @@ static void Konfiguration()
 		// && JustierWahlziffernAbfragen()
 		// && ZahlAbfrageFern(PSTR("justierung verzoegerung abheben - erste ziffer ...\r\n ... (x/10 sek)"), &JustierWahlVerzoegerung, 1)
 		// && ZahlAbfrageFern(PSTR("justierung verzoegerung auflegen - abheben nach taste ...\r\n ... (x/10 sek)"), &JustierNeustartPause, 1)
+#ifdef SPRACHE_EN
+		&& TextAusgabeFernP(PSTR("\r\n finished +++\r\n")))
+#else
 		&& TextAusgabeFernP(PSTR("\r\n fertig +++\r\n")))
+#endif //ndef SPRACHE_EN
 		{ // kein Abbruch, daher ordnungsgemäß abstellen
 		BusSenden(BusKdoSchluss);
 		WarteSchlussQuittung(2500);
@@ -1301,7 +1314,11 @@ int main()
 	BusEigenAdrMehrfach = BUS_MEHRFACH_ADR;
 	
 	KonfigLeseString(EEAdr_KennungZusatz, KennungZusatz, KENNUNG_MAXLEN, PSTR(""));
+#ifdef SPRACHE_EN
+	KonfigLeseString(EEAdr_Kennwort, Kennwort, KENNWORT_MAXLEN, PSTR("password"));	
+#else
 	KonfigLeseString(EEAdr_Kennwort, Kennwort, KENNWORT_MAXLEN, PSTR("kennwort"));	
+#endif //ndef SPRACHE_EN
 
 	UmleitungAbweisen = true;
 	
