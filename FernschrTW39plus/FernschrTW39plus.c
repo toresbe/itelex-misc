@@ -1267,6 +1267,7 @@ static void Konfiguration()
 		TasteFunktion = 0;
 		AutoWahlZiffern[0] = 255; // Ende-Kennzeichen
 		LokalTextAusgabeP(PSTR("\r\n +++ \r\n\n\n\n"));
+		SimulierteKennung[0] = '\0';
 		return;
 		}
 
@@ -1713,10 +1714,6 @@ int main()
 
 	//init_TASTE2();
 
-#ifdef DOPPELSTROM
-	set_FS_AKTIV(); // ggf. noch laufenden Fernschreiber ausschalten während der Initialisierung
-#endif
-
 	set_LEDROT();
 
 	KonfigSpeicherInit();
@@ -1771,7 +1768,8 @@ int main()
 	StartTimer(&Timer);
 
 	sei();
-	FernschrIO();
+	FernschrIO(); 
+	clr_LEDBLAU(); // Bei Doppelstrom wird mit Ausschaltsequenz initialisiert, dies schaltet die blaue LED ein.
 	
 	// 0,25 Sek. warten
 	while (TimerVal(&Timer) < 250)
