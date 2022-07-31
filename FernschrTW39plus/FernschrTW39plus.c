@@ -89,6 +89,15 @@ PROGMEM const char Identifier[] = "___itlx_TW39plus___" __DATE__ "___" __TIME__ 
 #endif
 
 #endif
+
+
+#ifdef SPRACHE_EN
+#define Sprachwahl(de, en) en
+#else
+#define Sprachwahl(de, en) de 
+#endif
+
+
 // Konstanten
 // ----------
 
@@ -169,19 +178,11 @@ TMsTimer NachlaufTimer; //!< Steuert nur den Ausgang für den externen SV-Schalte
 // ====================================
 
 // keine
-enum { MaxCodefolgeLaenge = 30 }; //!< Maximale Länge von #AusschaltZeichen, #Wahlaufforderung, #VerbindungHergestelltZeichen, #SimulierteKennung
+enum { MaxCodefolgeLaenge = 30 }; //!< Maximale Länge von #SimulierteKennung
 
-uint8_t SimulierteKennung[MaxCodefolgeLaenge+1];
+char SimulierteKennung[MaxCodefolgeLaenge+1];
 	//!< Text des eigenen Kennungsgeber-Simulators
 	
-PROGMEM const uint8_t SimulierteKennungDefault[] = { TtyCodeBuUm, TtyCodeWR, TtyCodeZL, TtyCodeZiUm, 25, 25, 28, 28, 13, 12, TtyCodeBuUm, TtyCodeLeer, 26, 3, 16 } ;
-	//!< Standardwert für #SimulierteKennung
-	// Manuell prüfen, dass es nicht mehr als MaxCodefolgeLaenge Zeichen sind!
-	
-uint8_t KennwortCodefolge[MaxCodefolgeLaenge+1];
-// Schnittstellen-Spezifische Funktionen
-// =====================================
-static inline bool ValidCode(uint8_t c) { return c >= (1<<5) && c < (1<<6); }
 
 //! bedient Hardware-IO entsprechend der aktuellen Zustände.
 
@@ -197,9 +198,11 @@ static void FernschrIO()
 	// -----------------------
 #ifdef DOPPELSTROM
 
-	bset_FS_AKTIV(BefehlEinschalten); 
+	// der Ausgang FS_AKTIV wird separat gesteuert...
+
+	bset_FS_AUSG(BefehlEinschalten && BefehlMark);
 	#ifdef PARALLELAUSGABE
-		bset_FS2_AKTIV(BefehlEinschalten);
+		bset_FS2_AUSG(BefehlEinschalten && BefehlMark);
 	#endif //def PARALLELAUSGABE
 
 #else // TW39
@@ -230,12 +233,13 @@ static void FernschrIO()
 
 		// das Wiedereinschalten der Schleife folgt gleich.
 		}
-#endif
 
 	bset_FS_AUSG(BefehlMark);
 	#ifdef PARALLELAUSGABE
 		bset_FS2_AUSG(BefehlMark);
 	#endif //def PARALLELAUSGABE
+
+#endif
 
 	// Schleifenstrom auswerten: Einschaltung oder nicht
 	// -------------------------------------------------
@@ -332,26 +336,30 @@ static bool FernschrEinschalten(bool WarteQuittVerz)
 		
 	do
 		{
+#ifdef DOPPELSTROM
+		set_FS_AKTIV();
+		#ifdef PARALLELAUSGABE
+			set_FS2_AKTIV();
+		#endif //def PARALLELAUSGABE
+#endif
 		BefehlEinschalten = true;
 		BefehlMark = true;
 		FernschrIO();
 		if (!MeldungEingeschaltet)
 			StartTimer(&StabilTimer);
 		if (TimerVal(&AbbruchTimer) > AnrufAbbruchZeit * 1000)
-			{ // Fernschreiber hat auf Einschaltkommando nicht reagiert
+			{ // Fernschreiber hat auf Einschaltkommando nicht reagiert -> wieder Ausschalten
+			BefehlEinschalten = false;
+			BefehlMark = true;
 #ifdef DOPPELSTROM
 			StartTimer(&AbbruchTimer);
 			while (TimerVal(&AbbruchTimer) < 2000)
-				{
-				BefehlMark = false;
 				FernschrIO();
-				}
-			BefehlEinschalten = false;
-			BefehlMark = false;
-#else // TW39				
-			BefehlEinschalten = false;
-			BefehlMark = true;
-#endif			
+			clr_FS_AKTIV();
+			#ifdef PARALLELAUSGABE
+				clr_FS2_AKTIV();
+			#endif //def PARALLELAUSGABE
+#endif
 			FernschrIO();
 			StartTimer(&NachlaufTimer);
 			return false;
@@ -380,28 +388,28 @@ static void FernschrAusschalten()
 	if (MeldungEingeschaltet && !BefehlEinschalten)
 		FernschrEinschalten(false); // Rückgabewert ignorieren
 
+	BefehlEinschalten = false;
+	BefehlMark = true;
+
 #ifdef DOPPELSTROM
 	StartTimer(&Timer);
 	do
 		{
-		BefehlMark = false; // Dauer-Space schaltet aus.
-		BefehlEinschalten = true; // Damit nicht "weak space" ausgegeben wird.
 		FernschrIO();
 		if (MeldungEingeschaltet)
 			StartTimer(&Timer);
-		} while (TimerVal(&Timer) < 2000);
+		} while (TimerVal(&Timer) < 1000);
 
-	BefehlMark = false; // Dauer-Space schaltet aus.
-	BefehlEinschalten = false; // jetzt (wenn Hardware-seitig bestückt) Strom reduzieren (durch das Relais)
-	FernschrIO();
+	clr_FS_AKTIV(); // Ausgabe "weak space"
+	#ifdef PARALLELAUSGABE
+		clr_FS2_AKTIV();
+	#endif //def PARALLELAUSGABE
 
 #else // TW39
 
 	StartTimer(&Timer);
 	do
 		{
-		BefehlEinschalten = false; // Auf Ruhepolung schalten
-		BefehlMark = true;
 		FernschrIO();
 		if (MeldungEingeschaltet)
 			StartTimer(&Timer);
@@ -433,12 +441,15 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 	TWCR = (1<<TWINT) | (0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWEN) | (0<<TWIE);
 
 #ifdef DOPPELSTROM
-	BefehlEinschalten = true;
-	BefehlMark = false;
-#else // TW39
+	set_FS_AKTIV();
+	#ifdef PARALLELAUSGABE
+		set_FS2_AKTIV();
+	#endif //def PARALLELAUSGABE
+#endif
+
 	BefehlEinschalten = false;
 	BefehlMark = true;
-#endif
+
 	FernschrIO(); // damit der Fernschreiber abgeschaltet wird.
 	clr_SV_EIN();
 	
@@ -754,12 +765,14 @@ static bool WahlMitWaehlscheibe()
 	bool EsWurdeGewaehlt;
 
 #ifdef DOPPELSTROM
-	BefehlEinschalten = true; // 'richtiges' Space vor dem Wahlaufforderungsimpuls
-	BefehlMark = false; 
-#else // TW39
+	set_FS_AKTIV();
+	#ifdef PARALLELAUSGABE
+		set_FS2_AKTIV();
+	#endif //def PARALLELAUSGABE
+#endif
+
 	BefehlEinschalten = false;
 	BefehlMark = true;
-#endif
 
 	// kurzzeitiger Missbrauch von WahlendeTimer für...
 	// Pause vor dem Wahlaufforderungsimpuls
@@ -771,7 +784,7 @@ static bool WahlMitWaehlscheibe()
 
 	// jetzt der wirkliche Wahlaufforderungsimpuls
 #ifdef DOPPELSTROM
-	BefehlMark = true; // Mark-Signal
+	BefehlEinschalten = true; // Mark-Signal
 #else // TW39
 	BefehlMark = false; // Schleifenunterbrechung bei Ruhepolarität
 #endif
@@ -780,7 +793,7 @@ static bool WahlMitWaehlscheibe()
 		FernschrIO();
 		
 #ifdef DOPPELSTROM
-	BefehlMark = false; // wieder Space
+	BefehlEinschalten = false; // wieder Space
 #else // TW39
 	BefehlMark = true; // Schleife ein mit weiter Ruhepolarität
 #endif
@@ -1008,20 +1021,17 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 	{
 	TMsTimer KennungAbfrageTimer;
 	uint8_t KennungAbfrageZaehler;
-	uint8_t KennungAusgabePhase;
 	
 	bool Bit5unterdruecken; // sperrt WerDa und F auf der Ziffernseite
 	bool ZiffernEbene;
 	
 	StartTimer(&KennungAbfrageTimer);
 	KennungAbfrageZaehler = 0;
-	KennungAusgabePhase = 0;
 
 	GeSendeMark(true); 
 
 	SendeUmsetzModus = UmsetzFern; // Für das Senden von WerDa.
 	EmpfUmsetzModus = UmsetzFern; 
-	KennungAusgabePhase = 0;
 	Bit5unterdruecken = false;
 	ZiffernEbene = true; // sicherheitshalber
 
@@ -1070,19 +1080,23 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 				}
 			else
 				{
-				if (ValidCode(SimulierteKennung[0]) && code == TtyCodeZiWerDa && ZiffernEbene)
-					KennungAusgabePhase = 2;
-				else if (KennungAusgabePhase == 2)
-					KennungAusgabePhase = 1; 
-						// jedes andere Zeichen schaltet 'anstehende' Kennungsausgabe wieder ab.
+				if (SimulierteKennung[0] != '\0' && code == TtyCodeZiWerDa && ZiffernEbene)
+					{
+					SendeUmsetzModus = UmsetzLokalUndFern;
+					GeSendeCode(TtyCodeBuUm);
+					GeSendeCode(TtyCodeWR);
+					GeSendeCode(TtyCodeZL);
+					for (uint8_t i = 0 ; i < MaxCodefolgeLaenge && SimulierteKennung[i] != '\0'; i++)
+						GeSendeZeichen(SimulierteKennung[i]);
+					}
 				}
 			}
 			
-
 		// Kennungsgeber alle 5 Sekunden abfragen, bis Gegenantwort kam...
 		if (AutoKennungAbfrage 
 			&& TimerVal(&KennungAbfrageTimer) >= ((KennungAbfrageZaehler == 0) ? 500 : 5000))
 			{
+			SendeUmsetzModus = UmsetzFern;
 			PufferSpeich(&SendePuffer, TtyCodeZiUm);
 			PufferSpeich(&SendePuffer, TtyCodeZiUm);
 			PufferSpeich(&SendePuffer, TtyCodeZiWerDa);
@@ -1098,26 +1112,11 @@ static void VerbindungSteht(bool AutoKennungAbfrage)
 			AutoKennungAbfrage = false;
 
 		// Verbotene Codes unterdrücken:
-		if (!Bit5unterdruecken && ZiffernEbene && SerUmEmpfBitNr == 6 /*5.Datenbit*/ && SerUmEmpfDaten == (TtyCodeZiWerDa >> 1) && ValidCode(SimulierteKennung[0])) 
+		if (!Bit5unterdruecken && ZiffernEbene && SerUmEmpfBitNr == 6 /*5.Datenbit*/ && SerUmEmpfDaten == (TtyCodeZiWerDa >> 1) && SimulierteKennung[0] != '\0') 
 			Bit5unterdruecken = true;
 		if (Bit5unterdruecken && (SerUmEmpfBitNr == SerUmEmpfFertig || SerUmEmpfBitNr == SerUmEmpfWarte))
 			Bit5unterdruecken = false;
 
-		// Kennungsgeber-Simulator bearbeiten:
-		if (!MeldungMark) 
-			KennungAusgabePhase = 0; 
-				// sobald selbst geschrieben wird wird Kennungsgeber-Ausgabe wieder in Grundstellung
-				// gesetzt.
-				
-		if (KennungAusgabePhase == 2)
-			{
-			SendeUmsetzModus = UmsetzLokalUndFern;
-			for (uint8_t i = 0 ; i < MaxCodefolgeLaenge && ValidCode(SimulierteKennung[i]); i++)
-				PufferSpeich(&SendePuffer, SimulierteKennung[i] & 0x1F);
-			KennungAusgabePhase = 0;
-			}
-
-			
 		// Test:
 		// bset_LEDROT(AutoKennungAbfrage);
 		}
@@ -1191,19 +1190,12 @@ static void Konfiguration()
 	
 	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
 	
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n configuration tw39plus version " SVNVERSION " date " __DATE__));
-#else
-	LokalTextAusgabeP(PSTR("\r\n konfiguration tw39plus version " SVNVERSION " datum " __DATE__));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n konfiguration tw39plus version " SVNVERSION " datum " __DATE__,
+									  "\r\n configuration tw39plus version " SVNVERSION " date " __DATE__)));
 
 	// Vorab die Frage nach "Expertenfunktionen"
 	// -----------------------------------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n simple configuration?    ")); 
-#else	
-	LokalTextAusgabeP(PSTR("\r\n einfache konfiguration?    ")); 
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n einfache konfiguration?    ", "\r\n simple configuration?    "))); 
 
 	if (LokalBoolEingabe(&NoExpertSettings) == 0)
 		return;
@@ -1218,11 +1210,7 @@ static void Konfiguration()
 	
 	// Wählscheibe vorhanden?
 	// ----------------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n has rotary dial? current: ")); 
-#else	
-	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden? aktuell: ")); 
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n waehlscheibe vorhanden? aktuell: ", "\r\n has rotary dial? current: "))); 
 
 	LokalBoolAusgabe(MitWaehlscheibe);
 	LokalTextAusgabeP(NeuStrP);
@@ -1235,15 +1223,9 @@ static void Konfiguration()
 	if (MitWaehlscheibe)
 		{
 		// Länge Wahlaufforderungsimpuls?
-#ifdef SPRACHE_EN
-		LokalTextAusgabeP(PSTR("\r\n duration dial proceed pulse: cur. "));
+		LokalTextAusgabeP(PSTR(Sprachwahl("\r\n laenge wahlauff-imp.: akt. ", "\r\n duration dial proceed pulse: cur. ")));
 		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
-		LokalTextAusgabeP(PSTR("/100 sec, "));
-#else
-		LokalTextAusgabeP(PSTR("\r\n laenge wahlauff-imp.: akt. "));
-		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
-		LokalTextAusgabeP(PSTR("/100 sek, "));
-#endif //def SPRACHE_EN
+		LokalTextAusgabeP(PSTR(Sprachwahl("/100 sek, ", "/100 sec, ")));
 		LokalTextAusgabeP(NeuStrP);
 
 		if (LokalZahlEingabe(&WahlauffordImpulsLaenge, 0) < 0)
@@ -1273,26 +1255,15 @@ static void Konfiguration()
 
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
 	// -----------------------------------------------------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n block incoming calls by: (cur. "));
-#else
-	LokalTextAusgabeP(PSTR("\r\n kommende anrufe sperren mit: (akt. "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n kommende anrufe sperren mit: (akt. ", 
+									  "\r\n block incoming calls by: (cur. ")));
 
 	if (KommendSperreWahl != 0)
 		LokalZahlAusgabe(KommendSperreWahl, 2);
 	else
-#ifdef SPRACHE_EN
-		LokalTextAusgabeP(PSTR("off"));
-#else
-		LokalTextAusgabeP(PSTR("aus"));
-#endif //def SPRACHE_EN
+		LokalTextAusgabeP(PSTR(Sprachwahl("aus", "off")));
 
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(") new (0 = off):     "));
-#else
-	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl(") neu (0 = aus):     ", ") new (0 = off):     ")));
 
 	if (LokalZahlEingabe(&KommendSperreWahl, 2) < 0)
 		return;
@@ -1301,26 +1272,15 @@ static void Konfiguration()
 	
 	// Lokalbetrieb durch Wahl von...
 	// ------------------------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n local operation by number: (cur. "));
-#else
-	LokalTextAusgabeP(PSTR("\r\n lokalbetrieb waehlen mit: (akt. "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n lokalbetrieb waehlen mit: (akt. ",
+									  "\r\n local operation by number: (cur. ")));
 
 	if (LokalbetriebWahl != 0)
 		LokalZahlAusgabe(LokalbetriebWahl, 2);
 	else
-#ifdef SPRACHE_EN
-		LokalTextAusgabeP(PSTR("off"));
-#else
-		LokalTextAusgabeP(PSTR("aus"));
-#endif //def SPRACHE_EN
+		LokalTextAusgabeP(PSTR(Sprachwahl("aus", "off")));
 
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(") new (0 = off):     "));
-#else
-	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl(") neu (0 = aus):     ", ") new (0 = off):     ")));
 
 	if (LokalZahlEingabe(&LokalbetriebWahl, 2) < 0)
 		return;
@@ -1334,11 +1294,8 @@ static void Konfiguration()
 	
 	// Feste Verbindung
 	// ----------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n activate automated prefix dialing? current:   ")); 
-#else	
-	LokalTextAusgabeP(PSTR("\r\n automatische vorwahl aktivieren? aktuell:   ")); 
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n automatische vorwahl aktivieren? aktuell:   ",
+									  "\r\n activate automated prefix dialing? current:   "))); 
 
 	bool AutoWahlJa = AutoWahlZiffern[0] <= 9;
 
@@ -1352,11 +1309,9 @@ static void Konfiguration()
 
 	if (AutoWahlJa)
 		{
-#ifdef SPRACHE_EN
-		LokalTextAusgabeP(PSTR("\r\n enter dialing digits, finish with + (cur.: "));
-#else		
-		LokalTextAusgabeP(PSTR("\r\n wahlziffern eingeben, ende mit + (akt.: "));
-#endif //def SPRACHE_EN
+		LokalTextAusgabeP(PSTR(Sprachwahl("\r\n wahlziffern eingeben, ende mit + (akt.: ",
+										  "\r\n enter dialing digits, finish with + (cur.: ")));
+
 		uint8_t i;
 		
 		for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
@@ -1400,19 +1355,12 @@ static void Konfiguration()
 		
 	// Timeout beim Anruf
 	// ------------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n timeout for incoming calls in seconds (3-25, cur. "));
-#else
-	LokalTextAusgabeP(PSTR("\r\n maximale hochlauf-zeit in sekunden (3-25, akt. "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n maximale hochlauf-zeit in sekunden (3-25, akt. ",
+								      "\r\n timeout for incoming calls in seconds (3-25, cur. ")));
 
 	LokalZahlAusgabe(AnrufAbbruchZeit, 0);
 
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(") new:     "));
-#else
-	LokalTextAusgabeP(PSTR(") neu:     "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl(") neu:     ", ") new:     ")));
 
 	if (LokalZahlEingabe(&AnrufAbbruchZeit, 0) < 0)
 		return;
@@ -1425,19 +1373,12 @@ static void Konfiguration()
 		
 	// Verzögerung der Rückmeldung des Starts des Fernschreibers
 	// ---------------------------------------------------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n delay confirmation of startup in /10 seconds\r\n (3-200, cur. "));
-#else
-	LokalTextAusgabeP(PSTR("\r\n verzoegerung rueckmeldung fs-anlauf in /10 sekunden\r\n (3-200, akt. "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n verzoegerung rueckmeldung fs-anlauf in /10 sekunden\r\n (3-200, akt. ",
+								      "\r\n delay confirmation of startup in /10 seconds\r\n (3-200, cur. ")));
 
 	LokalZahlAusgabe(StartQuittVerzoegerung, 0);
 
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(") new:     "));
-#else
-	LokalTextAusgabeP(PSTR(") neu:     "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl(") neu:     ", ") new:     ")));
 
 	if (LokalZahlEingabe(&StartQuittVerzoegerung, 0) < 0)
 		return;
@@ -1450,34 +1391,44 @@ static void Konfiguration()
 		
 	// Modus für Tastendruck
 	// ---------------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n module button function (cur. "));
-#else
-	LokalTextAusgabeP(PSTR("\r\n funktion taste am modul (akt. "));
-#endif //def SPRACHE_EN
-
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n funktion taste am modul (akt. ",
+	                                  "\r\n module button function (cur. ")));
 	LokalZahlAusgabe(TasteFunktion, 0);
-
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(") new:     "));
-#else
-	LokalTextAusgabeP(PSTR(") neu:     "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl(") neu:     ", ") new:     ")));
 
 	if (LokalZahlEingabe(&TasteFunktion, 0) < 0)
 		return;
 
 	LokalTextAusgabeP(OkStrP);
 
-	// Codefolgen 
+	// Simulierte Kennung
 	// ---------------------
-#ifdef SPRACHE_EN
-	if (LokalCodefolgeEingabe(PSTR("\r\n answerback simulation:      "), SimulierteKennung, MaxCodefolgeLaenge) == 0)
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n kennungsgeber simulieren? aktuell:   ",
+									  "\r\n activate simulated answerback? current:   "))); 
+
+	bool SimulKennungJa = SimulierteKennung[0] != '\0';
+
+	LokalBoolAusgabe(SimulKennungJa);
+	LokalTextAusgabeP(NeuStrP);
+
+	if (LokalBoolEingabe(&SimulKennungJa) == 0)
 		return;
-#else
-	if (LokalCodefolgeEingabe(PSTR("\r\n simulierter kennungsgeber:      "), SimulierteKennung, MaxCodefolgeLaenge) == 0)
-		return;
-#endif //def SPRACHE_EN
+
+	LokalTextAusgabeP(OkStrP);
+
+	if (SimulKennungJa)
+		{
+		LokalTextAusgabeP(PSTR(Sprachwahl("\r\n simulierter kennungsgeber (akt. ", 
+										  "\r\n answerback simulation (cur. ")));
+		LokalTextAusgabe(SimulierteKennung);
+		LokalTextAusgabeP(PSTR(Sprachwahl(") neu:     ", ") new:     ")));
+		if (LokalTextEingabe(SimulierteKennung, MaxCodefolgeLaenge) == 0)
+			return;
+		}
+	else
+		SimulierteKennung[0] = '\0';
+
+	LokalTextAusgabeP(OkStrP);
 	
 	// weitere Eingaben
 	// ----------------
@@ -1520,7 +1471,7 @@ static void KonfigurationEnde()
 	
 	SperrzeitSpeicherEeprom(EEAdr_Sperrzeit);
 	
-	KonfigSchreibeString(EEAdr_SimulierteKennung, (char *) SimulierteKennung, MaxCodefolgeLaenge + 1);
+	KonfigSchreibeString(EEAdr_SimulierteKennung, SimulierteKennung, MaxCodefolgeLaenge + 1);
 	
 	Aktivieren(true);
 
@@ -1650,42 +1601,6 @@ static void Deaktivieren()
 	
 /////////////////////////////////////////////////////////////
 
-//! Liest aus dem EEPROM einen Datenblock als Codefolge, prüft ob dieser Block
-//! korrekt ist (nur Werte von 32 bis 63 und 0) und initialisiert
-//! ggf. ungültige Codefolgen
-//------------------------------------------------------------
-
-void CodefolgeLadenPruefenInitialisieren(uint8_t* cf, uint8_t size, uint8_t cf_eep_adr, const uint8_t* cf_default, uint8_t def_size)
-	{
-	uint8_t i;
-
-	for (i = 0 ; i < size ; i++)
-		{
-		cf[i] = KonfigLeseByte(cf_eep_adr + i, 0xFF); // 0xFF als Kennzeichen, dass tatsächlich was schiefgegangen ist.
-		if (cf[i] == 0)
-			return; // 0 heißt wie beim String "Ende".
-		else if (cf[i] == 0x5A) // historische Ende-Marke.
-			{
-			cf[i] = 0;
-			return; // alles ist schön
-			}
-		else if (ValidCode(cf[i]))
-			;					// 32 bis 63: neue Version des Konfig-Speicher-Inhalts. 
-		else if (cf[i] <= 0x1F) // 1 bis 31: alte Version des Konfig-Speicher-Inhalts.
-			cf[i] |= (1<<5); // neu mit gesetztem Bit 5
-		else // alles andere: Müll -> Initialisieren
-			{
-			for (i = 0 ; i < def_size ; i++)
-				cf[i] = pgm_read_byte(cf_default + i) | (1<<5);
-			cf[def_size] = 0;
-			return;
-			}
-		}
-	} // CodefolgeLadenPruefenInitialisieren()
-
-
-/////////////////////////////////////////////////////////////
-
 //! Das Hauptprogramm der TW39-Fernschreiber-Schnittstelle.
 //---------------------------------------------------------
 
@@ -1743,21 +1658,23 @@ int main()
 	
 	StartQuittVerzoegerung = KonfigLeseByteBegrenzt(EEAdr_StartQuittVerz, StartQuittVerzoegerung_Std, StartQuittVerzoegerung_Min, 200);
 
-	CodefolgeLadenPruefenInitialisieren(SimulierteKennung, sizeof(SimulierteKennung), EEAdr_SimulierteKennung, SimulierteKennungDefault, sizeof(SimulierteKennungDefault));
+	KonfigLeseString(EEAdr_SimulierteKennung, SimulierteKennung, MaxCodefolgeLaenge + 1, PSTR(""));
 
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
 		AutoWahlZiffern[i] = KonfigLeseByte(EEAdr_AutoWahlZiffern + i, 255); // nicht begrenzt, da alles über 9 das Endezeichen ist.
 	
 	AnrufAbbruchZeit = KonfigLeseByteBegrenzt(EEAdr_AnrufAbbruchZeit, AnrufAbbruchZeit_Std, 3, 25);
-		
+
 #ifdef DOPPELSTROM
-	BefehlEinschalten = true;
-	BefehlMark = false;
-#else // TW39
+	set_FS_AKTIV();
+	#ifdef PARALLELAUSGABE
+		set_FS2_AKTIV();
+	#endif //def PARALLELAUSGABE
+#endif
+		
 	BefehlEinschalten = false;
 	BefehlMark = true;
-#endif
 
 	MeldungEingeschaltet = false;
 	MeldungMark = true;
@@ -1807,12 +1724,14 @@ int main()
 	set_LEDBLAU();
 
 #ifdef DOPPELSTROM
-	BefehlEinschalten = false;
-	BefehlMark = false;
-#else // TW39
+	clr_FS_AKTIV();
+	#ifdef PARALLELAUSGABE
+		clr_FS2_AKTIV();
+	#endif //def PARALLELAUSGABE
+#endif
+
 	BefehlEinschalten = false;
 	BefehlMark = true;
-#endif
 	FernschrIO();
 
 	// TWI nochmal resetten
@@ -1864,7 +1783,7 @@ int main()
 	BusEigenAdressePruefenUndSetzen(BusEigenAdresse);
 
 	StartTimer(&NachlaufTimer);
-	
+
 	while (true)
 		{
 		// aktueller Zustand: Ausgeschaltet
