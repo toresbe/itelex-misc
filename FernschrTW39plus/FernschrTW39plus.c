@@ -1190,8 +1190,13 @@ static void Konfiguration()
 	
 	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
 	
+#ifdef DOPPELSTROM
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n konfiguration doppelstrom version " SVNVERSION " datum " __DATE__,
+									  "\r\n configuration double current version " SVNVERSION " date " __DATE__)));
+#else
 	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n konfiguration tw39plus version " SVNVERSION " datum " __DATE__,
-									  "\r\n configuration tw39plus version " SVNVERSION " date " __DATE__)));
+ 									  "\r\n configuration tw39plus version " SVNVERSION " date " __DATE__)));
+#endif //ndef DOPPELSTROM
 
 	// Vorab die Frage nach "Expertenfunktionen"
 	// -----------------------------------------
@@ -1269,7 +1274,7 @@ static void Konfiguration()
 		return;
 
 	LokalTextAusgabeP(OkStrP);
-	
+
 	// Lokalbetrieb durch Wahl von...
 	// ------------------------------
 	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n lokalbetrieb waehlen mit: (akt. ",
@@ -1424,11 +1429,11 @@ static void Konfiguration()
 		LokalTextAusgabeP(PSTR(Sprachwahl(") neu:     ", ") new:     ")));
 		if (LokalTextEingabe(SimulierteKennung, MaxCodefolgeLaenge) == 0)
 			return;
+		LokalTextAusgabeP(PSTR("\r\n"));
+		LokalTextAusgabeP(OkStrP);
 		}
 	else
 		SimulierteKennung[0] = '\0';
-
-	LokalTextAusgabeP(OkStrP);
 	
 	// weitere Eingaben
 	// ----------------
