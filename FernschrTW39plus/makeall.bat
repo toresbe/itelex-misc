@@ -3,7 +3,9 @@
 "C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C DoppelAusgabe
 "C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C English
 "C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C USTTY-45
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C 45Baud-EN
 "C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C 75Baud
+"C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C 75Baud-EN
 "C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C 100Baud
 "C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C DoppelStrom
 "C:\Program Files (x86)\Atmel\Studio\7.0\shellUtils\make.exe" all -C DoppelStrom-75Bd
