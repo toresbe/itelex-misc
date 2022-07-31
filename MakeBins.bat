@@ -20,7 +20,9 @@ call MakeBin1.bat itlx_TW39plus-PL10 FernschrTW39Plus\AltePlatine\FernschrTW39pl
 call MakeBin1.bat itlx_TW39plus-DOPAUS FernschrTW39Plus\DoppelAusgabe\FernschrTW39plus.hex Mega168_Quarz
 call MakeBin1.bat itlx_TW39plus-US45 FernschrTW39Plus\USTTY-45\FernschrTW39plus.hex Mega168_Quarz
 call MakeBin1.bat itlx_TW39plus-100Bd FernschrTW39Plus\100Baud\FernschrTW39plus.hex Mega168_Quarz
+call MakeBin1.bat itlx_TW39plus-75Bd-EN FernschrTW39Plus\75Baud-EN\FernschrTW39plus.hex Mega168_Quarz
 call MakeBin1.bat itlx_TW39plus-75Bd FernschrTW39Plus\75Baud\FernschrTW39plus.hex Mega168_Quarz
+call MakeBin1.bat itlx_TW39plus-45Bd-EN FernschrTW39Plus\45Baud-EN\FernschrTW39plus.hex Mega168_Quarz
 call MakeBin1.bat itlx_TW39plus-EN FernschrTW39Plus\English\FernschrTW39plus.hex Mega168_Quarz
 call MakeBin1.bat itlx_Tloch15 Tloch15\default\Tloch15.hex Mega168_Quarz
 call MakeBin1.bat itlx_Doppelstrom FernschrTW39Plus\Doppelstrom\Doppelstrom.hex Mega168_Quarz
