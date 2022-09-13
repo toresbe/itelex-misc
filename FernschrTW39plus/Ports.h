@@ -52,6 +52,28 @@
 // Schnittstellen
 // --------------
 
+#ifdef V10
+
+// für Platinenversion Seriell ab 2.00, TODO andere noch definieren
+
+
+DEFPORTINPULLAL	(TASTE,		C, 0)	
+
+DEFPORTOUT		(LEDROT, 	B, 2)
+DEFPORTOUT		(LEDGELB, 	C, 1)
+DEFPORTOUT		(LEDGRUEN, 	C, 2)
+DEFPORTOUT		(LEDBLAU, 	C, 3)
+
+DEFPORTOUT		(FS_AUSG,	D, 1) // Schleifenschluß-Ausgabe
+DEFPORTOUT		(FS_AKTIV,	D, 2) // Einschaltung (Ausgabe, Polarität der Schleife)
+DEFPORTINPULL	(FS_EING, 	D, 0) // Strom-Einlesung
+
+DEFPORTOUT		(SV_EIN,	B, 5) // Ausgang für Zusatzschaltung zur Stromversorgung des Fernschreibers
+DEFPORTINPULLAL	(TASTEEXT,	B, 4) // Eingang für externe Taste zur Aktivierung
+
+
+#else // not defined V10
+
 #if PLATINE_VERSION >= 13 // 1.3x
 // aktuelle Version
 
@@ -101,5 +123,6 @@ DEFPORTINPULLAL	(TASTEEXT,	B, 4) // Eingang für externe Taste zur Aktivierung
 
 #endif // PLATINE_VERSION 
 
+#endif // not defined V10
 
 #endif //ndef __PORTS_H__

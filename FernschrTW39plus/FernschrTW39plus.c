@@ -68,6 +68,18 @@
 //#define NOWATCHDOG
 	//!< Watchdog abgeschaltet
 
+#ifdef V10
+
+#ifdef PROGIDZUSATZ
+//! Marker im Code als Identifikation
+PROGMEM const char Identifier[] = "___itlx_V10-" PROGIDZUSATZ "___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#else
+//! Marker im Code als Identifikation
+PROGMEM const char Identifier[] = "___itlx_V10___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
+#endif
+
+#else // not V10
+
 #ifdef DOPPELSTROM
 
 #ifdef PROGIDZUSATZ
@@ -78,7 +90,7 @@ PROGMEM const char Identifier[] = "___itlx_Doppelstrom-" PROGIDZUSATZ "___" __DA
 PROGMEM const char Identifier[] = "___itlx_Doppelstrom___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif
 
-#else
+#else // not DOPPELSTROM
 
 #ifdef PROGIDZUSATZ
 //! Marker im Code als Identifikation
@@ -88,7 +100,9 @@ PROGMEM const char Identifier[] = "___itlx_TW39plus-" PROGIDZUSATZ "___" __DATE_
 PROGMEM const char Identifier[] = "___itlx_TW39plus___" __DATE__ "___" __TIME__ "___" SVNVERSION "___";
 #endif
 
-#endif
+#endif // not DOPPELSTROM
+
+#endif // not V10
 
 
 #ifdef SPRACHE_EN
