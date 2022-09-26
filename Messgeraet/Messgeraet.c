@@ -169,7 +169,8 @@ enum {
 	EEAdr_BusEigenAdresse	= 0, // 1 Byte
     EEAdr_Kennwort			= 1, // KENNWORT_MAXLEN + 1 = 21 Bytes
 	EEAdr_KennungZusatz     = 22, // KENNUNG_MAXLEN + 1 = 21 Bytes
-	EEAdr_Ende				= 43 // darf erhöht werden
+	EEAdr_BildlochModus		= 43,
+	EEAdr_Ende				= 44 // darf erhöht werden
 }; // MaxIndex < BankOffset = 160
 
 
@@ -181,6 +182,8 @@ enum {
 char Kennwort[KENNWORT_MAXLEN]; //!< Kennwort für Fernabfrage des Anrufspeichers.
 
 char KennungZusatz[KENNUNG_MAXLEN]; //!< Benutzerdefinierter Zusatz zur Kennung.
+
+enum { StartNach3Sekunden, StartNachCR } BildlochModus;
 
 
 //! Modul / Schnittstelle irreversibel stoppen.
@@ -778,6 +781,7 @@ static void VerbindungBildlocher()
 	uint16_t PufferPosEin, PufferPosAus;
 	bool EmpfZifferMode = false;
 	bool UmsetzZifferMode = false;
+	bool StarteAusgabe = false;
 	uint8_t BildSpalte = 0;
 
 	PufferPosEin = 0;
@@ -789,8 +793,10 @@ static void VerbindungBildlocher()
 
 		if (KoEmpfCode(&c))
 			{
+
 			if (c == TtyCodeZiUm)
 				EmpfZifferMode = true;
+
 			else if (c == TtyCodeBuUm)
 				EmpfZifferMode = false;
 
@@ -799,13 +805,26 @@ static void VerbindungBildlocher()
 				GeSendeTextP(Kennung[SUBADDR_BILDLOCH]);
 				GeSendeText(KennungZusatz);
 				}
+
+			else if (c == TtyCodeZL)
+				; // wird immer ignoriert
+
+			else if (BildlochModus == StartNachCR && c == TtyCodeWR && PufferPosEin > 0)
+				StarteAusgabe = true;
+
+			else if (BildlochModus == StartNachCR && EmpfZifferMode && c == TtyCodeZiKlingel)
+				{
+				GeSendeTextP(PSTR(" nochmal\r\n"));
+				PufferPosEin = 0;
+				}			
 			else
 				{ // im Puffer ablegen
 				if (PufferPosEin < MAXPUFFER)
 					Puffer[PufferPosEin++] = c;
-				StartTimer(&WarteTimer);
 				}
-			}
+
+			StartTimer(&WarteTimer);
+			} // if KoEmpfCode()
 
 		if (KoAusschalten())
 			{
@@ -816,8 +835,14 @@ static void VerbindungBildlocher()
 		if (PufferPosEin > 0)
 			{
 			if (PufferPosAus >= PufferPosEin)
+				{
 				PufferPosEin = PufferPosAus = 0;
-			else if (TimerVal(&WarteTimer) > 3000 && GeSendePufferLeer())
+				StarteAusgabe = false;
+				}
+
+			else if ((TimerVal(&WarteTimer) > 3000 || PufferPosAus > 0)
+			         && (StarteAusgabe || BildlochModus == StartNach3Sekunden) 
+					 && GeSendePufferLeer())
 				{
 				uint8_t c = Puffer[PufferPosAus];
 				if (c == TtyCodeBuUm)
@@ -1226,7 +1251,7 @@ static void Konfiguration()
 		// && BitAbfrageFern(PSTR("wahlfreigabe mit waehlton"), &WaehltonErkennung, 1)
 		// && (WaehltonErkennung // folgende Abfrage nur bei nicht durch Wählton erfolgende Freigabe
 			// || ZahlAbfrageFern(PSTR("verzoegerung wahlfreigabe (x/10 sek)"), &WahlbeginnVerzoegerungFest, 1))
-		// && ZahlAbfrageFern(PSTR("verzoegerung letzte ziffer - beginn kennton ...\r\n ... (x/10 sek)"), &VerbindungsaufbauVerzoegerung, 1)
+		&& ZahlAbfrageFern(PSTR("bildloch-modus"), &BildlochModus, 1)
 		// && JustierWahlziffernAbfragen()
 		// && ZahlAbfrageFern(PSTR("justierung verzoegerung abheben - erste ziffer ...\r\n ... (x/10 sek)"), &JustierWahlVerzoegerung, 1)
 		// && ZahlAbfrageFern(PSTR("justierung verzoegerung auflegen - abheben nach taste ...\r\n ... (x/10 sek)"), &JustierNeustartPause, 1)
@@ -1260,6 +1285,7 @@ static void Konfiguration()
 	KonfigSchreibeByte(EEAdr_BusEigenAdresse, NeuEigenAdresse);
 	KonfigSchreibeString(EEAdr_Kennwort, Kennwort, KENNWORT_MAXLEN + 1);
 	KonfigSchreibeString(EEAdr_KennungZusatz, KennungZusatz, KENNUNG_MAXLEN + 1);
+	KonfigSchreibeByte(EEAdr_BildlochModus, BildlochModus);
 
 	Tastendruck = NichtGedr;
 	}
@@ -1319,6 +1345,8 @@ int main()
 #else
 	KonfigLeseString(EEAdr_Kennwort, Kennwort, KENNWORT_MAXLEN, PSTR("kennwort"));	
 #endif //ndef SPRACHE_EN
+
+	BildlochModus = KonfigLeseByteBegrenzt(EEAdr_BildlochModus, 0, StartNach3Sekunden, StartNachCR);
 
 	UmleitungAbweisen = true;
 	
