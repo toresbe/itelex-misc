@@ -88,6 +88,12 @@ const PROGMEM char Identifier[] = "___itlx_ED1000___" __DATE__ "___" __TIME__ "_
 #endif //def PROGIDZUSATZ
 
 
+#ifdef SPRACHE_EN
+#define Sprachwahl(de, en) en
+#else
+#define Sprachwahl(de, en) de 
+#endif
+
 
 // Einstellungen für Timer 1: Sinus-Ausgabe und ADC-Start und Empfangsfilterung
 // ----------------------------------------------------------------------------
@@ -628,7 +634,7 @@ __attribute__ ((noreturn)) void FehlerStop(int Nummer /*!< Fehlercode wird mit d
 						{
 						cli();
 						wdt_enable(WDTO_1S);
-						while (1)
+						while (true)
 							;
 						}
 					}
@@ -1230,19 +1236,12 @@ static void Konfiguration()
 	
 	BaudotMode_SetEmpfangen(BaudotMode); // damit auch eine BU-Umschaltung gesendet wird.
 	
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n configuration ed1000 version " SVNVERSION " date " __DATE__));
-#else
-	LokalTextAusgabeP(PSTR("\r\n konfiguration ed1000 version " SVNVERSION " datum " __DATE__));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n konfiguration ed1000 version " SVNVERSION " datum " __DATE__,
+ 									  "\r\n configuration ed1000 version " SVNVERSION " date " __DATE__)));
 	
 	// Vorab die Frage nach "Expertenfunktionen"
 	// -----------------------------------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n simple configuration?    ")); 
-#else	
-	LokalTextAusgabeP(PSTR("\r\n einfache konfiguration?    ")); 
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n einfache konfiguration?    ", "\r\n simple configuration?    "))); 
 
 	if (LokalBoolEingabe(&NoExpertSettings) == 0)
 		return;
@@ -1275,11 +1274,8 @@ static void Konfiguration()
 
 	// Wählscheibe vorhanden?
 	// ----------------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n has rotary dial? current: ")); 
-#else	
-	LokalTextAusgabeP(PSTR("\r\n waehlscheibe vorhanden? aktuell: ")); 
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n waehlscheibe vorhanden? aktuell: ",
+								      "\r\n has rotary dial? current: "))); 
 
 	LokalBoolAusgabe(MitWaehlscheibe);
 	LokalTextAusgabeP(NeuStrP);
@@ -1292,15 +1288,11 @@ static void Konfiguration()
 	if (MitWaehlscheibe)
 		{
 		// Länge Wahlaufforderungsimpuls?
-#ifdef SPRACHE_EN
-		LokalTextAusgabeP(PSTR("\r\n duration dial proceed pulse: cur. "));
+		LokalTextAusgabeP(PSTR(Sprachwahl("\r\n laenge wahlauff-imp.: akt. ",
+		                                  "\r\n duration dial proceed pulse: cur. ")));
 		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
-		LokalTextAusgabeP(PSTR("/100 sec, "));
-#else
-		LokalTextAusgabeP(PSTR("\r\n laenge wahlauff-imp.: akt. "));
+		LokalTextAusgabeP(PSTR(Sprachwahl("/100 sek, ", "/100 sec, ")));
 		LokalZahlAusgabe(WahlauffordImpulsLaenge, 0);
-		LokalTextAusgabeP(PSTR("/100 sek, "));
-#endif //def SPRACHE_EN
 		LokalTextAusgabeP(NeuStrP);
 
 		if (LokalZahlEingabe(&WahlauffordImpulsLaenge, 0) < 0)
@@ -1314,13 +1306,9 @@ static void Konfiguration()
 	else
 		{
 		// Startcode für Tastaturwahl
-#ifdef SPRACHE_EN
-		LokalTextAusgabeP(PSTR("\r\n start code for dialling (0 = none, 15 = v): cur. "));
+		LokalTextAusgabeP(PSTR(Sprachwahl("\r\n start code fuer wahlaufforderung (0 = kein, 15 = v): akt. ",
+										  "\r\n start code for dialling (0 = none, 15 = v): cur. ")));
 		LokalZahlAusgabe(TastaturwahlStartZeichen, 0);
-#else
-		LokalTextAusgabeP(PSTR("\r\n start code fuer wahlaufforderung (0 = kein, 15 = v): akt. "));
-		LokalZahlAusgabe(TastaturwahlStartZeichen, 0);
-#endif //def SPRACHE_EN
 		LokalTextAusgabeP(NeuStrP);
 
 		if (LokalZahlEingabe(&TastaturwahlStartZeichen, 0) < 0)
@@ -1334,26 +1322,15 @@ static void Konfiguration()
 
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
 	// -----------------------------------------------------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n block incoming calls by: (cur. "));
-#else
-	LokalTextAusgabeP(PSTR("\r\n kommende anrufe sperren mit: (akt. "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n kommende anrufe sperren mit: (akt. ", 
+									  "\r\n block incoming calls by: (cur. ")));
 
 	if (KommendSperreWahl != 0)
 		LokalZahlAusgabe(KommendSperreWahl, 2);
 	else
-#ifdef SPRACHE_EN
-		LokalTextAusgabeP(PSTR("off"));
-#else
-		LokalTextAusgabeP(PSTR("aus"));
-#endif //def SPRACHE_EN
+		LokalTextAusgabeP(PSTR(Sprachwahl("aus", "off")));
 
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(") new (0 = off):     "));
-#else
-	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl(") neu (0 = aus):     ", ") new (0 = off):     ")));
 
 	if (LokalZahlEingabe(&KommendSperreWahl, 2) < 0)
 		return;
@@ -1362,26 +1339,15 @@ static void Konfiguration()
 	
 	// Lokalbetrieb durch Wahl von...
 	// ------------------------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n local operation by number: (cur. "));
-#else
-	LokalTextAusgabeP(PSTR("\r\n lokalbetrieb waehlen mit: (akt. "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n lokalbetrieb waehlen mit: (akt. ",
+									  "\r\n local operation by number: (cur. ")));
 
 	if (LokalbetriebWahl != 0)
 		LokalZahlAusgabe(LokalbetriebWahl, 2);
 	else
-#ifdef SPRACHE_EN
-		LokalTextAusgabeP(PSTR("off"));
-#else
-		LokalTextAusgabeP(PSTR("aus"));
-#endif //def SPRACHE_EN
+		LokalTextAusgabeP(PSTR(Sprachwahl("aus", "off")));
 
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(") new (0 = off):     "));
-#else
-	LokalTextAusgabeP(PSTR(") neu (0 = aus):     "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl(") neu (0 = aus):     ", ") new (0 = off):     ")));
 
 	if (LokalZahlEingabe(&LokalbetriebWahl, 2) < 0)
 		return;
@@ -1395,19 +1361,12 @@ static void Konfiguration()
 	
 	// Einschaltschwelle
 	// -----------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n threshold for switch on (default 0, cur. "));
-#else
-	LokalTextAusgabeP(PSTR("\r\n einschaltschwelle (normal 0, akt. "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n einschaltschwelle (normal 0, akt. ",
+									  "\r\n threshold for switch on (default 0, cur. ")));
 
 	LokalZahlAusgabe(Einschaltschwelle, 0);
 
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(") new:   "));
-#else
-	LokalTextAusgabeP(PSTR(") neu:   "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl(") neu:   ", ") new:   ")));
 
 	if (LokalZahlEingabe(&Einschaltschwelle, 0) < 0)
 		return;
@@ -1416,11 +1375,8 @@ static void Konfiguration()
 
 	// Feste Verbindung
 	// ----------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n activate automated prefix dialing? current:   ")); 
-#else	
-	LokalTextAusgabeP(PSTR("\r\n automatische vorwahl aktivieren? aktuell:   ")); 
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n automatische vorwahl aktivieren? aktuell:   ",
+									  "\r\n activate automated prefix dialing? current:   "))); 
 
 	bool AutoWahlJa = AutoWahlZiffern[0] <= 9;
 
@@ -1434,11 +1390,9 @@ static void Konfiguration()
 
 	if (AutoWahlJa)
 		{
-#ifdef SPRACHE_EN
-		LokalTextAusgabeP(PSTR("\r\n enter dialing digits, finish with + (cur.: "));
-#else		
-		LokalTextAusgabeP(PSTR("\r\n wahlziffern eingeben, ende mit + (akt.: "));
-#endif //def SPRACHE_EN
+		LokalTextAusgabeP(PSTR(Sprachwahl("\r\n wahlziffern eingeben, ende mit + (akt.: ",
+										  "\r\n enter dialing digits, finish with + (cur.: ")));
+
 		uint8_t i;
 		
 		for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
@@ -1482,19 +1436,12 @@ static void Konfiguration()
 		
 	// Timeout beim Anruf
 	// ------------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n timeout for incoming calls in seconds (3-25, cur. "));
-#else
-	LokalTextAusgabeP(PSTR("\r\n maximale hochlauf-zeit in sekunden (3-25, akt. "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n maximale hochlauf-zeit in sekunden (3-25, akt. ",
+								      "\r\n timeout for incoming calls in seconds (3-25, cur. ")));
 
 	LokalZahlAusgabe(AnrufAbbruchZeit, 0);
 
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(") new:     "));
-#else
-	LokalTextAusgabeP(PSTR(") neu:     "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl(") neu:     ", ") new:     ")));
 
 	if (LokalZahlEingabe(&AnrufAbbruchZeit, 0) < 0)
 		return;
@@ -1507,19 +1454,12 @@ static void Konfiguration()
 		
 	// Verzögerung der Rückmeldung des Starts des Fernschreibers
 	// ---------------------------------------------------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n delay confirmation of startup in /10 seconds\r\n (3-200, cur. "));
-#else
-	LokalTextAusgabeP(PSTR("\r\n verzoegerung rueckmeldung fs-anlauf in /10 sekunden\r\n (3-200, akt. "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n verzoegerung rueckmeldung fs-anlauf in /10 sekunden\r\n (3-200, akt. ",
+								      "\r\n delay confirmation of startup in /10 seconds\r\n (3-200, cur. ")));
 
 	LokalZahlAusgabe(StartQuittVerzoegerung, 0);
 
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(") new:     "));
-#else
-	LokalTextAusgabeP(PSTR(") neu:     "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl(") neu:     ", ") new:     ")));
 
 	if (LokalZahlEingabe(&StartQuittVerzoegerung, 0) < 0)
 		return;
@@ -1532,19 +1472,11 @@ static void Konfiguration()
 		
 	// Modus für Tastendruck
 	// ---------------------
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR("\r\n module button function (cur. "));
-#else
-	LokalTextAusgabeP(PSTR("\r\n funktion taste am modul (akt. "));
-#endif //def SPRACHE_EN
-
+	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n funktion taste am modul (akt. ",
+	                                  "\r\n module button function (cur. ")));
 	LokalZahlAusgabe(TasteFunktion, 0);
 
-#ifdef SPRACHE_EN
-	LokalTextAusgabeP(PSTR(") new:     "));
-#else
-	LokalTextAusgabeP(PSTR(") neu:     "));
-#endif //def SPRACHE_EN
+	LokalTextAusgabeP(PSTR(Sprachwahl(") neu:     ", ") new:     ")));
 
 	if (LokalZahlEingabe(&TasteFunktion, 0) < 0)
 		return;
