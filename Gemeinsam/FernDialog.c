@@ -26,6 +26,7 @@ TBaudotMode BaudotMode;
 bool FernDialogVerbinden(uint8_t SucheStartAdresse)
 	{
 	uint8_t Adresse, PartnerAdresse;
+	bool EigenAdresseWarUngueltig = (BusEigenAdresse == BusAdrUngueltig);
 
 	if (SucheStartAdresse < BusAdrMin || SucheStartAdresse > BusAdrMax || SucheStartAdresse == BusAdrUngueltig)
 		SucheStartAdresse = BusAdrMin;
@@ -59,7 +60,7 @@ bool FernDialogVerbinden(uint8_t SucheStartAdresse)
 
 		}
 
-	if (!BusEigenAdressePruefenUndSetzen(BusEigenAdresse))
+	if (EigenAdresseWarUngueltig && !BusEigenAdressePruefenUndSetzen(BusEigenAdresse))
 		return false;
 
 	BusVerbPartner = PartnerAdresse;
@@ -396,11 +397,11 @@ bool ZahlAusgabeFern(uint8_t n, uint8_t Ziffern)
 	
 PROGMEM const char CrLf[] = "\r\n ";
 #ifdef SPRACHE_EN
-PROGMEM const char IstText[] = ": ist = ";
-PROGMEM const char NeuText[] = "  neu =   ";
-#else
 PROGMEM const char IstText[] = ": is = ";
 PROGMEM const char NeuText[] = "  new =   ";
+#else
+PROGMEM const char IstText[] = ": ist = ";
+PROGMEM const char NeuText[] = "  neu =   ";
 #endif	
 	
 //! Führt eine vollständige Zahlen-Abfrage durch.

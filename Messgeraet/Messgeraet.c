@@ -96,6 +96,13 @@ const PROGMEM char Identifier[] = "___itlx_Messgeraet___" __DATE__ "___" __TIME_
 #endif
 
 
+#ifdef SPRACHE_EN
+#define Sprachwahl(de, en) en
+#else
+#define Sprachwahl(de, en) de 
+#endif
+
+
 #include "timercs.h"
 
 // Timer 1: frei
@@ -150,17 +157,12 @@ typedef char TKennung[KENNUNG_MAXLEN];
 // Kennungen fester Teil
 // ----------------------
 
-#ifdef SPRACHE_EN
+PROGMEM const TKennung Kennung[BUS_MEHRFACH_ADR] = {
+	Sprachwahl("\r\nmessgeraet", "\r\nmeasuring"),
+	Sprachwahl("\r\npruefsender", "\r\ntestsender"), 
+	Sprachwahl("\r\nbildlocher", "\r\nletterpuncher"),
+	Sprachwahl("\r\nrueckrufautom", "\r\ncallback") };
 
-PROGMEM const TKennung Kennung[BUS_MEHRFACH_ADR] = 
-    { "\r\nmeasuring", "\r\ntestsender", "\r\nletterpuncher", "\r\ncallback" } ;
-
-#else
-
-PROGMEM const TKennung Kennung[BUS_MEHRFACH_ADR] = 
-    { "\r\nmessgeraet", "\r\npruefsender", "\r\nbildlocher", "\r\nrueckrufautom" } ;
-	
-#endif //def SPRACHE_EN
 
 // Eeprom-Speicher-Adressen
 // ------------------------
@@ -504,11 +506,7 @@ static void VerbindungMessgeraet()
 					PufferPos = 0;
 					MessPhase = Ausgabe;
 					GeSendeCode(TtyCodeBuUm); // für definierte Verhältnisse...
-#ifdef SPRACHE_EN					
-					GeSendeTextP(PSTR("\r\nmeasures:\r\n"));
-#else
-					GeSendeTextP(PSTR("\r\nmessung:\r\n"));
-#endif //def SPRACHE_EN
+					GeSendeTextP(PSTR(Sprachwahl("\r\nmessung:\r\n", "\r\nmeasures:\r\n")));
 					}
 				break;
 
@@ -521,11 +519,7 @@ static void VerbindungMessgeraet()
 					GeSendeZahl(x);
 					if (x == 255)
 						{
-#ifdef SPRACHE_EN
-						GeSendeTextP(PSTR("\r\n End \r\n"));
-#else
-						GeSendeTextP(PSTR("\r\n Ende \r\n"));
-#endif //def SPRACHE_EN
+						GeSendeTextP(PSTR(Sprachwahl("\r\n Ende \r\n", "\r\n End \r\n")));
 						MessPhase = StartSperre;
 						}
 					else 
@@ -577,11 +571,7 @@ static void VerbindungRueckruf()
 	// Nummer abfragen:
 	KurzePause();
 
-#ifdef SPRACHE_EN
-	GeSendeTextP(PSTR("\r\n Number:     "));
-#else
-	GeSendeTextP(PSTR("\r\n Nummer:     "));
-#endif //def SPRACHE_EN
+	GeSendeTextP(PSTR(Sprachwahl("\r\n Nummer:     ", "\r\n Number:     ")));
 
 	GeSendeCode(TtyCodeZiUm);
 	PufferPos = 0;
@@ -810,7 +800,11 @@ static void VerbindungBildlocher()
 				; // wird immer ignoriert
 
 			else if (BildlochModus == StartNachCR && c == TtyCodeWR && PufferPosEin > 0)
+				{
+				GeSendeCode(TtyCodeZL);
+				GeSendeCode(TtyCodeBuUm);
 				StarteAusgabe = true;
+				}
 
 			else if (BildlochModus == StartNachCR && EmpfZifferMode && c == TtyCodeZiKlingel)
 				{
@@ -1035,11 +1029,7 @@ static void VerbindungTestsender()
 		while (KoEmpfZeichen(&c))
 			; // weitere empfangene Zeichen ignorieren
 	
-#ifdef SPRACHE_EN
-		GeSendeTextP(PSTR("\r\nselect function:     "));
-#else
-		GeSendeTextP(PSTR("\r\nFunktion waehlen:     "));
-#endif //ndef SPRACHE_EN
+		GeSendeTextP(PSTR(Sprachwahl("\r\nFunktion waehlen:     ", "\r\nselect function:     ")));
 
 		while (!KoEmpfZeichen(&c))
 			if (KoAusschalten())
@@ -1058,18 +1048,7 @@ static void VerbindungTestsender()
 			}
 		else
 			{
-#ifdef SPRACHE_EN
-			if (c != '?')
-				GeSendeTextP(PSTR("\r\nunknown selection. list of functions:"));
-			GeSendeTextP(PSTR("\r\n0: no distortion"));
-			GeSendeTextP(PSTR("\r\n1..5: distorted data bit "));
-			GeSendeTextP(PSTR("(related to end-of-bit)"));
-			GeSendeTextP(PSTR("\r\n6: distorted start bit"));
-			GeSendeTextP(PSTR("\r\n7: distorted stop bit"));
-			GeSendeTextP(PSTR("\r\n8: differing baudrate"));
-			GeSendeTextP(PSTR("\r\n9: mark/space-distortion"));
-			GeSendeTextP(PSTR("\r\nE: end"));
-#else
+			Sprachwahl(
 			if (c != '?')
 				GeSendeTextP(PSTR("\r\nunbekannte Funktion. Funktionsliste:"));
 			GeSendeTextP(PSTR("\r\n0: ohne Verzerrung"));
@@ -1080,7 +1059,19 @@ static void VerbindungTestsender()
 			GeSendeTextP(PSTR("\r\n8: abweichende Baudrate"));
 			GeSendeTextP(PSTR("\r\n9: Mark/Space-Verzerrung"));
 			GeSendeTextP(PSTR("\r\nE: Ende"));
-#endif //ndef SPRACHE_EN
+			,
+			if (c != '?')
+				GeSendeTextP(PSTR("\r\nunknown selection. list of functions:"));
+			GeSendeTextP(PSTR("\r\n0: no distortion"));
+			GeSendeTextP(PSTR("\r\n1..5: distorted data bit "));
+			GeSendeTextP(PSTR("(related to end-of-bit)"));
+			GeSendeTextP(PSTR("\r\n6: distorted start bit"));
+			GeSendeTextP(PSTR("\r\n7: distorted stop bit"));
+			GeSendeTextP(PSTR("\r\n8: differing baudrate"));
+			GeSendeTextP(PSTR("\r\n9: mark/space-distortion"));
+			GeSendeTextP(PSTR("\r\nE: end"));
+			)
+
 			while (!GeSendePufferLeer())
 				;
 			}
@@ -1171,20 +1162,12 @@ static bool KonfigurationDurchwahl()
 	while (true)
 		{ // solange Durchwahl abfragen, bis gültige Eingabe erfolgt
 		uint8_t neu = Durchwahl;
-#ifdef SPRACHE_EN
-		if (!ZahlAbfrageFern(PSTR("internal number"), &neu, DurchwahlZiffern))
-#else
-		if (!ZahlAbfrageFern(PSTR("durchwahl"), &neu, DurchwahlZiffern))
-#endif //ndef SPRACHE_EN
+		if (!ZahlAbfrageFern(PSTR(Sprachwahl("durchwahl", "internal number")), &neu, DurchwahlZiffern))
 			return false; // Abbruch
 			
 		if (ZahlEmpfangenFernAnzahlZiffern > 2) 
 			{
-#ifdef SPRACHE_EN
-			if (!TextAusgabeFernP(PSTR("\r\n at most 2 digits")))
-#else
-			if (!TextAusgabeFernP(PSTR("\r\n maximal 2 stellen")))
-#endif //ndef SPRACHE_EN
+			if (!TextAusgabeFernP(PSTR(Sprachwahl("\r\n maximal 2 stellen", "\r\n at most 2 digits"))))
 				return false; // Abbruch
 			continue; // nochmal;
 			}
@@ -1199,11 +1182,7 @@ static bool KonfigurationDurchwahl()
 		NeuEigenAdresse &= ~3; // niedrigste zwei Bits löschen
 		neu = AdresseZuWahl(NeuEigenAdresse, &DurchwahlZiffern);
 		
-#ifdef SPRACHE_EN
-		if (!TextAusgabeFernP(PSTR("\r\n checking: "))
-#else
-		if (!TextAusgabeFernP(PSTR("\r\n pruefe: "))
-#endif //ndef SPRACHE_EN
+		if (!TextAusgabeFernP(PSTR(Sprachwahl("\r\n pruefe: ", "\r\n checking: ")))
 			|| !ZahlAusgabeFern(neu, DurchwahlZiffern))
 			return false;
 
@@ -1213,11 +1192,7 @@ static bool KonfigurationDurchwahl()
 			}
 
 		// Adresse schon belegt...
-#ifdef SPRACHE_EN
-		if (!TextAusgabeFernP(PSTR(" already used, choose different number.")))
-#else
-		if (!TextAusgabeFernP(PSTR(" schon vergeben, andere waehlen.")))
-#endif //ndef SPRACHE_EN
+		if (!TextAusgabeFernP(PSTR(Sprachwahl(" schon vergeben, andere waehlen.", " already used, choose different number."))))
 			return false; // Abbruch
 
 		}
@@ -1235,11 +1210,7 @@ static void Konfiguration()
 
 	set_LED_ROT();			
 
-#ifdef SPRACHE_EN
-	if (TextAusgabeFernP(PSTR("\r\n configuration metering version " SVNVERSION " date " __DATE__))
-#else
-	if (TextAusgabeFernP(PSTR("\r\n konfiguration messgeraet version " SVNVERSION " datum " __DATE__))
-#endif //ndef SPRACHE_EN
+	if (TextAusgabeFernP(PSTR(Sprachwahl("\r\n konfiguration messgeraet version " SVNVERSION " datum " __DATE__, "\r\n configuration metering version " SVNVERSION " date " __DATE__)))
 		&& KonfigurationDurchwahl()
 		// && BitAbfrageFern(PSTR("feste hauptstelle"), &KonfigBits, 1 << KonfigBit_FesterHauptanschluss)
 		// && (!BIT_IS_SET(KonfigBits, KonfigBit_FesterHauptanschluss) // folgende Abfrage nur bei FesterHauptanschluss
@@ -1255,11 +1226,7 @@ static void Konfiguration()
 		// && JustierWahlziffernAbfragen()
 		// && ZahlAbfrageFern(PSTR("justierung verzoegerung abheben - erste ziffer ...\r\n ... (x/10 sek)"), &JustierWahlVerzoegerung, 1)
 		// && ZahlAbfrageFern(PSTR("justierung verzoegerung auflegen - abheben nach taste ...\r\n ... (x/10 sek)"), &JustierNeustartPause, 1)
-#ifdef SPRACHE_EN
-		&& TextAusgabeFernP(PSTR("\r\n finished +++\r\n")))
-#else
-		&& TextAusgabeFernP(PSTR("\r\n fertig +++\r\n")))
-#endif //ndef SPRACHE_EN
+		&& TextAusgabeFernP(PSTR(Sprachwahl("\r\n fertig +++\r\n", "\r\n finished +++\r\n"))) )
 		{ // kein Abbruch, daher ordnungsgemäß abstellen
 		BusSenden(BusKdoSchluss);
 		WarteSchlussQuittung(2500);
@@ -1340,11 +1307,7 @@ int main()
 	BusEigenAdrMehrfach = BUS_MEHRFACH_ADR;
 	
 	KonfigLeseString(EEAdr_KennungZusatz, KennungZusatz, KENNUNG_MAXLEN, PSTR(""));
-#ifdef SPRACHE_EN
-	KonfigLeseString(EEAdr_Kennwort, Kennwort, KENNWORT_MAXLEN, PSTR("password"));	
-#else
-	KonfigLeseString(EEAdr_Kennwort, Kennwort, KENNWORT_MAXLEN, PSTR("kennwort"));	
-#endif //ndef SPRACHE_EN
+	KonfigLeseString(EEAdr_Kennwort, Kennwort, KENNWORT_MAXLEN, PSTR(Sprachwahl("kennwort", "password")));
 
 	BildlochModus = KonfigLeseByteBegrenzt(EEAdr_BildlochModus, 0, StartNach3Sekunden, StartNachCR);
 
