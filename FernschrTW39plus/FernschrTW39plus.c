@@ -139,7 +139,8 @@ enum {
 	EEAdr_AnrufAbbruchZeit = 37,
 	EEAdr_StartQuittVerz = 38,
 	EEAdr_SimulierteKennung = 39, 
-	EEAdr_Ende = 70 // Platz für neue Werte, darf erhöht werden	
+	EEAdr_TastaturwahlStartZeichen = 70,
+	EEAdr_Ende = 71 // Platz für neue Werte, darf erhöht werden	
 };
 
 
@@ -156,6 +157,8 @@ typedef enum { SperreTaste, SperreStoerung, SperreZeit, SperreWahl } TSperreGrun
 bool MitWaehlscheibe; //!< Gerät het eine Wählscheibe
 
 uint8_t WahlauffordImpulsLaenge; //!< Länge des Wahlaufforderungsimpuls in 1/100 sek
+
+uint8_t TastaturwahlStartZeichen; //!< Welches Zeichen als Start der Tastaturwahl ausgeben? (Standard = 'v' = 15)
 
 uint8_t AnrufAbbruchZeit; //!< Maximale Zeit zwichen Aktivierung Anrufsignal und Ende des Hochlaufs des Fernschreibers
 
@@ -807,6 +810,15 @@ static bool WahlMitTastatur()
 
 	BaudotMode_SetZiffern(BaudotMode);
 
+	if (TastaturwahlStartZeichen > 0)
+		{
+		StartTimer(&WahlendeTimer);
+		while (TimerVal(&WahlendeTimer) < 700)
+			FernschrIO();
+
+		LokalCodeAusgabe(TastaturwahlStartZeichen);			
+		}
+			
 	// AutoWahlZiffern vorweg in den Wählpuffer schreiben
 	uint8_t i;
 	for (i = 0 ; i < AutoWahlMaxZiffern ; i++)
@@ -1187,6 +1199,7 @@ static void Konfiguration()
 	// -------------------------------------------
 	if (NoExpertSettings)
 		{
+		TastaturwahlStartZeichen = 0; // keines
 		KommendSperreWahl = KommendSperreWahl_Std;
 		LokalbetriebWahl = LokalbetriebWahl_Std;
 		AnrufAbbruchZeit = AnrufAbbruchZeit_Std;
@@ -1198,7 +1211,7 @@ static void Konfiguration()
 		SimulierteKennung[0] = '\0';
 		return;
 		}
-
+		
 	// Einschaltung der Sperre für kommende Rufe durch Wahl von...
 	// -----------------------------------------------------------
 	LokalTextAusgabeP(PSTR(Sprachwahl("\r\n kommende anrufe sperren mit: (akt. ", 
@@ -1297,6 +1310,23 @@ static void Konfiguration()
 	else // not AutoWahlJa
 		{
 		AutoWahlZiffern[0] = 255;
+		}
+
+	if (!MitWaehlscheibe) // Tastaturwahl
+		{
+		// Startcode für Tastaturwahl
+		LokalTextAusgabeP(PSTR(Sprachwahl("\r\n start code fuer wahlaufforderung (0 = kein, 15 = v): akt. ",
+										  "\r\n start code for dialling (0 = none, 15 = v): cur. ")));
+		LokalZahlAusgabe(TastaturwahlStartZeichen, 0);
+		LokalTextAusgabeP(NeuStrP);
+
+		if (LokalZahlEingabe(&TastaturwahlStartZeichen, 0) < 0)
+			return;
+
+		if (TastaturwahlStartZeichen > 31)
+			TastaturwahlStartZeichen = 31;
+
+		LokalTextAusgabeP(OkStrP);
 		}
 		
 	// Timeout beim Anruf
@@ -1401,6 +1431,8 @@ static void KonfigurationEnde()
 	KonfigSchreibeBool(EEAdr_MitWaehlscheibe, MitWaehlscheibe);
 
 	KonfigSchreibeByte(EEAdr_WahlauffordImpulsLaenge, WahlauffordImpulsLaenge);
+
+	KonfigSchreibeByte(EEAdr_TastaturwahlStartZeichen, TastaturwahlStartZeichen);
 
 	KonfigSchreibeByte(EEAdr_KommendSperreWahl, KommendSperreWahl);
 
@@ -1592,6 +1624,8 @@ int main()
 	
 	MitWaehlscheibe = KonfigLeseBool(EEAdr_MitWaehlscheibe, true);
 	WahlauffordImpulsLaenge = KonfigLeseByteBegrenzt(EEAdr_WahlauffordImpulsLaenge, 3, 1, 200);
+
+	TastaturwahlStartZeichen = KonfigLeseByteBegrenzt(EEAdr_TastaturwahlStartZeichen, 0, 0, 31); 
 
 	UmleitungAbweisen = KonfigLeseBool(EEAdr_UmleitungAbweisen, false);
 
