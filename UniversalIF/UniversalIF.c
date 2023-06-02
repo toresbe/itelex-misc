@@ -6,39 +6,83 @@
 // ways (e.g. serial rs232 or SPI).
 //
 // 
-// Transmission client -> TxP2 (TWI)
+// ================================================================================================================
+// Transmission client -> iTelex (TWI) -- see #defines "Txi_*" in ClientComDefs.h
+// -----------------------------
 //
-// from client	| Send to TWI Bus 	| Comment
-// -------------+-------------------+--------------------------------------------------------------
-// 0x00			|		no			| ignored to allow idle communication on client side
-// 0x01 - 0x6F  | 	own address		| Connect: received address is stored as destination address
-//				|					|	status of destination is checked, confirmation is sent by
-//				|					|	0x77 or 0x78
-// 0x7D			|   status query	| query status of any TxP2 module. address for query is next byte
-//				|					|	on client side
-// 0x7E			|		no			| set internal parameter
-// 0x7F			|		no			| query internal parameter
-// 0x80 - 0x9F  | as 0x93 / 0x9E	| low 5 bits are used as baudot code to be send. MSB = bit 4 
-//				|					|	is sent first.
-// 0xA0 - 0xFE  |	  	yes			| control codes. 0xAC also clears destination address
-// 0xFF			|					| reset
-//
-// Transmission TxP2 (TWI) -> client
-// to client	| Orig. on TWI bus 	| Comment
-// -------------+-------------------+--------------------------------------------------------------
-// 0x00			|		no			| not allowed. On clinent side 0x00 may be used to signal idle 
-// 0x01 - 0x6F  | 		yes			| Connect: received number is also stored as destination address
-// 0x77			|		no			| positive confirmation
-// 0x78			|		no			| negative confirmation
-// 0x7D 		|		no			| 'header' for result of module status query. 
-// 0x7F 		|		no			| 'header' for result of internal parameter query.
-// 0x80 - 0x9F  | 0x93 / 0x9E		| received baudot code 
-//				|					|	First received bit is bit 4 on client side.
-// 0x80 - 0x9F  |	  	no			| other codes in this range are ignored
-// 0xA0 - 0xFE  | yes, except 0xA9	| control codes. 0xAC also clears destination address.
-//				|					|	0xA9 on TWI bus is heartbeat and is not forwarded to client
-// 0xFF			|		no			| error indicator
+// from client	| Parameter	  | Note: on TWI Bus	| Comment
+//				|             | sent as...			|
+// -------------+-------------+---------------------+--------------------------------------------------------------
+// 0x00			| none        |		no				| ignored to allow idle communication on client side
+// 0x01 to 0x6F | none        | 	own address		| Connect: received address is stored as destination address
+//				|             |						|	status of destination is checked, confirmation is sent by
+//				|             |						|	0x77 or 0x78
+// 0x7D			| <ext>   *1  |   status query		| query status of any iTelex module. address for query is next byte
+//				|             |						|	on client side
+// 0x7E			| <addr>  *2  |		no				| set internal parameter
+//              | <value>     |						|
+// 0x7F			| <addr>  *2  |		no				| query internal parameter
+//              | <value>     |						|
+// 0x80 to 0x9F | none        | as 0x93 / 0x9E		| low 5 bits are used as baudot code to be send. MSB = bit 4 
+//				|             |						|	is sent first.
+// 0xA3			| none		  |     0xA3			| command: switch on printer (selected by 0x01 to 0x6F)
+// 0xA5			| none		  |     0xA5			| confirmation: printer is running
+// 0xA6			| none		  |		0xA6		    | confirmation: ready to get dialling information
+// 0xB0 to 0xB9	| none		  | 0xB0 to 0xB9		| dialed digit
+// 0xAA			| none		  |		0xAA		    | command: switch off printer and close connection
+// 0xAC			| none		  |     0xAC		    | confirmation: printer is switched off, interface is idle
+// 0xFF			| none        |		no				| reset
+// -------------+-------------+---------------------+--------------------------------------------------------------
+// note: generally all codes in range 0xA0 to 0xFE are directly forwarded to the TWI bus
 
+// Explanation of parameters: 
+// *1	<ext>	Address of TWI device (decimal values):  (see XXX)
+//					00 = invalid extension, 01 to 99 = extensions 01 to 99,
+//					100 = extension 00, 101 to 109 = extensions 1 to 9, 110 = extension 0
+// *2	<addr>	Index of internal parameter: (see #defines "Txi_Param_*" in ClientComDefs.h)
+//					0x00 = own extension (coding see *1)
+//					0x01 = default status (only bits 4 and 5 allowed, 0x00 = local unit, 0x10 = restricted local unit, 0x20 = line interface
+//					0x40 = error code (bit-mask, see *3)  
+//					0x42 = current connected communication partner
+//					0x43 = current connection status
+// *3			Error code bitmask (see #defines "Txi_ErrFlag_*" in ClientComDefs.h)
+//					0x01 = InputBufferOverflow
+//					0x02 = OutputBufferOverflow
+//					0x04 = AlreadyConnected
+//					0x08 = NotConnected
+//					0x10 = TwiTimeout
+//					0x20 = TwiCodeError (received on TWI bus)
+//					0x80 = InvalidCmd (from client)
+
+// ================================================================================================================
+// Transmission iTelex (TWI) -> client
+//
+// to client	| Parameter		| note: received	| Comment
+//				|				| on TWI bus 		|
+// -------------+---------------+-------------------+--------------------------------------------------------------
+// 0x00			| none			|	no				| not allowed. On clinent side 0x00 may be used to signal idle 
+// 0x01 to 0x6F | none			| 	yes				| Connect request: received byte is also stored as destination address
+// 0x77			| none			|	no				| positive confirmation
+// 0x78			| none			|	no				| negative confirmation
+// 0x7D   		| <addr>   *2	|	no				| result of module status query.
+//		 		| <status> *4	|	no				|  
+// 0x7F 		| <addr>   *2	|	no				| result of internal parameter query.
+//              | <value>		|                   |
+// 0x80 - 0x9F  | 0x93 / 0x9E	| series of 0x93 	| received baudot code 
+//				|				|	and / 0x9E		|	First received bit is bit 4 on client side.
+// 0xA3			| none		  	|   0xA3			| command: handle further data as baudot codes
+// 0xA5			| none		  	|   0xA5			| confirmation: interface is ready to receive baudot data
+// 0xA6			| none		  	|	0xA6	    	| command: be ready to receive get dialling information
+// 0xB0 to 0xB9	| none		  	| 0xB0 to 0xB9		| dialed digit
+// 0xAA			| none		  	|	0xAA			| command: close connection
+// 0xAC			| none		  	|   0xAC		    | confirmation: connection is closed, interface is idle
+// 0xFF			| <code> *3		|		 			| error indicator
+// -------------+---------------+-------------------+--------------------------------------------------------------
+// note: generally all codes in range 0xA0 to 0xFE received on TWI bus are directly forwarded to the client
+                           
+// notes:
+//	*2 and *3: same as above
+//  *4 : TODO                     
 
 // standard libs:
 #include <avr/io.h>
@@ -75,6 +119,9 @@ const char PROGMEM Identifier[] = "___itlx_UniIF-" PROGIDZUSATZ "___" __DATE__ "
 // Constants
 // =========
 
+#define DEBUG_PORT_OUT	PORTB
+#define DEBUG_PORT_DDR	DDRB
+	// use only Bits 0 to 5 / Mask 0x3F
 
 
 // internal Eeprom
@@ -88,6 +135,8 @@ typedef struct {
 
 
 EEMEM TEEData EE = { {0}, 99 << 1, 0xB0 } ;
+
+// TODO: Umstellen auf redundante Speicherung
 
 
 // Variables
@@ -178,6 +227,10 @@ static void InitPorts()
 #endif //def TCCR0A
 */
 
+#ifdef DEBUG_PORT_DDR
+	DEBUG_PORT_DDR = 0x3F;
+#endif
+
 	SeriellUmsetzInit();
 
 	// TWI
@@ -241,7 +294,7 @@ static void SetParameter(uint8_t addr, uint8_t val)
 			break;
 			
 		case Txi_Param_ErrorCode:			
-			ErrorFlags = val; // to reset them
+			ErrorFlags = val; // to reset error flags
 			break;
 			
 		case Txi_Param_CurrentPartner:		
@@ -405,6 +458,7 @@ static void ProcessClientToTWI()
 		case Txi_PrintcodeMin ... Txi_PrintcodeMax:
 			if (BusVerbPartner == 0)
 				RaiseError(Txi_ErrFlag_NotConnected);
+
 			else if (SerUmSendBitNr == SerUmSendWarte)
 				{
 				SerUmSendDaten = Code & 0x1F; 
@@ -418,15 +472,20 @@ static void ProcessClientToTWI()
 		case Txi_DirectMin ... Txi_DirectMax:
 			if (BusVerbPartner == 0)
 				RaiseError(Txi_ErrFlag_NotConnected);
+
 			else if (SerUmSendBitNr == SerUmSendWarte && BusFrei && BusAuftrag == Nichts)
 				BusSenden(Code);
+
 			else
 				return; // not yet ready to send the command;
 			
 			break;
 
-		case Txi_Error:
-			// TODO: Reset
+		case Txi_Error: // performs device reset by using the watchdog
+			wdt_enable(WDTO_30MS);
+			cli();
+			while (true)
+				;
 			break;
 			
 		default: // unknown code
@@ -514,7 +573,9 @@ static void DoTWICommunication()
 	
 	// prepare sending of mark / space
 
-	bool BusSendMark = true; // mark signal is default as long as no data is to be sent
+	bool BusSendMark = true; 
+		// mark signal is default as long as no data is to be sent.
+		// will be overwritten by SeriellUmsetzung() if data is beeing sent
 			
 	SeriellUmsetzung(BusEmpfMark, &BusSendMark);
 	
@@ -523,16 +584,37 @@ static void DoTWICommunication()
 		if (BusSendMark)
 			{ // Mark
 			if (SentLoopStatus == Space1 || SentLoopStatus == Space2)
+				{
 				BusSenden(BusKdoMark);
+				#ifdef DEBUG_PORT_OUT
+					DEBUG_PORT_OUT = 0x01;
+				#endif
+				}
 			else if (SentLoopStatus == Mark1 && TimerVal(&TWICommTimer) > 0)
+				{
 				BusSenden(BusKdoMarkWdh); 
+				#ifdef DEBUG_PORT_OUT
+					DEBUG_PORT_OUT = 0x02;
+				#endif
+				}
 			} // Mark
 		else
 			{ // Space
 			if (SentLoopStatus == Mark1 || SentLoopStatus == Mark2)
+				{
 				BusSenden(BusKdoSpace);
+				#ifdef DEBUG_PORT_OUT
+					DEBUG_PORT_OUT = 0x04;
+				#endif
+				}
 			else if (SentLoopStatus == Space1 && TimerVal(&TWICommTimer) > 0)
-				BusSenden(BusKdoSpaceWdh); 
+				{
+				BusSenden(BusKdoSpaceWdh);
+				#ifdef DEBUG_PORT_OUT
+					DEBUG_PORT_OUT = 0x08;
+				#endif
+				}
+ 
 			} // Space
 
 		} // Bus ist sendefähig	
@@ -582,6 +664,8 @@ static void DoTWICommunication()
 
 int main()
 	{
+	wdt_disable(); // may be activated later
+
 	pgm_read_byte(Identifier); // Dummy read to force the identifier to be placed in the FLASH.
 		
 	// initializing everything

@@ -70,7 +70,8 @@ static char HexNibbleToChar(uint8_t x)
 //! Any initialisation 
 void InitClientCom()
 	{
-	#define BAUD 9600
+	#define BAUD 38400
+
 	#include <util/setbaud.h>
 	UBRR0H = UBRRH_VALUE;
 	UBRR0L = UBRRL_VALUE;
@@ -136,7 +137,7 @@ void DoClientCommunication()
 			int8_t x = CharToHexNibble(c);
 			if (x < 0) // not a valid hex nibble
 				{
-				if (HexNibbleIn >= 0) // a first nibble stored
+				if (HexNibbleIn >= 0) // there is a first nibble stored
 					{
 					PufferSpeich(&ClientInputBuffer, HexNibbleIn);
 					HexNibbleIn = -1;
@@ -145,6 +146,7 @@ void DoClientCommunication()
 				// if possible echo 'invalid' character 
 				if (BIT_IS_SET(UCSR0A, UDRE0))
 					UDR0 = c;
+					// don't use #ClientOutputBuffer, as conversion to HEX is done after reading #ClientOutputBuffer
 				}
 			else // valid hex nibble
 				{ 
