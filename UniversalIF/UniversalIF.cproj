@@ -15,7 +15,7 @@
     <OutputFileExtension>.elf</OutputFileExtension>
     <OutputDirectory>$(MSBuildProjectDirectory)\$(Configuration)</OutputDirectory>
     <ToolchainFlavour>Native</ToolchainFlavour>
-    <avrtool>com.atmel.avrdbg.tool.simulator</avrtool>
+    <avrtool>com.atmel.avrdbg.tool.ispmk2</avrtool>
     <KeepTimersRunning>true</KeepTimersRunning>
     <OverrideVtor>false</OverrideVtor>
     <CacheFlash>true</CacheFlash>
@@ -40,15 +40,14 @@
         </dependencies>
       </framework-data>
     </AsfFrameworkConfig>
-    <avrtoolserialnumber>
-    </avrtoolserialnumber>
+    <avrtoolserialnumber>000200090638</avrtoolserialnumber>
     <avrdeviceexpectedsignature>0x1E9406</avrdeviceexpectedsignature>
     <avrtoolinterface>ISP</avrtoolinterface>
-    <avrtoolinterfaceclock>0</avrtoolinterfaceclock>
+    <avrtoolinterfaceclock>125000</avrtoolinterfaceclock>
     <com_atmel_avrdbg_tool_ispmk2>
       <ToolOptions>
         <InterfaceProperties>
-          <IspClock>0</IspClock>
+          <IspClock>125000</IspClock>
         </InterfaceProperties>
         <InterfaceName>ISP</InterfaceName>
       </ToolOptions>
@@ -162,6 +161,14 @@
   </PropertyGroup>
   <Import Project="$(AVRSTUDIO_EXE_PATH)\\Vs\\Compiler.targets" />
   <ItemGroup>
+    <Compile Include="..\Gemeinsam\KonfigSpeicher.c">
+      <SubType>compile</SubType>
+      <Link>KonfigSpeicher.c</Link>
+    </Compile>
+    <Compile Include="..\Gemeinsam\KonfigSpeicher.h">
+      <SubType>compile</SubType>
+      <Link>KonfigSpeicher.h</Link>
+    </Compile>
     <Compile Include="ClientCommunication.h">
       <SubType>compile</SubType>
     </Compile>

@@ -41,7 +41,7 @@
 
 #define Txi_DirectMin		0xA0
 
-#define Txi_DirectMax		0xFE
+#define Txi_DirectMax		0xFC
 
 #define Txi_ActivateCmd		0xA3
 
@@ -57,7 +57,9 @@
 
 #define Txi_DisconnAck		0xAC
 
-#define Txi_Error			0xFF
+#define Txi_Error			0xFE
+
+#define Txi_Reset			0xFD
 
 
 // Error Flags

@@ -25,15 +25,15 @@
 //              | <value>     |						|
 // 0x80 to 0x9F | none        | as 0x93 / 0x9E		| low 5 bits are used as baudot code to be send. MSB = bit 4 
 //				|             |						|	is sent first.
-// 0xA3			| none		  |     0xA3			| command: switch on printer (selected by 0x01 to 0x6F)
+// 0xA3			| none		  |     0xA3			| command: start connection (selected by 0x01 to 0x6F)
 // 0xA5			| none		  |     0xA5			| confirmation: printer is running
 // 0xA6			| none		  |		0xA6		    | confirmation: ready to get dialling information
-// 0xB0 to 0xB9	| none		  | 0xB0 to 0xB9		| dialed digit
 // 0xAA			| none		  |		0xAA		    | command: switch off printer and close connection
 // 0xAC			| none		  |     0xAC		    | confirmation: printer is switched off, interface is idle
-// 0xFF			| none        |		no				| reset
+// 0xB0 to 0xB9	| none		  | 0xB0 to 0xB9		| dialed digit
+// 0xFD			| none        |		no				| reset
 // -------------+-------------+---------------------+--------------------------------------------------------------
-// note: generally all codes in range 0xA0 to 0xFE are directly forwarded to the TWI bus
+// note: generally all codes in range 0xA0 to 0xFC are directly forwarded to the TWI bus
 
 // Explanation of parameters: 
 // *1	<ext>	Address of TWI device (decimal values):  (see XXX)
@@ -70,19 +70,68 @@
 //              | <value>		|                   |
 // 0x80 - 0x9F  | 0x93 / 0x9E	| series of 0x93 	| received baudot code 
 //				|				|	and / 0x9E		|	First received bit is bit 4 on client side.
-// 0xA3			| none		  	|   0xA3			| command: handle further data as baudot codes
+// 0xA3			| none		  	|   0xA3			| command: handle further data as baudot codes / incoming call
 // 0xA5			| none		  	|   0xA5			| confirmation: interface is ready to receive baudot data
 // 0xA6			| none		  	|	0xA6	    	| command: be ready to receive get dialling information
-// 0xB0 to 0xB9	| none		  	| 0xB0 to 0xB9		| dialed digit
 // 0xAA			| none		  	|	0xAA			| command: close connection
 // 0xAC			| none		  	|   0xAC		    | confirmation: connection is closed, interface is idle
-// 0xFF			| <code> *3		|		 			| error indicator
+// 0xB0 to 0xB9	| none		  	| 0xB0 to 0xB9		| dialed digit
+// 0xFE			| <code> *3		|		 			| error indicator
 // -------------+---------------+-------------------+--------------------------------------------------------------
-// note: generally all codes in range 0xA0 to 0xFE received on TWI bus are directly forwarded to the client
+// note: generally all codes in range 0xA0 to 0xFC received on TWI bus are directly forwarded to the client
                            
 // notes:
 //	*2 and *3: same as above
-//  *4 : TODO                     
+//  *4: Bitmask as combination of:
+//		- 0x01:
+//		- 0x02:
+//		- 0x04:
+//		- 0x08:
+//		- 0x10:
+//		- 0x20:
+//		- 0x40:
+//
+//		- 0x80: local device in basic state
+//		- 0x90: local device in basic state, does not accept redirected calls
+//		- 0xA0: device connecting to the network, dialling information is needed after activation
+
+
+
+// Typical examples: The numbering denotes steps, additional letters denote variants. 
+// ===============================================================================================================
+// Select interface 32 for an internal connection
+// ---------------------------------------------------------------------------------------------------------------
+// 1. select interface: send 0x20
+//		1a)	receive 0x77: selected interface was free and is now reserved -> continue with 2.
+//		1b) receive 0x78: selected interface was not free -> state unchanged
+//		1c) receive 0x79: selected interface didn't asnwer -> state unchanged
+//		1d) receive 0xFE: another error occurred (i.e.: the "own" interface is not free) -> continue with 9.
+// 2. activate interface: send 0xA3
+//		2a)	receive 0xA6: line interface was selected, waiting for dialling data -> continue with 3.
+//		2b) receive 0xA5: printer interface was selected, printer is running -> continue with 4.
+//		2c) receive XXXX: printer does not answer
+//		2d) receive 0xFE: another error occurred (i.e.: the "own" interface is not free) -> continue with 9.
+// 3. dialing: send 0xB3 0xB5: select 53 (local device)
+//		3a) no reply: incomplete number
+//		3b) receive 0xA5: connection established -> continue with 4.
+//		3c) receive XXXX: connection refused (busy / no connection)	-> basic state
+// 4. during connection:
+//		4a) send 0x80 to 0x9F: Send baudot code for "who are you"
+//		4b) receive 0xXXXX: receive Ltrs A B C 
+// 5. active closing connection: Send 0xAA
+//		5a) receive 0xAC: switch to basic status (waiting) -> basic state
+//		5b) timeout: switch to basic status (waiting) -> basic state
+// 6. passive closing connection: receive 0xAA
+//		6a) switch off local printer, then send 0xAC -> basic state
+// 7. incoming call: receive 0xA3
+//		7a) activate local device, then send 0xA5 -> continue with 4.
+//		7b) if local device not available: send 0xXXX -> basic state
+// 8. (free)
+// 9. read and clear error information (should work in every state)
+//		9a) send 0x7A 0x40, then wait for answer
+//		9b) receive 0x7A 0x40 0x08: error code "not connected", then
+//		9c) send 0x7E 0x40 0x00 to clear the error code -> basic state
+// ----------------------------------------------------------------------------------------------------------------		
 
 // standard libs:
 #include <avr/io.h>
@@ -97,13 +146,13 @@
 #include "timercs.h"
 #include "TwiEvents.h"
 #include "MsTimer.h"
-//#include "EepromTools.h"
 
 // Txp2 libs:
 #include "TxP2-Defs.h"
 //#include "BaudotCode.h"
 #include "BusKomm.h"
 #include "SeriellUmsetz.h"
+#include "KonfigSpeicher.h"
 #include "../SvnVersion.h"
 
 // Project includes:
@@ -127,16 +176,9 @@ const char PROGMEM Identifier[] = "___itlx_UniIF-" PROGIDZUSATZ "___" __DATE__ "
 // internal Eeprom
 // ===============
 
-typedef struct {
-	uint8_t Spacer[20]; //!< Start of EEPROM sometimes disturbed
-	uint8_t OwnAddress; //!< copy of #BusEigenAdresse in EEPROM
-	uint8_t DefaultStatus; //!< copy of #DefaultStatus in EEPROM
-	} TEEData;
+enum { ConfigAddr_OwnAddress = 4 }; //!< copy of #BusEigenAdresse in EEPROM
+enum { ConfigAddr_DefaultStatus = 5 }; //!< copy of #DefaultStatus in EEPROM
 
-
-EEMEM TEEData EE = { {0}, 99 << 1, 0xB0 } ;
-
-// TODO: Umstellen auf redundante Speicherung
 
 
 // Variables
@@ -178,12 +220,16 @@ static void InitVariables()
 	{
 	// Init from EEPROM
 	// ----------------
-	BusEigenAdresse = eeprom_read_byte(&EE.OwnAddress) & 0xFE;
+
+	KonfigSpeicherInit();
+
+	BusEigenAdresse = KonfigLeseByte(ConfigAddr_OwnAddress, 99) & 0xFE;
 	if (BusEigenAdresse < BusAdrMin || BusEigenAdresse > BusAdrMax)
 		BusEigenAdresse = 99 << 1; // default
-	BusEigenAdrMehrfach = 1; // no multi Adress mode supported yet.
+	BusEigenAdrMehrfach = 1; // no multi address mode supported yet.
 	
-	DefaultStatus = (1 << StatBit_Frei) | (eeprom_read_byte(&EE.DefaultStatus) & 0x30);
+	DefaultStatus = (1 << StatBit_Frei) | (KonfigLeseByte(ConfigAddr_DefaultStatus, 0xA0) & 0x30);
+
 	Status = DefaultStatus;
 	
 	// Init other variables (static)
@@ -284,13 +330,13 @@ static void SetParameter(uint8_t addr, uint8_t val)
 		{
 		case Txi_Param_OwnAddress:			
 			BusEigenAdresse = val << 1; // gets active after an reset
-			eeprom_update_byte(&EE.OwnAddress, BusEigenAdresse);
+			KonfigSchreibeByte(ConfigAddr_OwnAddress, BusEigenAdresse);
 			break;
 			
 		case Txi_Param_DefaultStatus:		
 			DefaultStatus = (val & 0x30) | (1 << StatBit_Frei);
 				// only bits 4 and 5 allowed
-			eeprom_update_byte(&EE.DefaultStatus, DefaultStatus);
+			KonfigSchreibeByte(ConfigAddr_DefaultStatus, DefaultStatus);
 			break;
 			
 		case Txi_Param_ErrorCode:			
@@ -481,7 +527,7 @@ static void ProcessClientToTWI()
 			
 			break;
 
-		case Txi_Error: // performs device reset by using the watchdog
+		case Txi_Reset: // performs device reset by using the watchdog
 			wdt_enable(WDTO_30MS);
 			cli();
 			while (true)
