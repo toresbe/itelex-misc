@@ -26,8 +26,8 @@
 // 0x80 to 0x9F | none        | as 0x93 / 0x9E		| low 5 bits are used as baudot code to be send. MSB = bit 4 
 //				|             |						|	is sent first.
 // 0xA3			| none		  |     0xA3			| command: start connection (selected by 0x01 to 0x6F)
-// 0xA5			| none		  |     0xA5			| confirmation: printer is running
-// 0xA6			| none		  |		0xA6		    | confirmation: ready to get dialling information
+// 0xA5			| none		  |     0xA5			| confirmation: connection ready for content transmission
+// 0xA6			| none		  |		0xA6		    | confirmation: ready to get dialing information
 // 0xAA			| none		  |		0xAA		    | command: switch off printer and close connection
 // 0xAC			| none		  |     0xAC		    | confirmation: printer is switched off, interface is idle
 // 0xB0 to 0xB9	| none		  | 0xB0 to 0xB9		| dialed digit
@@ -60,7 +60,7 @@
 // to client	| Parameter		| note: received	| Comment
 //				|				| on TWI bus 		|
 // -------------+---------------+-------------------+--------------------------------------------------------------
-// 0x00			| none			|	no				| not allowed. On clinent side 0x00 may be used to signal idle 
+// 0x00			| none			|	no				| not allowed. On client side 0x00 may be used to signal idle 
 // 0x01 to 0x6F | none			| 	yes				| Connect request: received byte is also stored as destination address
 // 0x77			| none			|	no				| positive confirmation
 // 0x78			| none			|	no				| negative confirmation
@@ -71,8 +71,8 @@
 // 0x80 - 0x9F  | 0x93 / 0x9E	| series of 0x93 	| received baudot code 
 //				|				|	and / 0x9E		|	First received bit is bit 4 on client side.
 // 0xA3			| none		  	|   0xA3			| command: handle further data as baudot codes / incoming call
-// 0xA5			| none		  	|   0xA5			| confirmation: interface is ready to receive baudot data
-// 0xA6			| none		  	|	0xA6	    	| command: be ready to receive get dialling information
+// 0xA5			| none		  	|   0xA5			| confirmation: confirmation: connection ready for content transmission
+// 0xA6			| none		  	|	0xA6	    	| command: be ready to receive get dialing information
 // 0xAA			| none		  	|	0xAA			| command: close connection
 // 0xAC			| none		  	|   0xAC		    | confirmation: connection is closed, interface is idle
 // 0xB0 to 0xB9	| none		  	| 0xB0 to 0xB9		| dialed digit
@@ -83,19 +83,19 @@
 // notes:
 //	*2 and *3: same as above
 //  *4: Bitmask as combination of:
-//		- 0x01:
-//		- 0x02:
-//		- 0x04:
-//		- 0x08:
-//		- 0x10:
-//		- 0x20:
-//		- 0x40:
-//
+//		- 0x01: mark on receive
+//		- 0x02: printer on commanded
+//		- 0x04: mark on transmit
+//		- 0x08: printer is running
+//		- 0x10: incoming connection
+//		- 0x20: connection complete
+//		- 0x40: received command (on TWI interface of device) not yet processed completely 
+
 //		- 0x80: local device in basic state
 //		- 0x90: local device in basic state, does not accept redirected calls
-//		- 0xA0: device connecting to the network, dialling information is needed after activation
-
-
+//		- 0xA0: device connecting to the network, dialing information will be needed after activation
+//		- 0xB0: special device 
+//		- 0xC0 to 0xF0: combination of 0x80 to 0xB0 with 0x40
 
 // Typical examples: The numbering denotes steps, additional letters denote variants. 
 // ===============================================================================================================
@@ -104,34 +104,37 @@
 // 1. select interface: send 0x20
 //		1a)	receive 0x77: selected interface was free and is now reserved -> continue with 2.
 //		1b) receive 0x78: selected interface was not free -> state unchanged
-//		1c) receive 0x79: selected interface didn't asnwer -> state unchanged
-//		1d) receive 0xFE: another error occurred (i.e.: the "own" interface is not free) -> continue with 9.
+//		1c) receive 0x79: selected interface didn't answer -> state unchanged
+//		1d) receive 0xFE: another error occurred (e.g.: the "own" interface is not free) -> continue with 9.
 // 2. activate interface: send 0xA3
-//		2a)	receive 0xA6: line interface was selected, waiting for dialling data -> continue with 3.
+//		2a)	receive 0xA6: line interface was selected, waiting for dialing data -> continue with 3.
 //		2b) receive 0xA5: printer interface was selected, printer is running -> continue with 4.
-//		2c) receive XXXX: printer does not answer
-//		2d) receive 0xFE: another error occurred (i.e.: the "own" interface is not free) -> continue with 9.
-// 3. dialing: send 0xB3 0xB5: select 53 (local device)
+//		2c) timeout: printer does not answer -> continue with 5.
+//		2d) receive 0xFE: another error occurred -> continue with 9.
+// 3. dialing: send 0xB5 0xB3 0xB1 0xB0 0xB0 0xB1: dial 531001
 //		3a) no reply: incomplete number
 //		3b) receive 0xA5: connection established -> continue with 4.
-//		3c) receive XXXX: connection refused (busy / no connection)	-> basic state
+//		3c) receive 0xA3: connection established (new protocol version) -> send 0xA5, then continue with 4.
+//		3d) receive 0xAA: connection refused (busy / no connection)	-> basic state
 // 4. during connection:
-//		4a) send 0x80 to 0x9F: Send baudot code for "who are you"
-//		4b) receive 0xXXXX: receive Ltrs A B C 
+//		4a) send 0x9B 0x92: Send baudot code for "who are you"
+//		4b) receive 0x9F 0x98 0x93 0x8E 0x9B 0x9D 0x99 0x90 0x82 0x88: receive Ltrs A B C Figs 1 2 3 CR LF 
 // 5. active closing connection: Send 0xAA
 //		5a) receive 0xAC: switch to basic status (waiting) -> basic state
 //		5b) timeout: switch to basic status (waiting) -> basic state
 // 6. passive closing connection: receive 0xAA
 //		6a) switch off local printer, then send 0xAC -> basic state
-// 7. incoming call: receive 0xA3
+// 7. incoming call: receive 0x21 (extension of the calling device), then 0xA3
 //		7a) activate local device, then send 0xA5 -> continue with 4.
-//		7b) if local device not available: send 0xXXX -> basic state
-// 8. (free)
+//		7b) if local device not available: send 0xAA -> receive 0xAC -> basic state
+// 8. check status of a local device (e.g. extension 37): send 0x7D 0x25
+//		8a) receive 0x7D 0x25 0x90: the local device is free (may accept connections) but should not
+//			be activated if the call is not intended for this device. 
 // 9. read and clear error information (should work in every state)
-//		9a) send 0x7A 0x40, then wait for answer
-//		9b) receive 0x7A 0x40 0x08: error code "not connected", then
+//		9a) send 0x7F 0x40, then wait for answer
+//		9b) receive 0x7F 0x40 0x08: error code "not connected", then
 //		9c) send 0x7E 0x40 0x00 to clear the error code -> basic state
-// ----------------------------------------------------------------------------------------------------------------		
+// ----------------------------------------------------------------------------------------------------------------	
 
 // standard libs:
 #include <avr/io.h>
@@ -168,8 +171,8 @@ const char PROGMEM Identifier[] = "___itlx_UniIF-" PROGIDZUSATZ "___" __DATE__ "
 // Constants
 // =========
 
-#define DEBUG_PORT_OUT	PORTB
-#define DEBUG_PORT_DDR	DDRB
+//#define DEBUG_PORT_OUT	PORTB
+//#define DEBUG_PORT_DDR	DDRB
 	// use only Bits 0 to 5 / Mask 0x3F
 
 
@@ -200,8 +203,8 @@ uint8_t ErrorFlags;
 
 //! Error indication status
 enum {
-	EiNormal, //!< no error ocurred or error already sent to client
-	EiSent, //!< error ocurred and stored in buffer, but not sent to client
+	EiNormal, //!< no error occurred or error already sent to client
+	EiSent, //!< error occurred and stored in buffer, but not sent to client
 	EiPending //!< error occurred but not stored in buffer due to overflow
 	} ErrorIndicationStatus;
 
@@ -323,7 +326,7 @@ void RaiseError(uint8_t errflags)
 		}
 	}
 
-	
+
 static void SetParameter(uint8_t addr, uint8_t val)
 	{
 	switch (addr)
@@ -528,8 +531,8 @@ static void ProcessClientToTWI()
 			break;
 
 		case Txi_Reset: // performs device reset by using the watchdog
-			wdt_enable(WDTO_30MS);
 			cli();
+			wdt_enable(WDTO_30MS);
 			while (true)
 				;
 			break;
@@ -557,6 +560,7 @@ static void ProcessTWItoClient()
 		PufferSpeich(&ClientOutputBuffer, Txi_Error); 
 		ErrorIndicationStatus = EiSent;
 		return; // no further processing because buffer may be full now.
+		// TODO check the above problem
 		}
 	
 	if (SerUmEmpfBitNr == SerUmEmpfFertig)
@@ -598,7 +602,7 @@ static void ProcessTWItoClient()
 		} // GetEmpfByte(&Code)
 
 	// reset status for error display if error code was successfully sent to client
-	if (ErrorIndicationStatus == EiSent && PufferLeer(&ClientOutputBuffer))
+	if (ErrorIndicationStatus == EiSent && PufferLeer(&ClientOutputBuffer)) // TODO Check if the second condition is reasonable
 		ErrorIndicationStatus = EiNormal;
 	
 	} // ProcessTWItoClient()

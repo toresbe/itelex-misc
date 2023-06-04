@@ -6,6 +6,9 @@
 // sonni's libs
 #include "bits.h"
 
+#include "BusKomm.h"
+
+
 // project libs
 #include "ClientComDefs.h"
 #include "ClientCommunication.h"
@@ -65,9 +68,86 @@ static char HexNibbleToChar(uint8_t x)
 	
 #endif //def HEX_FORMAT
 
+// Debugging helper functions
+// --------------------------
+
+static void DebugSendChar(uint8_t c)
+	{
+	while (!BIT_IS_SET(UCSR0A, UDRE0)) // 		&& GetCTS())
+		; // wait. should not last that long that watchdog triggers
+	UDR0 = c;
+	}
+
+
+static void DebugSendHex(uint8_t x)
+	{
+	DebugSendChar(HexNibbleToChar(x >> 4));
+	DebugSendChar(HexNibbleToChar(x & 0x0F));
+	}
+
+
+static void DebugSendInt(uint16_t x)
+	{
+	if (x >= 10)
+		{
+		uint16_t z = x / 10;
+		DebugSendInt(z);
+		x -= z * 10;
+		}
+	DebugSendChar(x + '0');
+	}
+
+
+static void DebugHandleInput(char c)
+	{ // note: use only characters from G to Z / g to z, as A to F are handled as 'normal' HEX input.
+	extern uint8_t ErrorIndicationStatus; // original this is an enum
+
+	DebugSendChar(c);
+
+	switch (c)
+		{ // additional debug infos
+		case 'p':
+			// send buffer status
+			DebugSendChar(':');
+			DebugSendInt(PufferAnzahl(&ClientInputBuffer));
+			DebugSendChar(':');
+			DebugSendInt(PufferAnzahl(&ClientOutputBuffer));
+			DebugSendChar(' ');
+			break;
+
+		case 'r':
+			// send error message flags
+			DebugSendChar(':');
+			DebugSendInt(ErrorIndicationStatus);
+			DebugSendChar(' ');
+			break;
+
+		case 's':
+			// send status
+			DebugSendChar(':');
+			DebugSendHex(ErrorIndicationStatus);
+			DebugSendChar(' ');
+			break;
+
+		case 't':
+			// Send TWI Status 
+			DebugSendChar(':');
+			DebugSendInt(BusVerbPartner);
+			DebugSendChar(':');
+			DebugSendInt(BusFrei);
+			DebugSendChar(':');
+			DebugSendInt(BusAuftrag);
+			DebugSendChar(' ');
+			break;
+
+			
+		}
+	}
+
+
 // -------------------------------------------------------------------------------
 
-//! Any initialisation 
+//! Any initialization 
 void InitClientCom()
 	{
 	#define BAUD 38400
@@ -135,22 +215,21 @@ void DoClientCommunication()
 #endif //def SIMULATION
 
 			int8_t x = CharToHexNibble(c);
-			if (x < 0) // not a valid hex nibble
-				{
+			if (x < 0)
+				{ // not a valid hex nibble
 				if (HexNibbleIn >= 0) // there is a first nibble stored
 					{
 					PufferSpeich(&ClientInputBuffer, HexNibbleIn);
 					HexNibbleIn = -1;
 					}
 					
-				// if possible echo 'invalid' character 
-				if (BIT_IS_SET(UCSR0A, UDRE0))
-					UDR0 = c;
-					// don't use #ClientOutputBuffer, as conversion to HEX is done after reading #ClientOutputBuffer
-				}
-			else // valid hex nibble
-				{ 
-				if (HexNibbleIn >= 0) // a first nibble stored
+				// handle 'invalid' charater as debug info request
+				DebugHandleInput(c);
+
+				} // no valid hex nibble
+			else
+				{ // valid hex nibble
+				if (HexNibbleIn >= 0) // a first nibble is stored -> combine with current second nibble
 					{
 					PufferSpeich(&ClientInputBuffer, (HexNibbleIn << 4) | x);
 					HexNibbleIn = -1;

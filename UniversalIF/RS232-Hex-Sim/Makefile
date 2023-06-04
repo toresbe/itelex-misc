@@ -37,6 +37,7 @@ SUBDIRS :=
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS +=  \
+../../Gemeinsam/KonfigSpeicher.c \
 ../UniversalIF.c \
 ../ClientCommunication.c \
 ../../Gemeinsam/BusKomm.c \
@@ -52,6 +53,7 @@ ASM_SRCS +=
 
 
 OBJS +=  \
+KonfigSpeicher.o \
 UniversalIF.o \
 ClientCommunication.o \
 BusKomm.o \
@@ -60,6 +62,7 @@ SeriellUmsetz.o \
 MsTimer.o
 
 OBJS_AS_ARGS +=  \
+KonfigSpeicher.o \
 UniversalIF.o \
 ClientCommunication.o \
 BusKomm.o \
@@ -68,6 +71,7 @@ SeriellUmsetz.o \
 MsTimer.o
 
 C_DEPS +=  \
+KonfigSpeicher.d \
 UniversalIF.d \
 ClientCommunication.d \
 BusKomm.d \
@@ -76,6 +80,7 @@ SeriellUmsetz.d \
 MsTimer.d
 
 C_DEPS_AS_ARGS +=  \
+KonfigSpeicher.d \
 UniversalIF.d \
 ClientCommunication.d \
 BusKomm.d \
@@ -97,45 +102,52 @@ LINKER_SCRIPT_DEP+=
 
 
 # AVR32/GNU C Compiler
+./KonfigSpeicher.o: ../../Gemeinsam/KonfigSpeicher.c
+	@echo Building file: $<
+	@echo Invoking: AVR/GNU C Compiler : 5.4.0
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DRS232 -DHEX_FORMAT -DPROGIDZUSATZ=\"RS232-Hex\" -DF_CPU=6144000UL -DxxxFIFOPUFFER_MAX=200 -D__PROG_TYPES_COMPAT__ -DSIMULATION  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\include"  -O1 -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega168 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\gcc\dev\atmega168" -c -gdwarf-2 -std=gnu99 -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	@echo Finished building: $<
+	
+
 ./UniversalIF.o: .././UniversalIF.c
 	@echo Building file: $<
 	@echo Invoking: AVR/GNU C Compiler : 5.4.0
-	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DRS232 -DHEX_FORMAT -DPROGIDZUSATZ=\"RS232-Hex\" -DF_CPU=6144000UL -D__PROG_TYPES_COMPAT__ -DSIMULATION  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\include"  -O1 -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega168 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\gcc\dev\atmega168" -c -gdwarf-2 -std=gnu99 -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DRS232 -DHEX_FORMAT -DPROGIDZUSATZ=\"RS232-Hex\" -DF_CPU=6144000UL -DxxxFIFOPUFFER_MAX=200 -D__PROG_TYPES_COMPAT__ -DSIMULATION  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\include"  -O1 -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega168 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\gcc\dev\atmega168" -c -gdwarf-2 -std=gnu99 -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
 	@echo Finished building: $<
 	
 
 ./ClientCommunication.o: .././ClientCommunication.c
 	@echo Building file: $<
 	@echo Invoking: AVR/GNU C Compiler : 5.4.0
-	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DRS232 -DHEX_FORMAT -DPROGIDZUSATZ=\"RS232-Hex\" -DF_CPU=6144000UL -D__PROG_TYPES_COMPAT__ -DSIMULATION  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\include"  -O1 -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega168 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\gcc\dev\atmega168" -c -gdwarf-2 -std=gnu99 -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DRS232 -DHEX_FORMAT -DPROGIDZUSATZ=\"RS232-Hex\" -DF_CPU=6144000UL -DxxxFIFOPUFFER_MAX=200 -D__PROG_TYPES_COMPAT__ -DSIMULATION  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\include"  -O1 -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega168 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\gcc\dev\atmega168" -c -gdwarf-2 -std=gnu99 -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
 	@echo Finished building: $<
 	
 
 ./BusKomm.o: ../../Gemeinsam/BusKomm.c
 	@echo Building file: $<
 	@echo Invoking: AVR/GNU C Compiler : 5.4.0
-	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DRS232 -DHEX_FORMAT -DPROGIDZUSATZ=\"RS232-Hex\" -DF_CPU=6144000UL -D__PROG_TYPES_COMPAT__ -DSIMULATION  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\include"  -O1 -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega168 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\gcc\dev\atmega168" -c -gdwarf-2 -std=gnu99 -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DRS232 -DHEX_FORMAT -DPROGIDZUSATZ=\"RS232-Hex\" -DF_CPU=6144000UL -DxxxFIFOPUFFER_MAX=200 -D__PROG_TYPES_COMPAT__ -DSIMULATION  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\include"  -O1 -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega168 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\gcc\dev\atmega168" -c -gdwarf-2 -std=gnu99 -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
 	@echo Finished building: $<
 	
 
 ./FifoPuffer.o: ../../Gemeinsam/FifoPuffer.c
 	@echo Building file: $<
 	@echo Invoking: AVR/GNU C Compiler : 5.4.0
-	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DRS232 -DHEX_FORMAT -DPROGIDZUSATZ=\"RS232-Hex\" -DF_CPU=6144000UL -D__PROG_TYPES_COMPAT__ -DSIMULATION  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\include"  -O1 -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega168 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\gcc\dev\atmega168" -c -gdwarf-2 -std=gnu99 -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DRS232 -DHEX_FORMAT -DPROGIDZUSATZ=\"RS232-Hex\" -DF_CPU=6144000UL -DxxxFIFOPUFFER_MAX=200 -D__PROG_TYPES_COMPAT__ -DSIMULATION  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\include"  -O1 -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega168 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\gcc\dev\atmega168" -c -gdwarf-2 -std=gnu99 -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
 	@echo Finished building: $<
 	
 
 ./SeriellUmsetz.o: ../../Gemeinsam/SeriellUmsetz.c
 	@echo Building file: $<
 	@echo Invoking: AVR/GNU C Compiler : 5.4.0
-	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DRS232 -DHEX_FORMAT -DPROGIDZUSATZ=\"RS232-Hex\" -DF_CPU=6144000UL -D__PROG_TYPES_COMPAT__ -DSIMULATION  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\include"  -O1 -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega168 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\gcc\dev\atmega168" -c -gdwarf-2 -std=gnu99 -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DRS232 -DHEX_FORMAT -DPROGIDZUSATZ=\"RS232-Hex\" -DF_CPU=6144000UL -DxxxFIFOPUFFER_MAX=200 -D__PROG_TYPES_COMPAT__ -DSIMULATION  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\include"  -O1 -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega168 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\gcc\dev\atmega168" -c -gdwarf-2 -std=gnu99 -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
 	@echo Finished building: $<
 	
 
 ./MsTimer.o: ../../../C-Libs/MsTimer.c
 	@echo Building file: $<
 	@echo Invoking: AVR/GNU C Compiler : 5.4.0
-	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DRS232 -DHEX_FORMAT -DPROGIDZUSATZ=\"RS232-Hex\" -DF_CPU=6144000UL -D__PROG_TYPES_COMPAT__ -DSIMULATION  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\include"  -O1 -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega168 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\gcc\dev\atmega168" -c -gdwarf-2 -std=gnu99 -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
+	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DRS232 -DHEX_FORMAT -DPROGIDZUSATZ=\"RS232-Hex\" -DF_CPU=6144000UL -DxxxFIFOPUFFER_MAX=200 -D__PROG_TYPES_COMPAT__ -DSIMULATION  -I"..\..\Gemeinsam" -I"..\..\..\C-Libs" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\include"  -O1 -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -mmcu=atmega168 -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.6.364\gcc\dev\atmega168" -c -gdwarf-2 -std=gnu99 -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
 	@echo Finished building: $<
 	
 
