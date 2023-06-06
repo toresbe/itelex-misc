@@ -532,7 +532,8 @@ static void ProcessClientToTWI()
 
 		case Txi_Reset: // performs device reset by using the watchdog
 			cli();
-			wdt_enable(WDTO_30MS);
+			wdt_disable();
+			wdt_enable(WDTO_250MS);
 			while (true)
 				;
 			break;

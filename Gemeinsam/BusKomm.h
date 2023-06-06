@@ -81,7 +81,7 @@ extern volatile uint16_t TwiIsrCount;
 
 extern volatile uint16_t TwiWatchdogCount;
 	//!< Wird bei jedem Aufruf der TWI-Interrupt-Routine auf 0 gesetzt. Zur Prüfung der regelmäßigen Kommunikation.
-	
+	//!< Momentan aber gar nicht genutzt.
 	
 extern void CLR_BIT_Status(uint8_t BitNr);
 	
