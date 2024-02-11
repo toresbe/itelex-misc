@@ -40,7 +40,7 @@ bool FernDialogVerbinden(uint8_t SucheStartAdresse)
 		{
 		int16_t Stat = GetStatus(Adresse);
 		if (Stat < 0 && BusEigenAdresse == BusAdrUngueltig)
-			BusEigenAdresse = Adresse;
+			BusEigenAdresse = Adresse; // dies Vergibt eine freie Nummer als Bus-Adresse für das Messgeraet
 
 		if (Stat >= 0 
 		    && BIT_IS_SET(Stat, StatBit_Frei) 

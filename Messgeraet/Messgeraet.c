@@ -181,7 +181,7 @@ enum {
 // ------------
 // Kennung und Kennwort
 
-char Kennwort[KENNWORT_MAXLEN]; //!< Kennwort für Fernabfrage des Anrufspeichers.
+char Kennwort[KENNWORT_MAXLEN]; //!< Kennworte für die verschiedenen Funktionen
 
 char KennungZusatz[KENNUNG_MAXLEN]; //!< Benutzerdefinierter Zusatz zur Kennung.
 
@@ -351,7 +351,6 @@ static bool KennungsausgabeUndKennwortAbfrage(uint8_t Nr)
 	p = Kennwort;
 	while (true)
 		{
-
 		if (KoEmpfZeichen(&c))
 			{
 			if ((c == '\r' || c == '\n') && *p == '\0')
