@@ -1,0 +1,25 @@
+# CI-only overrides for the historical Doxygen configuration.
+@INCLUDE = Doxyfile
+
+OUTPUT_DIRECTORY = build/docs
+HTML_OUTPUT = .
+EXCLUDE += build
+
+# The base configuration was written for a Windows workstation without
+# Graphviz. CI installs it, so let Doxygen draw the include and caller
+# graphs using Debian's dot executable from PATH. The inherited
+# DOT_FONTNAME of FreeSans.ttf has to be cleared as well: the font no
+# longer ships with Doxygen, and leaving it set makes Doxygen skip every
+# graph rather than fall back to an available font.
+HAVE_DOT = YES
+DOT_PATH =
+DOT_FONTNAME =
+
+# Serve the client-side search index alongside the pages, as the i-Telex
+# firmware documentation does.
+SEARCHENGINE = YES
+SERVER_BASED_SEARCH = NO
+
+# GitHub Pages only needs the self-contained HTML site.
+GENERATE_HTML = YES
+GENERATE_LATEX = NO
