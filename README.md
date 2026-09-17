@@ -55,19 +55,121 @@ The per-card firmware is still built with the inherited AVR Studio projects and
 repository root. Those builds are unchanged and are not run by CI; only the
 documentation is.
 
-## Repository layout
+## Cards and source directories
 
-- `Gemeinsam/` holds the sources shared between the cards, and is what the
-  `itelex` firmware consumes as a submodule.
-- `AnalogModem2/`, `ED1000/`, `FernschrOhneFSG/`, `FernschrTW39/`,
-  `FernschrTW39plus/`, `FernschrV21_aufLA2/`, `Hellschreiber/`, `Messgeraet/`,
-  `SeriellUndSpeicher/`, `SignalZusatz/`, `Tloch15/`, `UniversalIF/` and
-  `Wahlbruecke/` are the per-card firmware projects.
+An i-Telex installation is a set of cards plugged into a backplane, described
+and sold on the project's [hardware page](https://www.i-telex.net/hardware/).
+Most directories here are the firmware for one of those cards. The table maps
+the cards as that page names them to the sources that run on them, the board
+layout under `Hardware/` and the flashable images `MakeBins.bat` produces.
+
+| Card | Sources | Board in `Hardware/` | Images |
+| --- | --- | --- | --- |
+| Stromversorgung | — | `Stromvers` | — |
+| Stromversorgung "Plus" | `Messgeraet/`, the Prüfgenerator | see below | `itlx_Messgeraet*` |
+| i-Telex "Standard" / "Light" | the [`itelex`](https://github.com/toresbe/itelex) repository | — | — |
+| TW39 "Standard" | `FernschrTW39/` | `FsTW39doppel` | `itlx_TW39*` |
+| TW39 "Plus" | `FernschrTW39plus/` and `SeriellUndSpeicher/` | `FsTW39+Spezial` | `itlx_TW39plus*`, `itlx_Doppelstrom*`, `itlx_SeriellUndSpeicher*` |
+| ED1000 | `ED1000/` | `ED1000doppel` | `itlx_ED1000*`, `itlx_V21` |
+| Analog-Modem | `AnalogModem2/` | `LeitungAnalog2` | `itlx_LeitungAnalog2` |
+| Backpanel 4TR / 7TR / "Basic", Trafoboard | — | — | — |
+
+The backpanels and the transformer board carry the bus and the supply voltages
+and have no microcontroller; no firmware is built for them, nor for the power
+supply card itself.
+
+### TW39 "Standard" — `FernschrTW39/`
+
+The classic current-loop interface, an ATmega8 per teleprinter. The board layout
+is called `FsTW39doppel` because it carries two independent interfaces with one
+controller each, which is the card's two teleprinter connections; the
+`PARALLELAUSGABE` switch in `FernschrTW39.c` logs traffic on the second
+interface instead, for a card whose second controller is left unpopulated.
+`AltePlatine/` builds for board version 1.0 (`itlx_TW39-PL10`) and `USTTY-45/`
+for 45.45 baud US machines.
+
+### TW39 "Plus" — `FernschrTW39plus/` and `SeriellUndSpeicher/`
+
+The card the hardware page calls the "Spezial-Ausführung" has one TW39
+connection plus an RS232 port and a second microcontroller, and the two halves
+run different firmware from two directories:
+
+- `FernschrTW39plus/` is the line interface on the TW39 half, an ATmega168
+  rather than the ATmega8 of the "Standard" card. Besides baud rate and language
+  variants it builds `DoppelStrom/` for double-current machines
+  (`itlx_Doppelstrom`) and `V.10/` for a V.10 interface, which is not among the
+  distributed images.
+- `SeriellUndSpeicher/` is the "Spezial" half: the emulated teleprinter driven
+  from a PC terminal over RS232, message storage and the answering machine
+  (`AB`) the hardware page mentions. `PlatVer13` and `PlatVer21` are board
+  versions 1.3 and 2.1; the `-Full` builds need an ATmega328 instead of an
+  ATmega168.
+
+### ED1000 — `ED1000/`
+
+The FSK interface for machines such as the SIEMENS T1000 and SEL LO3000, an
+ATmega168 clocked at 14.7456 MHz that generates and demodulates the tones in
+software. `V.21/` compiles the same sources with different frequencies and is
+the V.21 compatibility the hardware page advertises; it ships as its own image,
+`itlx_V21`. `BerechnED1000/` and `BerechnV.21/` hold the WinFilter band-pass
+designs and the spreadsheet that generates `WaveTab.h`.
+
+### Analog-Modem — `AnalogModem2/`
+
+The modem card for an analogue or ISDN telephone line, listed as no longer
+available. `AnalogModem2.c` heads itself "V.21-Leitungsschnittstelle" and drives
+a 73K221 single-chip modem through `73K221.c`; the board is `LeitungAnalog2`,
+and unlike the other cards it runs its ATmega168 from an external clock.
+
+### Prüfgenerator — `Messgeraet/`
+
+`Messgeraet/` is the test generator offered with the Stromversorgung "Plus": it
+sends RY lines at a selectable degree of distortion — chosen per bit, for the
+start or stop bit, or as mark/space distortion — and acts as the "Bildlocher"
+that punches plain text into tape as a bitmap. The firmware itself is built for
+a line-interface controller, `default/` for the TW39 half of the "Spezial" board
+and `AufED1000/` for the ED1000 board, so what is flashed is a line interface
+running measuring firmware rather than the supply card.
+
+### Firmware that reuses a card for something else
+
+- `FernschrOhneFSG/` runs on the TW39 card and drives single-current machines
+  that have no Fernschaltgerät, using a motor switch and keyboard dialling
+  (`itlx_OhneFSG*`).
+- `Tloch15/` also runs on the TW39 card and serves a T.loch 15 tape
+  transmitter: it simulates an answerback generator, and a caller who types the
+  configured code sequence gets a WRU that starts the tape (`itlx_Tloch15`).
+- `FernschrV21_aufLA2/` uses the analogue-modem board `LeitungAnalog2` with
+  changed population as a V.21 teleprinter interface
+  (`itlx_FsV21-aufLA21*`).
+- `Hellschreiber/` serves a Hellschreiber such as the Hell GL72 on the
+  "Seriell+Spezial" board, and splits across that board's two controllers:
+  `HellschreiberKomm.c` for the i-Telex side (`itlx_HellschrKomm2`) and
+  `HellschreiberSignal.c` for signal processing, which also works stand-alone
+  (`itlx_HellschrSignal`).
+
+### Sources that are not a card
+
+- `Gemeinsam/` holds what the cards share — the Baudot code tables, the
+  backplane bus communication, FIFO buffers and configuration storage — and is
+  what the `itelex` firmware consumes as a submodule.
 - `SeriellPurAlsBeispiel/` is a minimal serial example.
+- `UniversalIF/` is a generic client interface that hands the timing-critical
+  TWI bus traffic to a host over RS232 or SPI. `MakeBins.bat` notes it is not
+  distributed.
+- `Wahlbruecke/` is the "dial bridge", an ATmega8 on the TW39 board forming part
+  of a relay station from TelexPhone to i-Telex. Also not distributed.
+- `SignalZusatz/` is a one-off add-on that watches other modules' status words
+  on the bus and switches outputs from them.
+
+### Everything else
+
 - `AlleBins/` is where `MakeBins.bat` gathers the flashable `.bin` images and
-  their fuse settings for distribution; only its generated index is tracked.
-  `FuseMuster/` holds the fuse patterns themselves and `Hardware/` the board
-  documentation.
+  their fuse settings for distribution; only its generated index is tracked, and
+  that index is the authoritative list of what is shipped. `FuseMuster/` holds
+  the fuse patterns themselves.
+- `Hardware/` holds the copper and placement plots of the boards named in the
+  table above, plus a `SuperNet` board that none of these sources name.
 - `KommLogs/` holds protocol captures, and the remaining root-level Office
   documents are the author's project notes on the TxP2 protocol and code.
 
